@@ -24,7 +24,7 @@ GetOptions(
     'drop_roles' => \$drop_roles,
 );
 
-die "Must pass --config and --root_user" unless $config_file and $root_user;
+die "Must pass --config <configfile>" unless $config_file;
 
 $plugin_perms_file //= '/etc/disbatch/plugin-permissions.json';
 
@@ -39,10 +39,22 @@ for my $username (@Disbatch::Roles::usernames) {
      die "No auth.$username password in $config_file" unless $config->{auth}{$username};
 }
 
-print "Enter password for $root_user:";
-ReadMode('noecho');
-chomp(my $root_password = <STDIN>);
-ReadMode(0);
+my $root_password;
+if (-r "$ENV{HOME}/.mongosecrets") {
+    my @mongosecrets = read_file "$ENV{HOME}/.mongosecrets";
+    chomp @mongosecrets;
+    $root_user //= grep { s/^ROOTUSERNAME=// } @mongosecrets;
+    $root_password = grep { s/^ROOTPASSWORD=// } @mongosecrets;
+}
+
+die "Must pass --root_user <username> or set ROOTUSERNAME=<username> in ~/.mongosecrets" unless $root_user;
+
+if (!defined $root_password) {
+    print "Enter password for $root_user:";
+    ReadMode('noecho');
+    chomp($root_password = <STDIN>);
+    ReadMode(0);
+}
 
 if ($create_root // 0) {
     say "Creating user '$root_user' in database 'admin' with the root role";
@@ -123,6 +135,13 @@ This only works if no other users have been created.
 Will drop Disbatch roles and users before creating them. Optional.
 
 =back
+
+=head1 NOTE
+
+Instead of prompting for the MongoDB root password, it can be read from the file C</.mongosecrets>. Optionally the MongoDB root username can be here as well. Example:
+
+    ROOTUSERNAME=root
+    ROOTPASSWORD=s3cr3t
 
 =head1 SEE ALSO
 
