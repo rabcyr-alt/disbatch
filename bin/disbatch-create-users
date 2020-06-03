@@ -43,7 +43,7 @@ my $root_password;
 if (-r "$ENV{HOME}/.mongosecrets") {
     my @mongosecrets = read_file "$ENV{HOME}/.mongosecrets";
     chomp @mongosecrets;
-    ($root_user) //= grep { s/^ROOTUSERNAME=// } @mongosecrets;
+    ($root_user) = grep { s/^ROOTUSERNAME=// } @mongosecrets unless defined $root_user;
     ($root_password) = grep { s/^ROOTPASSWORD=// } @mongosecrets;
 }
 
