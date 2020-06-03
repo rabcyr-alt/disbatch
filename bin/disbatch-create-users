@@ -43,8 +43,8 @@ my $root_password;
 if (-r "$ENV{HOME}/.mongosecrets") {
     my @mongosecrets = read_file "$ENV{HOME}/.mongosecrets";
     chomp @mongosecrets;
-    $root_user //= grep { s/^ROOTUSERNAME=// } @mongosecrets;
-    $root_password = grep { s/^ROOTPASSWORD=// } @mongosecrets;
+    ($root_user) //= grep { s/^ROOTUSERNAME=// } @mongosecrets;
+    ($root_password) = grep { s/^ROOTPASSWORD=// } @mongosecrets;
 }
 
 die "Must pass --root_user <username> or set ROOTUSERNAME=<username> in ~/.mongosecrets" unless $root_user;
