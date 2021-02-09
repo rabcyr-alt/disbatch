@@ -127,18 +127,26 @@ window.onload = function() {
   var nodesGrid = new EditableGrid("DemoGridJsData2");
   var nodesContainerid = 'nodes-table';
   var nodesTableid = 'nodes';
+  var deadNodesGrid = new EditableGrid("DemoGridJsData3");
+  var deadNodesContainerid = 'dead-nodes-table';
+  var deadNodesTableid = 'dead-nodes';
   var loadNodes = function() {
     //if (new Date(1534782740217+900000) < new Date()) { print("old") }
     getJSON("/nodes", function(data) {
       var data2 = [];
+      var deadNodes = [];
       data.forEach(function (n) {
         //n.timestamp = new Date(n.timestamp)
         if (new Date(n.timestamp+900000) >= new Date()) {
             // within the last 15 minutes
             data2.push(n);
+        } else {
+            deadNodes.push(n);
         }
       })
-      console.log(JSON.stringify(data)); load(nodesGrid, nodeLayout, data2); render(nodesGrid, nodesContainerid, className, nodesTableid); });
+      console.log(JSON.stringify(data2)); load(nodesGrid, nodeLayout, data2); render(nodesGrid, nodesContainerid, className, nodesTableid);
+      console.log(JSON.stringify(deadNodes)); load(deadNodesGrid, nodeLayout, deadNodes); render(deadNodesGrid, deadNodesContainerid, className, deadNodesTableid);
+    });
   }
   loadQueuesAndNodes = function() { loadQueues(); loadNodes(); }	// no var because needed for Refresh button
   newQueue = function() {		// no var because needed for New Queue button

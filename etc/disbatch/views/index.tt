@@ -137,6 +137,8 @@
         <button type="button" class="btn btn-default" onclick="loadQueuesAndNodes()">Refresh</button>
         <h1>Disbatch Execution Nodes</h1> (if Max Threads is blank, then unlimited threads for the DEN)
         <div id="nodes-table"></div>
+        <h1>Non-Running Disbatch Execution Nodes</h1> (CentOS 7 loves to kill disbatch without logging any reason)
+        <div id="dead-nodes-table"></div>
       </div>
     </div><!-- /.container -->
 
