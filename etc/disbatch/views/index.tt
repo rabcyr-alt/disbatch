@@ -135,7 +135,7 @@
           </div>
         </div>
         <button type="button" class="btn btn-default" onclick="loadQueuesAndNodes()">Refresh</button>
-        <h1>Disbatch Execution Nodes</h1> (if blank then no max threads for the DEN)
+        <h1>Disbatch Execution Nodes</h1> (if Max Threads is blank, then unlimited threads for the DEN)
         <div id="nodes-table"></div>
       </div>
     </div><!-- /.container -->
