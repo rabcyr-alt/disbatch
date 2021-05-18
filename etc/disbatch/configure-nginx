@@ -9,12 +9,12 @@ use File::Slurp;
 use Getopt::Long;
 use Sys::Hostname;
 
-my ($keyfile, $crtfile, $target);
-GetOptions('ssl_certificate_key=s' => \$keyfile, 'ssl_certificate=s' => \$crtfile, 'target=s' => \$target);
+my ($keyfile, $crtfile, $target, $dc);
+GetOptions('ssl_certificate_key=s' => \$keyfile, 'ssl_certificate=s' => \$crtfile, 'target=s' => \$target, 'dc=s' \=> \$dc);
 $target //= '/etc/nginx/conf.d/default.conf';
 
 my $hostname = hostname;
-my (undef, $dc) = split /\./, $hostname;
+(undef, $dc) = split /\./, $hostname unless $dc;
 $keyfile //= "/etc/nginx/mig-$dc.key";
 $crtfile //= "/etc/nginx/mig-$dc.crt";
 
