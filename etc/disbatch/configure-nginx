@@ -10,7 +10,7 @@ use Getopt::Long;
 use Sys::Hostname;
 
 my ($keyfile, $crtfile, $target, $dc);
-GetOptions('ssl_certificate_key=s' => \$keyfile, 'ssl_certificate=s' => \$crtfile, 'target=s' => \$target, 'dc=s' \=> \$dc);
+GetOptions('ssl_certificate_key=s' => \$keyfile, 'ssl_certificate=s' => \$crtfile, 'target=s' => \$target, 'dc=s' => \$dc);
 $target //= '/etc/nginx/conf.d/default.conf';
 
 my $hostname = hostname;
