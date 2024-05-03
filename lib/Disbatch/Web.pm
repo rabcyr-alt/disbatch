@@ -239,7 +239,7 @@ post '/queues' => sub {
         status 400;
         return send_json { error => 'name and plugin required' }, send_json_options;
     }
-    my @valid_params = qw/name plugin/;
+    my @valid_params = qw/name plugin threads sort/;
     for my $param (keys %$params) {
         unless (grep $_ eq $param, @valid_params) {
             status 400;
@@ -249,6 +249,14 @@ post '/queues' => sub {
     unless (map_plugins->{$params->{plugin}}) {
         status 400;
         return send_json { error => 'Unknown plugin', plugin => $params->{plugin} }, send_json_options;
+    }
+    if (exists $params->{threads} and $params->{threads} !~ /^\d+$/) {
+        status 400;
+        return send_json {error => 'threads must be a non-negative integer'}, send_json_options;
+    }
+    if (exists $params->{sort} and defined $params->{sort} and ! grep { $_ eq $params->{sort} } qw/fifo lifo default/) {
+        status 400;
+        return send_json {error => 'sort must be "fifo", "lifo", or "default"'}, send_json_options;
     }
 
     my $res = try { $disbatch->queues->insert_one($params) } catch { Limper::warning "Could not create queue $params->{name}: $_"; $_ };
@@ -273,7 +281,7 @@ post qr'^/queues/(?<queue>.+)$' => sub {
     my $queue = $+{queue};
     undef $disbatch->{mongo};
     my $params = parse_params;
-    my @valid_params = qw/threads name plugin/;
+    my @valid_params = qw/name plugin threads sort/;
 
     unless (keys %$params) {
         status 400;
@@ -296,6 +304,10 @@ post qr'^/queues/(?<queue>.+)$' => sub {
     if (exists $params->{name} and (ref $params->{name} or !($params->{name} // ''))){
         status 400;
         return send_json {error => 'name must be a string'}, send_json_options;
+    }
+    if (exists $params->{sort} and defined $params->{sort} and ! grep { $_ eq $params->{sort} } qw/fifo lifo default/) {
+        status 400;
+        return send_json {error => 'sort must be "fifo", "lifo", or "default"'}, send_json_options;
     }
 
     my $filter = try { {_id => MongoDB::OID->new(value => $queue)} } catch { {name => $queue} };
@@ -1134,7 +1146,7 @@ Create a new queue.
 
 Parameters: C<< { "name": name, "plugin": plugin } >>
 
-C<name> is the desired name for the queue (must be unique), C<plugin> is the plugin name for the queue.
+C<name> is the desired name for the queue (must be unique), C<plugin> is the plugin name for the queue. C<threads> and C<sort> are optional.
 
 Returns: C<< { ref $res: Object, "id": $inserted_id } >> on success; C<< { "error": "name and plugin required" } >>,
 C<< { "error": "Invalid param", "param": $param } >>, or C<< { "error": "Unknown plugin", "plugin": $plugin } >> on input error; or
@@ -1148,10 +1160,10 @@ Note: replaces /start-queue-json
 
 URL: C<:queue> is the C<_id> if it matches C</\A[0-9a-f]{24}\z/>, or C<name> if it does not.
 
-Parameters: C<< { "name": name, "plugin": plugin, "threads": threads } >>
+Parameters: C<< { "name": name, "plugin": plugin, "threads": threads, "sort": sort } >>
 
 C<name> is the new name for the queue (must be unique), C<plugin> is the new plugin name for the queue (must be defined in the config file), 
-C<threads> must be a non-negative integer. Only one of C<name>, C<plugin>, and  C<threads> is required, but any combination is allowed.
+C<threads> must be a non-negative integer, C<sort> is C<fifo>, C<lifo>, C<default>, or undef. Only one of C<name>, C<plugin>, C<threads>, and C<sort> is required, but any combination is allowed.
 
 Returns C<< { ref $res: Object } >> or C<< { "error": error } >>
 
