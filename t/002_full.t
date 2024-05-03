@@ -300,7 +300,7 @@ if ($webpid == 0) {
 
     # Returns array: C<< [ success, inserted_id, $reponse_object ] >>
     # Returns hash: C<< { ref $res: Object, id: $inserted_id } >>
-    $data = { name => $name, plugin => $plugin };
+    $data = { name => $name, plugin => $plugin, sort => 'fifo' };	# FIXME: add tests below for "sort" values
     $res = Net::HTTP::Client->request(POST => "$uri/queues", 'Content-Type' => 'application/json', encode_json($data));
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'application/json', 'application/json';
