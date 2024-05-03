@@ -24,6 +24,7 @@ sub new {
                 { resource => { db => $self->{db}{name}, collection => 'tasks' },  actions => [ 'update', 'createIndex' ] },
                 { resource => { db => $self->{db}{name}, collection => 'tasks.chunks' },  actions => [ 'createIndex' ] },
                 { resource => { db => $self->{db}{name}, collection => 'tasks.files' },  actions => [ 'createIndex' ] },
+                { resource => { db => $self->{db}{name}, collection => 'changelog' },  actions => [ 'insert', 'createIndex' ] },
             ],
         },
         disbatch_web => {
@@ -34,6 +35,7 @@ sub new {
                 { resource => { db => $self->{db}{name}, collection => 'nodes' },  actions => [ 'update' ] },
                 { resource => { db => $self->{db}{name}, collection => 'queues' },  actions => [ 'insert', 'update', 'remove' ] },
                 { resource => { db => $self->{db}{name}, collection => 'tasks' },  actions => [ 'insert' ] },
+                { resource => { db => $self->{db}{name}, collection => 'changelog' },  actions => [ 'insert' ] },
             ],
         },
         task_runner => {
@@ -52,6 +54,7 @@ sub new {
                 { resource => { db => $self->{db}{name}, collection => 'balance' },  actions => [ 'find', 'insert', 'update' ] },
                 { resource => { db => $self->{db}{name}, collection => 'queues' },  actions => [ 'find', 'update' ] },
                 { resource => { db => $self->{db}{name}, collection => 'tasks' },  actions => [ 'find' ] },	# for count
+                { resource => { db => $self->{db}{name}, collection => 'changelog' },  actions => [ 'insert' ] },
             ],
         },
         plugin => {
@@ -95,6 +98,14 @@ sub create_roles_and_users {
         $self->add_additional_perms($name);
         $self->{db}->run_command([createRole => $name, roles => [], privileges => $self->{userroles}{$name}{privileges} ]);
         $self->{db}->run_command([createUser => $name, pwd => $self->{userroles}{$name}{password}, roles => [ { role => $name, db => $self->{db}{name} } ]]);
+    };
+}
+
+sub update_privileges {
+    my ($self) = @_;
+    for my $name (keys %{$self->{userroles}}) {
+        $self->add_additional_perms($name);
+        $self->{db}->run_command([updateRole => $name, privileges => $self->{userroles}{$name}{privileges} ]);
     };
 }
 
@@ -164,6 +175,14 @@ Parameters: none.
 Creates the roles and users for C<disbatchd>, C<disbatch_web>, C<task_runner>, C<queuebalance>, and C<plugin>, after calling C<add_additional_perms()>.
 
 Dies if the roles or users already exist, or on any other MongoDB error.
+
+=item update_privileges
+
+Parameters: none.
+
+Updates the role privileges for C<disbatchd>, C<disbatch_web>, C<task_runner>, C<queuebalance>, and C<plugin>, after calling C<add_additional_perms()>.
+
+Dies if the roles don't exist(???), or on any other MongoDB error.
 
 =item drop_roles_and_users
 

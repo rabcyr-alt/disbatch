@@ -78,6 +78,7 @@ sub nodes  { $_[0]->mongo->coll('nodes') }
 sub queues { $_[0]->mongo->coll('queues') }
 sub tasks  { $_[0]->mongo->coll('tasks') }
 sub balance { $_[0]->mongo->coll('balance') }
+sub changelog { $_[0]->mongo->coll('changelog') }
 
 # loads the config file at startup.
 # anything in the config file at startup is static and cannot be changed without restarting disbatchd
@@ -123,6 +124,7 @@ sub ensure_indexes {
     try {
         $self->queues->indexes->create_one([ name => 1 ], { unique => true });
         $self->nodes->indexes->create_one([ node => 1 ], { unique => true });
+        $self->changelog->indexes->create_one([ collection => 1 ]);
         $self->mongo->coll('tasks.chunks')->indexes->create_one([ files_id => 1, n => 1 ], { unique => true });
         $self->mongo->coll('tasks.files')->indexes->create_one([ filename => 1, 'metadata.task_id' => 1 ]);
     } catch {
@@ -206,7 +208,12 @@ sub update_node_status {
     return unless defined $status;
     $status->{node}      = $self->{node};
     $status->{timestamp} = Time::Moment->now_utc;
-    try { $self->nodes->update_one({node => $self->{node}}, {'$set' => $status}, {upsert => 1}) } catch { $self->logger->error("Could not update node: $_") };
+    my $res = try { $self->nodes->update_one({node => $self->{node}}, {'$set' => $status}, {upsert => 1}) } catch { $self->logger->error("Could not update node: $_") };
+    if (ref $res eq 'MongoDB::UpdateResult' and defined $res->upserted_id) {
+        $status->{id} = $res->upserted_id;
+        $status->{collection} = 'nodes';
+        $self->changelog->insert_one($status);
+    }
 }
 
 ### Synacor::Disbatch::Queue like stuff ###
@@ -274,7 +281,13 @@ sub start_task {
         unless (exec $command, @args) {
             $self->mongo->reconnect;
             $self->logger->error("Could not exec '$command', unclaiming task $task->{_id} and setting threads to 0 for $queue->{name}");
-            retry { $self->queues->update_one({_id => $queue->{_id}}, {'$set' => {threads => 0}}) } catch { "Could not set queues to 0 for $queue->{name}: $_" };
+            my $res = retry { $self->queues->update_one({_id => $queue->{_id}}, {'$set' => {threads => 0}}) } catch { "Could not set queues to 0 for $queue->{name}: $_" };
+            if (ref $res eq 'MongoDB::UpdateResult' and $res->modified_count == 1) {
+                my $status = $self->queues->find_one({_id => $queue->{_id}});
+                $status->{id} = delete $status->{_id};
+                $status->{collection} = 'queues';
+                $self->changelog->insert_one($status);
+            }
             $self->unclaim_task($task->{_id});
             exit;
         }

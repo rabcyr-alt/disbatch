@@ -66,7 +66,16 @@ sub new {
 # used by monitoring
 sub status {
     my ($self, $status, $message) = @_;
-    $self->{disbatch}->balance->update_one({}, {'$set' => { timestamp => time, status => $status, message => $message } });
+    my $time = time;
+    my $doc = $self->{disbatch}->balance->find_one_and_update({}, {'$set' => { timestamp => $time, status => $status, message => $message } });
+    if ($status ne $doc->{status} or $message ne $doc->{message}) {
+        $doc->{id} = delete $doc->{_id};
+        $doc->{collection} = 'balance';
+        $doc->{time} = $time;
+        $doc->{status} = $status;
+        $doc->{message} = $message;
+        $self->{disbatch}->changelog->insert_one($doc);
+    }
 }
 
 sub update {
@@ -75,7 +84,12 @@ sub update {
     # 1. find total $max_tasks based on time of day
     my @balance = $self->{disbatch}->balance->find()->all;
     if (!@balance) {
-        $self->{disbatch}->balance->insert_one({ max_tasks => {}, queues => [] });
+        my $res = $self->{disbatch}->balance->insert_one({ max_tasks => {}, queues => [] });
+        if (ref $res eq 'MongoDB::InsertOneResult' and defined $res->inserted_id) {
+            my $doc = { id => $res->inserted_id, type => 'balance', max_tasks => {}, queues => [] };
+            $self->{disbatch}->changelog->insert_one($doc);
+        }
+
         @balance = $self->{disbatch}->balance->find()->all;
     }
     try {
@@ -98,7 +112,13 @@ sub update {
             $self->{logger}->info("$self->{name}: $message"); # if $self->{verbose};
             return;
         } else {
-            $self->{disbatch}->balance->update_one({}, {'$set' => {disabled => undef} }) unless $self->{pretend};
+            if (!$self->{pretend}) {
+                $self->{disbatch}->balance->update_one({}, {'$set' => {disabled => undef} });
+                $balance[0]{disabled} = undef;
+                $balance[0]{id} = delete $balance[0]{_id};
+                $balance[0]{collection} = 'balance';
+                $self->{disbatch}->changelog->insert_one($balance[0]);
+            }
             $self->{logger}->info("$self->{name}: no longer disabled");# if $self->{verbose};
         }
     }
@@ -149,7 +169,15 @@ sub update {
             if ($queue->{maxthreads} != $queue->{max}) {
                 say "$self->{name}: changing $queue->{name}: $queue->{maxthreads} => $queue->{max}" if $self->{verbose};
                 $self->{logger}->info("$self->{name}: changing $queue->{name}: $queue->{maxthreads} => $queue->{max}") if $self->{log};
-                $self->{disbatch}->queues->update_one({name => $queue->{name}}, {'$set' => {maxthreads => $queue->{max} } }) unless $self->{pretend};
+                if (!$self->{pretend}) {
+                    my $res = $self->{disbatch}->queues->update_one({name => $queue->{name}}, {'$set' => {maxthreads => $queue->{max} } });
+                    if (ref $res eq 'MongoDB::UpdateResult' and $res->modified_count == 1) {
+                        my $status = $self->queues->find_one({name => $queue->{name}});
+                        $status->{id} = delete $status->{_id};
+                        $status->{collection} = 'queues';
+                        $self->{disbatch}->changelog->insert_one($status);
+                    }
+                }
             } else {
                 say "$self->{name}: no change to $queue->{name}" if $self->{verbose};
             }

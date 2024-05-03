@@ -12,10 +12,12 @@
 # My plugins typically need the following permissions:
 #{
 #    "": [ "find" ],		# allow reading of all collections in the database
-#    "queues": [ "update" ],	# used to set threads to 0 in case of serious error
+#    "nodes": [ "update" ],	# used to set maxthreads to 0 in case of serious error
+#    "changelog": [ "insert" ],	# used after setting maxthreads to 0 in case of serious error
 #    "users": [ "insert", "update", "createIndex" ],
 #    "reports": [ "insert" ],
 #    "complete": [ "insert", "update", "createIndex" ],
+#    "contact_maps": [ "insert", "update", "createIndex" ],
 #    "status": [ "insert", "update", "createIndex" ],
 #    "yams": [ "insert", "update", "createIndex" ],
 #}

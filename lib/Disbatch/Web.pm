@@ -4,6 +4,7 @@ use 5.12.0;
 use strict;
 use warnings;
 
+use boolean 0.25;
 use Clone qw/clone/;
 use Cpanel::JSON::XS;
 use Data::Dumper;
@@ -178,6 +179,12 @@ post qr'^/nodes/(?<node>.+)' => sub {
         Limper::warning "Could not update node $node: $_";
         $_;
     };
+    if (ref $res eq 'MongoDB::UpdateResult' and $res->modified_count == 1) {
+        my $status = $disbatch->nodes->find_one($filter);
+        $status->{id} = delete $status->{_id};
+        $status->{collection} = 'nodes';
+        $disbatch->changelog->insert_one($status);
+    }
     my $reponse = {
         ref $res => {%$res},
     };
@@ -245,6 +252,11 @@ post '/queues' => sub {
     }
 
     my $res = try { $disbatch->queues->insert_one($params) } catch { Limper::warning "Could not create queue $params->{name}: $_"; $_ };
+    if (ref $res eq 'MongoDB::InsertOneResult' and defined $res->inserted_id) {
+        $params->{id} = $res->inserted_id;
+        $params->{collection} = 'queues';
+        $disbatch->changelog->insert_one($params);
+    }
     my $reponse = {
         ref $res => {%$res},
         id => $res->{inserted_id},
@@ -293,6 +305,13 @@ post qr'^/queues/(?<queue>.+)$' => sub {
         Limper::warning "Could not update queue $queue: $_";
         $_;
     };
+    if (ref $res eq 'MongoDB::UpdateResult' and $res->modified_count == 1) {
+        $filter->{name} = $params->{name} if exists $filter->{name} and exists $params->{name};
+        my $status = $disbatch->queues->find_one($filter);
+        $status->{id} = delete $status->{_id};
+        $status->{collection} = 'queues';
+        $disbatch->changelog->insert_one($status);
+    }
     my $reponse = {
         ref $res => {%$res},
     };
@@ -307,7 +326,14 @@ del qr'^/queues/(?<queue>.+)$' => sub {
     undef $disbatch->{mongo};
 
     my $filter = try { {_id => MongoDB::OID->new(value => $+{queue})} } catch { {name => $+{queue}} };
+    my $deleted = try { $disbatch->queues->find_one($filter) } catch { Limper::warning "Could not find queue '$+{queue}': $_"; undef };
     my $res = try { $disbatch->queues->delete_one($filter) } catch { Limper::warning "Could not delete queue '$+{queue}': $_"; $_ };
+    if (ref $res eq 'MongoDB::DeleteResult' and $res->deleted_count == 1) {
+        $deleted->{id} = delete $deleted->{_id};
+        $deleted->{collection} = 'queues';
+        $deleted->{deleted} = true;
+        $disbatch->changelog->insert_one($deleted);
+    }
     my $reponse = {
         ref $res => {%$res},
     };
@@ -578,7 +604,17 @@ sub post_balance {
 
     $_ += 0 for values %{$params->{max_tasks}};
 
-    $disbatch->balance->update_one({}, {'$set' => $params }, {upsert => 1});
+    my $res = $disbatch->balance->update_one({}, {'$set' => $params }, {upsert => 1});
+    if (ref $res eq 'MongoDB::UpdateResult' and defined $res->upserted_id) {
+        $params->{id} = $res->upserted_id;
+        $params->{collection} = 'balance';
+        $disbatch->changelog->insert_one($params);
+    } elsif (ref $res eq 'MongoDB::UpdateResult' and $res->modified_count == 1) {
+        my $doc = $disbatch->balance->find_one;
+	$doc->{id} = delete $doc->{_id};
+        $doc->{collection} = 'balance';
+        $disbatch->changelog->insert_one($doc);
+    }
     { status => 'success: queuebalance modified' };
 };
 

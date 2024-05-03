@@ -13,7 +13,11 @@ use Safe::Isa;
 use Term::ReadKey;
 use Try::Tiny::Retry;
 
-my ($config_file, $plugin_perms_file, $additional_perms_file, $root_user, $create_root, $drop_roles);
+my ($config_file, $plugin_perms_file, $additional_perms_file, $root_user);
+
+my $create_root = 0;
+my $drop_roles = 0;
+my $update_privileges = 0;
 
 GetOptions(
     'config=s' => \$config_file,
@@ -22,9 +26,11 @@ GetOptions(
     'root_user=s' => \$root_user,
     'create_root' => \$create_root,
     'drop_roles' => \$drop_roles,
+    'update_privileges' => \$update_privileges,
 );
 
 die "Must pass --config <configfile>" unless $config_file;
+die "Cannot use --update_privileges with --create_root nor --drop_roles" if $update_privileges and ($create_root or $drop_roles);
 
 $plugin_perms_file //= '/etc/disbatch/plugin-permissions.json';
 
@@ -56,7 +62,7 @@ if (!defined $root_password) {
     ReadMode(0);
 }
 
-if ($create_root // 0) {
+if ($create_root) {
     say "Creating user '$root_user' in database 'admin' with the root role";
     my $admin = MongoDB->connect($config->{mongohost}, $config->{attributes})->get_database('admin');
     $admin->run_command([createUser => $root_user, pwd => $root_password, roles => [ { role => 'root', db => 'admin' } ]]);
@@ -67,14 +73,20 @@ $config->{attributes}{password} = $root_password;
 
 my $test_db_root = MongoDB->connect($config->{mongohost}, $config->{attributes})->get_database($config->{database});
 my $roles = Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, additional_perms => $additional_perms, %{$config->{auth}});
-if ($drop_roles // 0) {
+if ($drop_roles) {
     say "Dropping the following roles and users in database '$config->{database}' on $config->{mongohost}: ", join ', ', sort keys %{$roles->{userroles}};
     $roles->drop_roles_and_users;
 }
 try {
-    say "Creating the following roles and users in database '$config->{database}' on $config->{mongohost}: ", join ', ', sort keys %{$roles->{userroles}};
-    $roles->create_roles_and_users;
-    say "Successfully created roles and users.";
+    if ($update_privileges) {
+        say "Updating the following roles in database '$config->{database}' on $config->{mongohost}: ", join ', ', sort keys %{$roles->{userroles}};
+        $roles->update_privileges;
+        say "Successfully updated roles.";
+    } else {
+        say "Creating the following roles and users in database '$config->{database}' on $config->{mongohost}: ", join ', ', sort keys %{$roles->{userroles}};
+        $roles->create_roles_and_users;
+        say "Successfully created roles and users.";
+    }
 } catch {
     die "Failed: $_->{message}\n" if $_->$_isa('MongoDB::Error');
     die $_;
@@ -133,6 +145,10 @@ This only works if no other users have been created.
 =item --drop_roles
 
 Will drop Disbatch roles and users before creating them. Optional.
+
+=item --update_privileges
+
+Updates the role privileges (used on existing configurations when Disbatch::Roles has changed, or changes to plugin_perms or additional_perms files). Cannot be used with C<--create_root> nor C<--drop_roles>.
 
 =back
 
