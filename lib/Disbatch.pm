@@ -529,7 +529,7 @@ Throws errors.
 
 Parameters: none
 
-Updates the node document with the current timestamp and queues as returned by C<scheduler_report()>.
+Updates the node document with the current timestamp.
 
 Returns nothing.
 
