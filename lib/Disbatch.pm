@@ -108,6 +108,18 @@ sub load_config {
             my $error = "Both 'mongohost' and 'database' must be defined in file $self->{config_file}";
             $self->logger->logdie($error);
         }
+
+        # validate node_increase and queue_increase
+        if (defined $self->{config}{node_increase} and ($self->{config}{node_increase} !~ /^\d+$/ or $self->{config}{node_increase} <= 0)) {
+            $self->logger->logdie("config.node_increase but be an integer > 0, or null");
+        }
+        if (defined $self->{config}{queue_increase}) {
+            if ($self->{config}{queue_increase} !~ /^\d+$/ or $self->{config}{queue_increase} <= 0) {
+                $self->logger->logdie("config.queue_increase but be an integer > 0, or null");
+            } elsif (defined $self->{config}{node_increase} and $self->{config}{queue_increase} > $self->{config}{node_increase}) {
+                $self->logger->logdie("config.queue_increase must be <= config.node_increase");
+            }
+        }
     }
 }
 
@@ -351,7 +363,9 @@ sub process_queues {
     my $node_running = $self->count_node_running({'$exists' => 1}) // 0;
     return if defined $node and defined $node->{maxthreads} and $node_running >= $node->{maxthreads};
     my @queues = try { $self->queues->find->all } catch { $self->logger->error("Could not find queues: $_"); () };
+    my $node_increase = 0;
     for my $queue (@queues) {
+        my $queue_increase = 0;
         if ($self->{plugins}{$queue->{plugin}} and $self->is_active_queue($queue->{_id})) {
             my $queue_running = $self->count_running($queue->{_id});
             while (defined $queue_running and ($queue->{threads} // 0) > $queue_running and (!defined $node->{maxthreads} or $node->{maxthreads} > $node_running)) {
@@ -360,10 +374,15 @@ sub process_queues {
                 $self->start_task($queue, $task);
                 $queue_running = $self->count_running($queue->{_id});
                 $node_running = $self->count_node_running({'$exists' => 1}) // 0;
+                $queue_increase++;
+                $node_increase++;
+                last if defined $self->{config}{queue_increase} and $queue_increase >= $self->{config}{queue_increase};
+                last if defined $self->{config}{node_increase} and $node_increase >= $self->{config}{node_increase};
             }
         } else {
             $revalidate_plugins = 1;
         }
+        last if defined $self->{config}{node_increase} and $node_increase >= $self->{config}{node_increase};
     }
     $self->revalidate_plugins if $revalidate_plugins;
 }

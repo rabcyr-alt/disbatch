@@ -38,6 +38,9 @@
     #"activequeues": [ "565b34420cef2c52d6000000" ],	# defaults to []
     #"ignorequeues": [ "565e75f03fb6ecd1c8504499" ],	# defaults to []
 
+    "node_increase": null,	# defaults to null (no limit). per call to process_queues(), each node will only pick up this many tasks. value must be null or integer > 0.
+    "queue_increase": null,	# defaults to null (no limit). per call to process_queues(), each queue will only pick up this many tasks. value must be null or integer > 0 and <= node_increase if defined.
+
     # Everthing below here is optional, and is set up for development, not production
     "task_runner": "./bin/task_runner",			# defaults to "/usr/bin/task_runner"
     #"gfs": false,					# defaults to "auto"

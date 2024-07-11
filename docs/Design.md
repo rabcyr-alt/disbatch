@@ -328,6 +328,14 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
   A hash of package names and options for adding new routes to the DCI.
 
+* `node_increase`
+
+  Throttle `disbatchd` to only pick up this many tasks on the node per loop. Defaults to null (no limit). Value must be null or an integer greater than 0.
+
+* `queue_increase`
+
+  Throttle `disbatchd` to only pick up this many tasks per queue on the node per loop. Defaults to null (no limit). Value must be null or an integer greater than 0, and less than or equal to `node_increase` if defined.
+
 * `task_runner`
 
   Path to the DTR. Future support will allow task runners for plugins in
