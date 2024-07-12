@@ -59,9 +59,8 @@
             "screenlog": {
                 "type": "Log::Log4perl::Appender::ScreenColoredLevels",
                 "layout": "[%p] %d %F{1} %L %C %c> %m %n",
-                "args": { },
+                "args": { "color": { "WARN": "cyan" } },	# WARN is "blue" by default, which is very hard to read in a black terminal
             }
         }
     },
-
 }
