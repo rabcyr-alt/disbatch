@@ -228,6 +228,50 @@ sub update_node_status {
     }
 }
 
+sub validate_hooks {
+    my ($self) = @_;
+    for my $hook (qw/ pre_hook /) {
+        next if exists $self->{hooks}{$hook};
+        if (defined $self->{config}{$hook}) {
+            my $plugin = $self->{config}{$hook}{name};
+            if (!defined $plugin) {
+                $self->logger->logdie("Plugin name required for $hook hook");
+            } elsif ($plugin !~ /^[\w:]+$/) {
+                $self->logger->logdie("Illegal hook name: $plugin");
+            } elsif (eval "require $plugin; $plugin->can('$hook');") {
+                $self->{hooks}{$hook} = $plugin;
+                next if exists $self->{old_hooks}{$plugin};
+                $self->logger->info("$plugin is valid for $hook hook");
+            } else {
+                $self->{hooks}{$hook} = undef;
+                $self->logger->logdie("Could not load hook $plugin for $hook") if ($self->{config}{$hook}{fatal} // 0);
+                $self->logger->error("Could not load hook $plugin for $hook, ignoring it");
+            }
+        }
+    }
+}
+
+sub revalidate_hooks {
+    my ($self) = @_;
+    $self->{old_hooks} = $self->{hooks};
+    $self->{hooks} = {};
+    $self->validate_hooks;
+}
+
+sub pre_hook {
+    my ($self, @etc) = @_;	# NOTE: for @etc, disbatchd does not pass anything, but a testing script might
+    try {
+        if (defined $self->{hooks}{pre_hook}) {
+            $self->{hooks}{pre_hook}->pre_hook($self, @etc);
+        } else {
+            $self->revalidate_hooks;
+        }
+    } catch {
+        $self->logger->logdie("Error in pre_hook(): $_") if ($self->{config}{pre_hook}{fatal} // 0);
+        $self->logger->error("Error in pre_hook(), ignoring it: $_");
+    };
+}
+
 ### Synacor::Disbatch::Queue like stuff ###
 
 # will claim and return a task for given queue, or return undef
@@ -549,6 +593,30 @@ Throws errors.
 Parameters: none
 
 Updates the node document with the current timestamp.
+
+Returns nothing.
+
+=item validate_hooks
+
+Parameters: none
+
+Validates configured hooks.
+
+Returns nothing.
+
+=item revalidate_hooks
+
+Parameters: none
+
+Clears hooks validation and re-runs C<validate_hooks()>.
+
+Returns nothing.
+
+=item pre_hook
+
+Parameters: none (C<disbatchd> does not pass anything to this, but a testing script might and this will pass it on to the plugin C<pre_hook()>)
+
+Runs the configured C<pre_hook()>.
 
 Returns nothing.
 

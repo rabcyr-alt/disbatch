@@ -27,8 +27,10 @@ $logger->info('Starting Disbatch Execution Node');
 
 $disbatch->ensure_indexes;
 $disbatch->validate_plugins;
+$disbatch->validate_hooks;
 
 do {
+    $disbatch->pre_hook;
     $disbatch->orphaned_tasks;
     $disbatch->process_queues;
     $disbatch->update_node_status;

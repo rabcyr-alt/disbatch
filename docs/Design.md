@@ -328,6 +328,10 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
   A hash of package names and options for adding new routes to the DCI.
 
+* `pre_hook`
+
+  A hash with the required key `name` whose value is package name (the package must have the sub `pre_hook()`), and optional key `fatal` (default is false) if to have `disbatchd` die if it cannot load the hook or the hook throws an error.
+
 * `node_increase`
 
   Throttle `disbatchd` to only pick up this many tasks on the node per loop. Defaults to null (no limit). Value must be null or an integer greater than 0.

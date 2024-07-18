@@ -17,9 +17,10 @@ Copyright (c) 2016, 2019 by Ashley Willis.
    6. Set `monitoring` to `false` if you want `GET /monitoring` to ignore checks
    7. Set `balance.enabled` to `true` if using QueueBalance
    8. Uncomment values in `web_extensions` if needing to use deprecated routes
-   9. Set `activequeues` or `ignorequeues` per DEN if used
-   10. Set `node_increase` and/or `queue_increase` to throttle thread increases
-   11. Remove the rest, which is optional and configured for development
+   9. Uncomment `pre_hook` section if using a pre_hook plugin
+   10. Set `activequeues` or `ignorequeues` per DEN if used
+   11. Set `node_increase` and/or `queue_increase` to throttle thread increases
+   12. Remove the rest, which is optional and configured for development
 
 See also [Configuring and Using SSL with MongoDB](SSL_MongoDB.md) and
 [Configuring and Using SSL with the Disbatch Command Interface](SSL_DCI.md).
