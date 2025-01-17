@@ -49,7 +49,7 @@
                 [% show_all = 'Show All Options (please avoid using these as they are not indexed)' %]
                 [% show_subset = 'Show Indexed Options' %]
             [% END %]
-            <form method="[% schema.verb %]" id="query" action="[% schema.path %]"><!-- FIXME: add [% request.headers.$prepend %] ?-->
+            <form method="[% schema.verb %]" id="query" action="[% schema.path %]"><!-- IDEA: add [% request.headers.$prepend %] (note from 2019-03-29, it's now 2025) ?-->
             [% hider = optional_keys.size and (mandatory_keys.size or indexed_keys.size) %]
             [% IF hider %]
             <!-- note if merge(hidden_keys) to optional_keys below, it will also show them -->
@@ -84,7 +84,7 @@
                         </select>
                     </td>
                 [%- ELSIF schema.params.$key.type.size == 1 && schema.params.$key.type.0 == 'list' %]
-                    <td> list... <!-- FIXME --> </td>
+                    <td> list... <!-- FIXME (note from 2019-03-29, it's now 2025) --> </td>
                 [%- ELSIF schema.params.$key.type.size == 1 && schema.params.$key.type.0 == 'mailbox-list' %]
                     <td> [%- key -%][%- IF schema.params.$key.mandatory == 1 %] (required)[% END %]: </td>
                     <td> <textarea name="[% key %]" rows="20" autofocus="true" onClick="$(':input').removeAttr('disabled');"></textarea> </td>
@@ -115,11 +115,11 @@
                     return true;
                 });
 
-                // FIXME: at least toggleGroup() should run when returning a form because of invalid params (only the limit is shown)
+                // IDEA: at least toggleGroup() should run when returning a form because of invalid params (only the limit is shown) (note from 2019-03-29, it's now 2025)
                 $(document).ready(function(){
                     if (!window.location.search == '') {
                         window.history.replaceState(null, '', window.location.protocol + '//' +
-                                window.location.host + window.location.pathname);	// FIXME: add [% request.headers.$prepend %] ?
+                                window.location.host + window.location.pathname);	// IDEA: add [% request.headers.$prepend %] ? (note from 2019-03-29, it's now 2025)
                         toggleGroup(this, ['[% optional_keys.join('\', \'') %]'], '[% show_all %]', '[% show_subset %]');
                     }
                 });

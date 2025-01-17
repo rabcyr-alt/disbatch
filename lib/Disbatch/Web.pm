@@ -439,7 +439,7 @@ sub post_tasks {
         my %fields = map { s/^document\.//; $_ => 1 } @fields;
 
         my $cursor = $disbatch->mongo->coll($params->{collection})->find($params->{filter})->fields(\%fields);
-        # FIXME: maybe fail unless $cursor->has_next
+        # IDEA: maybe fail unless $cursor->has_next (note from 2019-03-29, it's now 2025)
         my @tasks;
         my $error;
         try {
@@ -510,11 +510,11 @@ sub _munge_tasks {
     }
 }
 
-# FIXME: in query.tt at least toggleGroup() should run at $(document).ready() when returning a form because of invalid params, instead of only showing the limit (bug is there, not at all here)
+# IDEA: in query.tt at least toggleGroup() should run at $(document).ready() when returning a form because of invalid params, instead of only showing the limit (bug is there, not at all here) (note from 2019-03-25, it's now 2025)
 get '/tasks' => sub {
-    undef $disbatch->{mongo};	# FIXME: why is this added?
+    undef $disbatch->{mongo};	# NOTE: why is this added? (note from 2019-03-29, it's now 2025)
     my ($params, $options) = parse_params;	# NOTE: $options may contain: .limit .skip .count .pretty .terse .epoch .full
-    $params = undef if defined $params and $params eq '';	# FIXME: maybe move to parse_params() above
+    $params = undef if defined $params and $params eq '';	# IDEA: maybe move to parse_params() above (note from 2019-03-29, it's now 2025)
     my $want_json = want_json;
 
     my $indexes = get_indexes($disbatch->tasks);
@@ -541,7 +541,7 @@ get '/tasks' => sub {
             $result->{schema}{error} = $result->{error};
             status 400;
         }
-        _munge_tasks($result, $options);	# FIXME: do we want _munge_tasks() here too? well let's TIAS
+        _munge_tasks($result, $options);	# NOTE: do we want _munge_tasks() here too? well let's TIAS (note from 2019-03-29, it's now 2025)
         template 'query.tt', $result;
     }
 };
@@ -579,7 +579,7 @@ sub get_balance {
 sub post_balance {
     my $params = parse_params;
 
-    # TODO: make this not all hardcoded:
+    # IDEA: make this not all hardcoded: (note from 2019-03-29, it's now 2025)
     my $error = try {
         die join(',', sort keys %$params) unless join(',', sort keys %$params) =~ /^(?:disabled,)?max_tasks,queues$/;
 
@@ -676,9 +676,9 @@ sub check_disbatch {
 
 sub check_queuebalance {
     return { status => 'OK', message => 'queuebalance disabled' } unless $disbatch->{config}{balance}{enabled};
-    # FIXME: return some sort of OK status if 'balance' collection doesn't exist (no QueueBalance) or $qb below is undef
+    # IDEA: return some sort of OK status if 'balance' collection doesn't exist (no QueueBalance) or $qb below is undef (note from 2019-03-29, it's now 2025)
     my $qb = $disbatch->balance->find_one({}, {status => 1, message => 1, timestamp => 1, _id => 0});
-    return $qb if $qb->{status} eq 'CRITICAL' and !exists $qb->{timestamp}; # error via _mongo()	# FIXME: this will never happen because rewrite (wait why??), but maybe should check for timestamp anyway
+    return $qb if $qb->{status} eq 'CRITICAL' and !exists $qb->{timestamp}; # error via _mongo()	# IDEA: this will never happen because rewrite (wait why??), but maybe should check for timestamp anyway (note from 2019-03-29, it's now 2025)
     my $timestamp = delete $qb->{timestamp};
     return { status => 'CRITICAL' , message => 'queuebalanced not running for ' . (time - $timestamp) . 's' } if $timestamp < time - 60;
     return $qb if $qb->{status} =~ /^(?:OK|WARNING|CRITICAL)$/;
@@ -768,7 +768,7 @@ sub params_to_query {
 }
 
 # get_indexes() invalid_params() params_to_query()
-# FIXME: i hate this code
+# IDEA: i hate this code (note from 2019-03-25, it's now 2025)
 sub query {
     my ($params, $options, $title, $oid_keys, $collection, $path, $raw, $indexes) = @_;
     $options //= {};	# .count .limit .skip .fields
@@ -779,8 +779,8 @@ sub query {
     my $limit = $options->{'.limit'} || 0;
     my $skip = $options->{'.skip'} || 0;
 
-    # FIXME: maybe move this $fields modification to parse_params()
-    $fields = Cpanel::JSON::XS->new->utf8->decode($fields) unless ref $fields;	# NOTE: i don't like embedding json in url params	# FIXME: catch and return error
+    # IDEA: maybe move this $fields modification to parse_params() (note from 2019-03-25, it's now 2025)
+    $fields = Cpanel::JSON::XS->new->utf8->decode($fields) unless ref $fields;	# NOTE: i don't like embedding json in url params	# IDEA: catch and return error (note from 2019-03-25, it's now 2025)
     $fields = { map { $_ => 1 } @$fields } if ref $fields eq 'ARRAY';
 
     # can only query indexed fields
@@ -797,7 +797,7 @@ sub query {
     my @documents = $collection->find($query)->fields($fields)->limit($limit)->skip($skip)->all;
 
     if ($raw // 0) {
-        # FIXME: return [] if no @documents unless $limit == 1, then maybe return undef
+        # IDEA: return [] if no @documents unless $limit == 1, then maybe return undef (note from 2019-03-25, it's now 2025)
         return {} unless @documents;
         return ($limit == 1 ? $documents[0] : \@documents);
     }
@@ -810,7 +810,7 @@ sub query {
         count   => scalar @documents,
         limit   => $limit,
         skip    => $skip,
-        params_str  => join('&', map { "$_=$params->{$_}" } keys %$params),	# FIXME: maybe we need $options in here too
+        params_str  => join('&', map { "$_=$params->{$_}" } keys %$params),	# IDEA: maybe we need $options in here too (note from 2019-03-25, it's now 2025)
         mypath => $path,
     };
 

@@ -196,7 +196,7 @@ $(function() {
                 incomplete = true;
                 return;
             } else if (json.max_tasks[hash.dow + ' ' + hash.time]) {
-                // TODO: also set color for first instance of dup
+                // IDEA: also set color for first instance of dup (note from 2019-03-29, it's now 2025)
                 $('input[name="max_tasks['+i+'][time]"]').css({'background-color': '#FFE0E0'});
                 incomplete = true;
                 $('#error').text('dow+time duplicated for intervals');

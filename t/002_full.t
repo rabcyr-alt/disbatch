@@ -114,7 +114,7 @@ my @mongo_args = (
 push @mongo_args, $use_auth ? '--auth' : '--noauth';
 push @mongo_args, '--sslMode' => 'requireSSL', '--sslPEMKeyFile' => 't/test-cert.pem', if $use_ssl;
 my $mongo_args = join ' ', @mongo_args;
-say `mongod $mongo_args`;	# FIXME: use system or IPC::Open3 instead
+say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 2016-05-05, it's now 2025)
 
 # Get test database, authed as root:
 my $attributes = {};
@@ -300,7 +300,7 @@ if ($webpid == 0) {
 
     # Returns array: C<< [ success, inserted_id, $reponse_object ] >>
     # Returns hash: C<< { ref $res: Object, id: $inserted_id } >>
-    $data = { name => $name, plugin => $plugin, sort => 'fifo' };	# FIXME: add tests below for "sort" values
+    $data = { name => $name, plugin => $plugin, sort => 'fifo' };	# IDEA: add tests below for other "sort" values (note from 2024-05-03, it's now 2025)
     $res = Net::HTTP::Client->request(POST => "$uri/queues", 'Content-Type' => 'application/json', encode_json($data));
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'application/json', 'application/json';
@@ -764,11 +764,11 @@ if ($webpid == 0) {
 
     # MONITORING TESTS:
     # * get '/monitoring'	send_json checks(), send_json_options;
-    # FIXME: this just runs one test based on the config settings above and not all possibilities, as changing settings requires restarting Disbatch::Web, and i don't want to figure out how to do that here rn
+    # IDEA: this just runs one test based on the config settings above and not all possibilities, as changing settings requires restarting Disbatch::Web, and i don't want to figure out how to do that here rn (note from 2019-03-29, it's now 2025)
     my $monitoring;
     if ($disbatch->{config}{monitoring}) {
         if ($disbatch->{config}{balance}{enabled}) {
-            my $time = time;	# FIXME: this is hacky, but should usually work. slight chance the response if off by 1 tho. alternatively, we could check a regex against $res->content since canonical is used.
+            my $time = time;	# IDEA: this is hacky, but should usually work. slight chance the response if off by 1 tho. alternatively, we could check a regex against $res->content since canonical is used. (note from 2019-03-29, it's now 2025)
             $monitoring = { disbatch => { status => 'OK', message => 'Disbatch is running on one or more nodes' }, queuebalance => { status => 'CRITICAL', message => "queuebalanced not running for ${time}s" } };
         } else {
             my $hostname = hostname;

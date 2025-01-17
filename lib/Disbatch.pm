@@ -102,7 +102,7 @@ sub load_config {
         $self->{config}{activequeues} //= [];
         $self->{config}{ignorequeues} //= [];
         $self->{config}{plugins} //= [];
-        # FIXME: validate config values
+        # IDEA: validate config values (note from 2016-05-06, it's now 2025)
 
         if (!defined $self->{config}{mongohost} or !defined $self->{config}{database}) {
             my $error = "Both 'mongohost' and 'database' must be defined in file $self->{config_file}";
@@ -470,7 +470,7 @@ sub get_gfs {
         my $query = {};
         $query->{filename} = $filename_or_id if defined $filename_or_id;
         $query->{metadata} = $metadata if defined $metadata;
-        $file_id = $self->mongo->coll('tasks.files')->find($query)->next->{_id};	# FIXME: why is this not find_one??
+        $file_id = $self->mongo->coll('tasks.files')->find($query)->next->{_id};	# IDEA: why is this not find_one?? (note from 2018-02-08, it's now 2025)
     }
     # this does no error-checking:
     my $result = $self->mongo->coll('tasks.chunks')->find({files_id => $file_id})->sort({n => 1})->result;
