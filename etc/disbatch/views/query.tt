@@ -84,7 +84,7 @@
                         </select>
                     </td>
                 [%- ELSIF schema.params.$key.type.size == 1 && schema.params.$key.type.0 == 'list' %]
-                    <td> list... <!-- FIXME (note from 2019-03-29, it's now 2025) --> </td>
+                    <td> list... (FIXME: i think original cruft to remove from 2019-03-29, it's now 2025) </td>
                 [%- ELSIF schema.params.$key.type.size == 1 && schema.params.$key.type.0 == 'mailbox-list' %]
                     <td> [%- key -%][%- IF schema.params.$key.mandatory == 1 %] (required)[% END %]: </td>
                     <td> <textarea name="[% key %]" rows="20" autofocus="true" onClick="$(':input').removeAttr('disabled');"></textarea> </td>

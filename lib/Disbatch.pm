@@ -470,7 +470,7 @@ sub get_gfs {
         my $query = {};
         $query->{filename} = $filename_or_id if defined $filename_or_id;
         $query->{metadata} = $metadata if defined $metadata;
-        $file_id = $self->mongo->coll('tasks.files')->find($query)->next->{_id};	# IDEA: why is this not find_one?? (note from 2018-02-08, it's now 2025)
+        $file_id = $self->mongo->coll('tasks.files')->find($query)->next->{_id};	# NOTE: why is this not find_one?? (note from 2018-02-08, it's now 2025)
     }
     # this does no error-checking:
     my $result = $self->mongo->coll('tasks.chunks')->find({files_id => $file_id})->sort({n => 1})->result;
