@@ -856,7 +856,7 @@ if ($webpid == 0) {
         is $res->content_type, 'application/json', 'application/json';
         $content = decode_json($res->content);
         is ref $content, 'HASH', 'content is HASH';
-        is join(',', sort keys $content), 'status', "content has key 'status'";
+        is join(',', sort keys %$content), 'status', "content has key 'status'";
         like $content->{status}, qr/^failed: invalid json passed\b/, 'status message';
     }
 
