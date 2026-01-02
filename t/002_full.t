@@ -13,7 +13,7 @@ use Cpanel::JSON::XS;
 use Data::Dumper;
 use File::Path qw/remove_tree/;
 use File::Slurp;
-use MongoDB 1.0.4;
+use MongoDB 2.2.2;
 use Net::HTTP::Client;
 use POSIX qw(setsid);
 use Sys::Hostname;
