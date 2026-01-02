@@ -57,7 +57,7 @@ my $config = {
     },
     mongohost => "localhost:$mongoport",
     database => "disbatch_test$$" . int(rand(10000)),
-    attributes => { ssl => { SSL_verify_mode => 0x00 } },
+    attributes => { ssl => { SSL_ca_file => 't/rootCA.crt', SSL_cert_file => 't/serverCert.pem' } },
     auth => {
         disbatchd => 'qwerty1',		# { username => 'disbatchd', password => 'qwerty1' },
         disbatch_web => 'qwerty2',	# { username => 'disbatch_web', password => 'qwerty2' },
@@ -96,19 +96,19 @@ mkdir "/tmp/$config->{database}";
 my $config_file = "/tmp/$config->{database}/config.json";
 write_file $config_file, encode_json $config;
 
-say "database = $config->{database}";
+diag "database = $config->{database}";
 
 my @mongo_args = (
     '--logpath' => "/tmp/$config->{database}/mongod.log",
     '--dbpath' => "/tmp/$config->{database}/",
     '--pidfilepath' => "/tmp/$config->{database}/mongod.pid",
     '--port' => $mongoport,
-    '--noprealloc',
-    '--nojournal',
+    #'--noprealloc',	# not on 8.2 nor 4.4
+    '--nojournal',	# not on 8.2 but is on 6.0
     '--fork'
 );
 push @mongo_args, $use_auth ? '--auth' : '--noauth';
-push @mongo_args, '--sslMode' => 'requireSSL', '--sslPEMKeyFile' => 't/test-cert.pem', if $use_ssl;
+push @mongo_args, '--tlsMode' => 'requireTLS', '--tlsCertificateKeyFile' => 't/serverCert.pem', '--tlsCAFile' => 't/rootCAcombined.pem' if $use_ssl;
 my $mongo_args = join ' ', @mongo_args;
 say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 2016-05-05, it's now 2025)
 
