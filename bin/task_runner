@@ -3,11 +3,11 @@
 use 5.12.0;
 use warnings;
 
+use BSON::OID;
 use Cpanel::JSON::XS;
 use Data::Dumper;
 use Encode;
 use Getopt::Long;
-use MongoDB::OID 1.0.4;
 use Try::Tiny::Retry;
 use Safe::Isa;
 
@@ -45,7 +45,7 @@ $logger->logdie('Config file must be passed with --config option') unless define
 
 $logger->logdie('No --task') unless defined $task_id;
 
-my $oid = try { MongoDB::OID->new(value => $task_id) } catch { $logger->logdie($_) };
+my $oid = try { BSON::OID->new(oid => pack 'H*', $task_id) } catch { $logger->logdie($_) };
 my $doc = retry {
     $disbatch->tasks->find_one_and_update({_id => $oid, status => -1, node => $disbatch->{node}}, {'$set' => {status => 0}});
 } catch {

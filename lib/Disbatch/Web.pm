@@ -5,6 +5,7 @@ use strict;
 use warnings;
 
 use boolean 0.25;
+use BSON::OID;
 use Clone qw/clone/;
 use Cpanel::JSON::XS;
 use Data::Dumper;
@@ -14,7 +15,6 @@ use File::Slurp;
 use Limper::SendFile;	# needed for public()
 use Limper::SendJSON;
 use Limper 0.015;
-use MongoDB::OID 1.0.4;
 use Safe::Isa;
 use Scalar::Util qw/ looks_like_number /;
 use Template;
@@ -114,10 +114,6 @@ get '/info' => sub {
     send_json $info, send_json_options;
 };
 
-sub datetime_to_millisecond_epoch {
-    int($_[0]->hires_epoch * 1000);
-}
-
 # will throw errors
 sub get_nodes {
     my ($filter) = @_;
@@ -125,7 +121,7 @@ sub get_nodes {
     my @nodes = $disbatch->nodes->find($filter)->sort({node => 1})->all;
     for my $node (@nodes) {
         $node->{id} = "$node->{_id}";
-        $node->{timestamp} = datetime_to_millisecond_epoch($node->{timestamp}) if ref $node->{timestamp} eq 'DateTime';
+        $node->{timestamp} = int($node->{timestamp}->epoch*1000) if ref $node->{timestamp} eq 'BSON::Time';
     }
     \@nodes;
 }
@@ -142,7 +138,7 @@ get '/nodes' => sub {
 
 get qr'^/nodes/(?<node>.+)' => sub {
     undef $disbatch->{mongo};
-    my $filter = try { {_id => MongoDB::OID->new(value => $+{node})} } catch { {node => $+{node}} };
+    my $filter = try { {_id => BSON::OID->new(oid => pack 'H*', $+{node})} } catch { {node => $+{node}} };
     my $node = try { get_nodes($filter) } catch { status 400; "Could not get node $+{node}: $_" };
     if ((status() // 200) == 400) {
         Limper::warning $node;
@@ -172,7 +168,7 @@ post qr'^/nodes/(?<node>.+)' => sub {
         status 400;
         return send_json {error => 'maxthreads must be a non-negative integer or null'}, send_json_options;
     }
-    my $filter = try { {_id => MongoDB::OID->new(value => $node)} } catch { {node => $node} };
+    my $filter = try { {_id => BSON::OID->new(oid => pack 'H*', $node)} } catch { {node => $node} };
     my $res = try {
         $disbatch->nodes->update_one($filter, {'$set' => $params});
     } catch {
@@ -217,7 +213,7 @@ get '/queues' => sub {
 get qr'^/queues/(?<queue>.+)$' => sub {
     undef $disbatch->{mongo};
 
-    my $key = try { MongoDB::OID->new(value => $+{queue}); 'id' } catch { 'name' };
+    my $key = try { BSON::OID->new(oid => pack 'H*', $+{queue}); 'id' } catch { 'name' };
     my $queues = try { $disbatch->scheduler_report } catch { status 400; "Could not get current queues: $_" };
     if ((status() // 200) == 400) {
         Limper::warning $queues;
@@ -310,7 +306,7 @@ post qr'^/queues/(?<queue>.+)$' => sub {
         return send_json {error => 'sort must be "fifo", "lifo", or "default"'}, send_json_options;
     }
 
-    my $filter = try { {_id => MongoDB::OID->new(value => $queue)} } catch { {name => $queue} };
+    my $filter = try { {_id => BSON::OID->new(oid => pack 'H*', $queue)} } catch { {name => $queue} };
     my $res = try {
         $disbatch->queues->update_one($filter, {'$set' => $params});
     } catch {
@@ -337,7 +333,7 @@ post qr'^/queues/(?<queue>.+)$' => sub {
 del qr'^/queues/(?<queue>.+)$' => sub {
     undef $disbatch->{mongo};
 
-    my $filter = try { {_id => MongoDB::OID->new(value => $+{queue})} } catch { {name => $+{queue}} };
+    my $filter = try { {_id => BSON::OID->new(oid => pack 'H*', $+{queue})} } catch { {name => $+{queue}} };
     my $deleted = try { $disbatch->queues->find_one($filter) } catch { Limper::warning "Could not find queue '$+{queue}': $_"; undef };
     my $res = try { $disbatch->queues->delete_one($filter) } catch { Limper::warning "Could not delete queue '$+{queue}': $_"; $_ };
     if (ref $res eq 'MongoDB::DeleteResult' and $res->deleted_count == 1) {
@@ -356,11 +352,11 @@ del qr'^/queues/(?<queue>.+)$' => sub {
     send_json $reponse, send_json_options;
 };
 
-# returns an MongoDB::OID object of either a simple string representation of the OID or a queue name, or undef if queue not found/valid
+# returns a BSON::OID object of either a simple string representation of the OID or a queue name, or undef if queue not found/valid
 sub get_queue_oid {
     my ($queue) = @_;
     my $queue_id = try {
-        $disbatch->queues->find_one({_id => MongoDB::OID->new(value => $queue)});
+        $disbatch->queues->find_one({_id => BSON::OID->new(oid => pack 'H*', $queue)});
     } catch {
         try { $disbatch->queues->find_one({name => $queue}) } catch { Limper::warning "Could not find queue $queue: $_"; undef };
     };
@@ -495,8 +491,8 @@ sub _munge_tasks {
     for my $task (@$tasks) {
         for my $type (qw/stdout stderr/) {
             if ($options->{'.terse'}) {
-                $task->{$type} = '[terse mode]' if defined $task->{$type} and !$task->{$type}->$_isa('MongoDB::OID') and $task->{$type};
-            } elsif ($options->{'.full'} // 0 and $task->{$type}->$_isa('MongoDB::OID')) {
+                $task->{$type} = '[terse mode]' if defined $task->{$type} and !$task->{$type}->$_isa('BSON::OID') and $task->{$type};
+            } elsif ($options->{'.full'} // 0 and $task->{$type}->$_isa('BSON::OID')) {
                 $task->{$type} = try { $disbatch->get_gfs($task->{$type}) } catch { Limper::warning "Could not get task $task->{_id} $type: $_"; $task->{$type} };
             }
         }
@@ -750,8 +746,8 @@ sub params_to_query {
             $k = '_id' if $k eq 'id';
             # change $v into an ObjectId / ARRAY of ObectIds:
             push @and, ref($v) eq 'ARRAY'
-                ? { '$or' => [ map { MongoDB::OID->new(value => $_) } @$v ] }
-                : { $k => MongoDB::OID->new(value => $v) };
+                ? { '$or' => [ map { BSON::OID->new(oid => pack 'H*', $_) } @$v ] }
+                : { $k => BSON::OID->new(oid => pack 'H*', $v) };
         } elsif (looks_like_number(ref $v eq 'ARRAY' ? $v->[0] : $v)) {	# NOTE: this only checks the first element in @$v
             push @and, ref($v) eq 'ARRAY'
                 ? { '$or' => [ map { { $k => 0 + $_ } } @$v ] }
@@ -787,7 +783,7 @@ sub query {
 
     my $query = params_to_query($params, $oid_keys);
 
-    return { count => $collection->count($query) } if $options->{'.count'};
+    return { count => $collection->count_documents($query) } if $options->{'.count'};
 
     # we don't want to return the entire collection
     return { title => $title, path => $path, error => 'refusing to return everything - include one or more indexed search restrictions', indexes => $indexes } unless keys %$query or $limit > 0;
@@ -915,11 +911,11 @@ Returns a C<HASH> of defined queues plugins and any defined C<config.plugins>, w
 
 Parameters: Queue ID as a string, or queue name.
 
-Returns a C<MongoDB::OID> object representing this queue's _id.
+Returns a C<BSON::OID> object representing this queue's _id.
 
 =item create_tasks($queue_id, $tasks)
 
-Parameters: C<MongoDB::OID> object of the queue _id, C<ARRAY> of task params.
+Parameters: C<BSON::OID> object of the queue _id, C<ARRAY> of task params.
 
 Creates one queued task document for the given queue _id per C<$tasks> entry. Each C<$task> entry becomes the value of the C<params> field of the document.
 
@@ -940,8 +936,8 @@ Parameters: C<ARRAY> of task documents, C<HASH> of param options
 
 Options handled are C<.terse>, C<.full>, and C<.epoch>, all booleans.
 
-If C<.terse>, C<stdout> and C<stderr> values of each document will be C<[terse mode]> if defined and not a L<MongoDB::OID> object.
-Else if C<.full>, C<stdout> and C<stderr> values of each document will be actual content instead of L<MongoDB::OID> objects.
+If C<.terse>, C<stdout> and C<stderr> values of each document will be C<[terse mode]> if defined and not a L<BSON::OID> object.
+Else if C<.full>, C<stdout> and C<stderr> values of each document will be actual content instead of L<BSON::OID> objects.
 If C<.epoch>, C<ctime> and C<mtime> will be turned into C<hires_epoch> (ex: C<1548272576.574>) insteaad of stringified (ex: C<2019-01-23T19:42:56>) if they are C<DateTime> objects.
 
 Returns nothing, modifies passed tasks.
@@ -1022,7 +1018,7 @@ Turns fields from an HTTP request into a query suitable for L<MongoDB::Collectio
 
 Skips key/value pairs where the value is the empty string.
 
-If a key is C<id> or is in C<$oid_keys>, turns the value(s) which should be hex strings into L<MongoDB::OID> objects.
+If a key is C<id> or is in C<$oid_keys>, turns the value(s) which should be hex strings into L<BSON::OID> objects.
 
 Otherwise if a value (or first element of an C<ARRAY> value) looks like a number, ensures the value (or elements) is a Perl number.
 

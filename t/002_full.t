@@ -129,7 +129,7 @@ Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, %{$conf
 
 # Create users collection:
 for my $username (qw/ foo bar /) {
-    retry { $test_db_root->coll('users')->insert({username => $username, migration => 'test'}) } catch { die $_ };
+    retry { $test_db_root->coll('users')->insert_one({username => $username, migration => 'test'}) } catch { die $_ };
 }
 
 # Ensure indexes:
@@ -232,8 +232,8 @@ if ($webpid == 0) {
     is ref $content, 'ARRAY', 'nodes is ARRAY';
     is scalar @$content, 1, 'nodes has 1 entry';
     like $content->[0]{id}, qr/^[0-9a-f]{24}$/, 'id is 24 char hex string';
-    like $content->[0]{_id}{'$oid'}, qr/^[0-9a-f]{24}$/, '_id is 24 char hex string';
-    is $content->[0]{id}, $content->[0]{_id}{'$oid'}, 'id matches _id.$oid';
+    like $content->[0]{_id}, qr/^[0-9a-f]{24}$/, '_id is 24 char hex string';
+    is $content->[0]{id}, $content->[0]{_id}, 'id matches _id';
     cmp_ok $content->[0]{timestamp}, '>' , $time_in_ms, 'timestamp is in milliseconds';
     is $content->[0]{node}, hostname, 'node is hostname';
     $node = $content->[0]{node};
@@ -302,9 +302,9 @@ if ($webpid == 0) {
     is $res->content_type, 'application/json', 'application/json';
     $content = decode_json($res->content);
     is ref $content, 'HASH', 'content is HASH';
-    ok defined $content->{'MongoDB::InsertOneResult'}{'inserted_id'}{'$oid'}, 'MongoDB::InsertOneResult inserted_id defined';
-    ok defined $content->{id}{'$oid'}, 'id defined';
-    $queueid = $content->{id}{'$oid'};
+    ok defined $content->{'MongoDB::InsertOneResult'}{'inserted_id'}, 'MongoDB::InsertOneResult inserted_id defined';
+    ok defined $content->{id}, 'id defined';
+    $queueid = $content->{id};
 
     my @task_ids;
     # new API
@@ -317,7 +317,7 @@ if ($webpid == 0) {
     is ref $content, 'HASH', 'content is HASH';
     is $content->{'MongoDB::InsertManyResult'}{acknowledged}, 1, 'success';
     is scalar @{$content->{'MongoDB::InsertManyResult'}{inserted}}, 3, 'count';
-    push @task_ids, map { $_->{_id}{'$oid'} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
+    push @task_ids, map { $_->{_id} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
     # new API
     $data = { queue => $queueid, params => [ {commands => 'a'}, {commands => 'b'} ] };
     $res = Net::HTTP::Client->request(POST => "$uri/tasks", 'Content-Type' => 'application/json', encode_json($data));
@@ -327,7 +327,7 @@ if ($webpid == 0) {
     is ref $content, 'HASH', 'content is HASH';
     is $content->{'MongoDB::InsertManyResult'}{acknowledged}, 1, 'success';
     is scalar @{$content->{'MongoDB::InsertManyResult'}{inserted}}, 2, 'count';
-    push @task_ids, map { $_->{_id}{'$oid'} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
+    push @task_ids, map { $_->{_id} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
 
     # new API
     $data = { queue => $queueid, '.count' => 1 };
@@ -387,7 +387,7 @@ if ($webpid == 0) {
     is ref $content, 'HASH', 'content is HASH';
     is $content->{'MongoDB::InsertManyResult'}{acknowledged}, 1, 'success';
     is scalar @{$content->{'MongoDB::InsertManyResult'}{inserted}}, 2, 'count';
-    push @task_ids, map { $_->{_id}{'$oid'} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
+    push @task_ids, map { $_->{_id} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
 
     # new API
     $data = { queue => $name, params => $params, collection => $collection, filter => $filter };
@@ -398,7 +398,7 @@ if ($webpid == 0) {
     is ref $content, 'HASH', 'content is HASH';
     is $content->{'MongoDB::InsertManyResult'}{acknowledged}, 1, 'success';
     is scalar @{$content->{'MongoDB::InsertManyResult'}{inserted}}, 2, 'count';
-    push @task_ids, map { $_->{_id}{'$oid'} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
+    push @task_ids, map { $_->{_id} } @{$content->{'MongoDB::InsertManyResult'}{inserted}};
 
     $res = Net::HTTP::Client->request(GET => "$uri/queues");
     is $res->status_line, '200 OK', '200 status';
@@ -480,7 +480,7 @@ if ($webpid == 0) {
     is $res->content_type, 'application/json', 'application/json';
     $content = decode_json($res->content);
     is ref $content, 'HASH', 'content is HASH';
-    is $content->{_id}{'$oid'}, $task->{_id}->to_string, 'oid matches';
+    is $content->{_id}, $task->{_id}->to_string, 'oid matches';
     is $content->{status}, $task->{status}, 'status matches';
     is $content->{stdout}, $task->{stdout}, 'stdout matches';
 
@@ -488,7 +488,7 @@ if ($webpid == 0) {
     $res = Net::HTTP::Client->request(GET => "$uri/tasks/$success_id", Accept => 'text/html');
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'text/html', 'text/html';
-    like $res->content, qr|<h1> Disbatch Single Task Query Results </h1>.+Results returned: 1<br />.+"\$oid" : "$success_id"|s, 'html response';
+    like $res->content, qr|<h1> Disbatch Single Task Query Results </h1>.+Results returned: 1<br />.+"_id" : "$success_id"|s, 'html response';
 
     # GET /tasks/:id
     my ($queued_id) = grep {  $_ ne $success_id } @task_ids;
@@ -497,7 +497,7 @@ if ($webpid == 0) {
     is $res->content_type, 'application/json', 'application/json';
     $content = decode_json($res->content);
     is ref $content, 'HASH', 'content is HASH';
-    is $content->{_id}{'$oid'}, $queued_id, 'oid matches';
+    is $content->{_id}, $queued_id, 'oid matches';
     is $content->{status}, -2, 'status is -2';
     is $content->{stdout}, undef, 'stdout is undef';
 
@@ -536,9 +536,9 @@ if ($webpid == 0) {
     is $res->content_type, 'application/json', 'application/json';
     $content = decode_json($res->content);
     is ref $content, 'HASH', 'content is HASH';
-    ok defined $content->{'MongoDB::InsertOneResult'}{'inserted_id'}{'$oid'}, 'MongoDB::InsertOneResult inserted_id defined';
-    ok defined $content->{id}{'$oid'}, 'id defined';
-    $queueid = $content->{id}{'$oid'};
+    ok defined $content->{'MongoDB::InsertOneResult'}{'inserted_id'}, 'MongoDB::InsertOneResult inserted_id defined';
+    ok defined $content->{id}, 'id defined';
+    $queueid = $content->{id};
 
     $data = { threads => 1 };
     $res = Net::HTTP::Client->request(POST => "$uri/queues/$name", 'Content-Type' => 'application/json', encode_json($data));
@@ -584,7 +584,7 @@ if ($webpid == 0) {
             $disbatch->process_queues;
 
             # get task, verify if stdout and stderr is in task or gfs
-            $data = { id => $task_id->{'$oid'}, queue => $queueid, 'params.commands' => $key};
+            $data = { id => $task_id, queue => $queueid, 'params.commands' => $key};
             my $max = 10;
             my $c = 0;
             do {
@@ -631,7 +631,7 @@ if ($webpid == 0) {
                 } elsif ($gfs_tests->{$key}{auto}[0] eq 'STR') {
                     ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
                 } elsif ($gfs_tests->{$key}{auto}[0] eq 'OID') {
-                    ok defined $content->[0]{stdout}{'$oid'}, 'stdout OID';
+                    ok defined $content->[0]{stdout}, 'stdout OID';
                 } else {
                     die;
                 }
@@ -640,13 +640,13 @@ if ($webpid == 0) {
                 } elsif ($gfs_tests->{$key}{auto}[1] eq 'STR') {
                     ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
                 } elsif ($gfs_tests->{$key}{auto}[1] eq 'OID') {
-                    ok defined $content->[0]{stderr}{'$oid'}, 'stderr OID';
+                    ok defined $content->[0]{stderr}, 'stderr OID';
                 } else {
                     die;
                 }
             } else {
-                ok defined $content->[0]{stdout}{'$oid'}, 'stdout OID';
-                ok defined $content->[0]{stderr}{'$oid'}, 'stderr OID';
+                ok defined $content->[0]{stdout}, 'stdout OID';
+                ok defined $content->[0]{stderr}, 'stderr OID';
             }
         }
     }

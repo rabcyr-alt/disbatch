@@ -16,7 +16,7 @@ For a simple example, see `lib/Disbatch/Plugin/Demo.pm`.
     `tasks`), with whatever MongoDB access permissions `plugin` has.
 
     `$doc` is the task's full document from MongoDB, where `$doc->{_id}` and
-    `$doc->{queue}` are `MongoDB::OID` objects.
+    `$doc->{queue}` are `BSON::OID` objects.
 
   * `run()`
 

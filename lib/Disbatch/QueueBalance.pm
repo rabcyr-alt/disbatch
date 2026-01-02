@@ -127,8 +127,8 @@ sub update {
 
     for my $p (@queues) {
         for my $queue (@$p) {
-            $queue->{queued} = $self->{disbatch}->tasks->count({status => {'$lte' => -2}, queue => $queue->{_id}});	# IDEA: maybe just status => -2 (note from 2019-03-29, it's now 2025)
-            $queue->{running} = $self->{disbatch}->tasks->count({status => {'$in' => [-1,0]}, queue => $queue->{_id}});	# was status => 0
+            $queue->{queued} = $self->{disbatch}->tasks->count_documents({status => {'$lte' => -2}, queue => $queue->{_id}});	# IDEA: maybe just status => -2 (note from 2019-03-29, it's now 2025)
+            $queue->{running} = $self->{disbatch}->tasks->count_documents({status => {'$in' => [-1,0]}, queue => $queue->{_id}});	# was status => 0
         }
     }
 

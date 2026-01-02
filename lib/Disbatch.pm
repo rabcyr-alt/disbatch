@@ -6,6 +6,7 @@ use warnings;
 use boolean 0.25;
 use Cpanel::JSON::XS;
 use Data::Dumper;
+use DateTime;
 use Encode;
 use File::Slurp;
 use Log::Log4perl;
@@ -182,7 +183,7 @@ sub scheduler_report {
     my @queues = $self->queues->find->all;
     for my $queue (@queues) {
         push @result, {
-            id             => $queue->{_id}{value},
+            id             => $queue->{_id}->hex,
             plugin         => $queue->{plugin},
             name           => $queue->{name},
             threads        => $queue->{threads},
@@ -359,7 +360,7 @@ sub count_tasks {
     $query->{status} = $status if defined $status;
     $query->{node} = $node if defined $node;
 
-    try { $self->tasks->count($query) } catch { $self->logger->error("Could not count tasks: $_"); undef };
+    try { $self->tasks->count_documents($query) } catch { $self->logger->error("Could not count tasks: $_"); undef };
 }
 
 sub count_queued {
@@ -464,7 +465,7 @@ sub put_gfs {
 sub get_gfs {
     my ($self, $filename_or_id, $metadata) = @_;
     my $file_id;
-    if ($filename_or_id->$_isa('MongoDB::OID')) {
+    if ($filename_or_id->$_isa('BSON::OID')) {
         $file_id = $filename_or_id;
     } else {
         my $query = {};
@@ -630,7 +631,7 @@ Returns a task document, or undef if no queued task found.
 
 =item unclaim_task($task_id)
 
-Parameters: L<MongoDB::OID> object for a task
+Parameters: L<BSON::OID> object for a task
 
 Sets the task's node to null, status to -2, and update mtime if it has status -1 and this node's hostname.
 
@@ -655,7 +656,7 @@ Returns nothing.
 
 =item count_tasks($queue_id, $status, $node)
 
-Parameters: L<MongoDB::OID> object for a queue or a query operator value or C<undef>, a status or a query operator value or C<undef>, a node or C<undef>.
+Parameters: L<BSON::OID> object for a queue or a query operator value or C<undef>, a status or a query operator value or C<undef>, a node or C<undef>.
 
 Counts all tasks for the given C<$queue_id> with given C<$status> and C<$node>.
 
@@ -673,7 +674,7 @@ Returns: a non-negative integer, or undef if an error.
 
 =item count_total($queue_id)
 
-Parameters: L<MongoDB::OID> object for a queue or a query operator value or C<undef>
+Parameters: L<BSON::OID> object for a queue or a query operator value or C<undef>
 
 Counts queued (status <= -2), running (status of 0 or -1), running on this node, completed (status >= 1), or all tasks for the given queue (status <= -2).
 
@@ -681,7 +682,7 @@ Returns: a non-negative integer, or undef if an error.
 
 =item is_active_queue($queue_id)
 
-Parameters: L<MongoDB::OID> object for a queue
+Parameters: L<BSON::OID> object for a queue
 
 Checks C<config.activequeues> if it has entries, and returns 1 if given queue is defined in it or 0 if not.
 If it does not have entries, checks C<config.ignorequeues> if it has entries, and returns 0 if given queue is defined in it or 1 if not.
@@ -702,13 +703,13 @@ Parameters: UTF-8 content to store, optional filename to store it as, optional m
 
 Stores UTF-8 content in a custom GridFS format that stores data as strings instead of as BinData.
 
-Returns a C<MongoDB::OID> object for the ID inserted in the C<tasks.files> collection.
+Returns a C<BSON::OID> object for the ID inserted in the C<tasks.files> collection.
 
 =item get_gfs($filename_or_id, $metadata)
 
-Parameters: filename or C<MongoDB::OID> object, optional metadata C<HASH>
+Parameters: filename or C<BSON::OID> object, optional metadata C<HASH>
 
-Gets UTF-8 content from the custom GridFS format. Metadata is only used if given a filename instead of a C<MongoDB::OID> object.
+Gets UTF-8 content from the custom GridFS format. Metadata is only used if given a filename instead of a C<BSON::OID> object.
 
 Returns: content string.
 
