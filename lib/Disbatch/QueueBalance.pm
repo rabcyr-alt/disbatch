@@ -165,7 +165,7 @@ sub update {
     say "pretend ($self->{name}):" if $self->{verbose} and $self->{pretend};
     for my $p (@queues) {
         for my $queue (@$p) {
-            $queue->{maxthreads} //= 0;		# disbatch.pl queue creation doesn't create this field
+            $queue->{maxthreads} //= 0;		# disbatch queue creation doesn't create this field
             if ($queue->{maxthreads} != $queue->{max}) {
                 say "$self->{name}: changing $queue->{name}: $queue->{maxthreads} => $queue->{max}" if $self->{verbose};
                 $self->{logger}->info("$self->{name}: changing $queue->{name}: $queue->{maxthreads} => $queue->{max}") if $self->{log};

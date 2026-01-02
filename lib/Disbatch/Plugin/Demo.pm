@@ -9,17 +9,7 @@ use Data::Dumper;
 sub new {
     my $class = shift;
 
-    # deprecated Disbatch 3 format
-    if (ref $_[0]) {
-        my ($queue, $parameters) = @_;
-        warn Dumper $parameters;
-        my %self = map { $_ => $parameters->{$_} } keys %$parameters;	# modifying $parameters breaks something in Disbatch 3.
-        $self{queue_id} = $queue->{id};
-        return bless \%self, $class;
-    }
-
     my $self = { @_ };
-    $self->{task}{params} //= $self->{task}{parameters} if defined $self->{task}{parameters};	# for deprecated Disbatch 3 format
     warn Dumper $self->{task}{params};
 
     # back-compat, so as to not change Disbatch 3 plugins so much
@@ -181,16 +171,6 @@ In this demo, the parameters passed become C<$self>, and all of the task's param
 In addition, C<<$self->{queue_id}>> is set to the task's queue id, and C<<$self->{id}>> is set to the task's id.
 This allows minimal modification to Disbatch 3 plugins.
 
-=item new($queue, $parameters)
-
-I<DEPRECATED FORMAT> for usage with Disbatch 3.
-
-Parameters: C<< { id => $oid } >> where C<$id> is a C<MongoDB::OID> object of the task's queue value, C<HASH> parameters value of the task.
-
-Returns a C<Disbatch::Plugin::Demo> object.
-
-In this demo, the task's parameters become C<$self>, and C<<$self->{queue_id}>> is set to C<<$queue->{id}>>.
-
 =item run
 
 Parameters: none
@@ -222,7 +202,7 @@ L<Disbatch::Roles>
 
 L<disbatchd>
 
-L<disbatch.pl>
+L<disbatch>
 
 L<task_runner>
 

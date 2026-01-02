@@ -21,7 +21,7 @@ create 301 redirects for ports 80 and 8080.
 
 #### Using the CLI
 
-To use the `disbatch.pl` CLI on the same server as nginx is running, no changes
+To use the `disbatch` CLI on the same server as nginx is running, no changes
 are needed.
 
 To use the CLI on another host, pass `--url https://$FQDN` and either

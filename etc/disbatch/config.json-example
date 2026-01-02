@@ -30,8 +30,6 @@
         "enabled": false,
     },
     "web_extensions": {					# new in 4.2
-        #"Disbatch::Web::Tasks": null,			# deprecated v4 routes: POST /tasks/search, POST /tasks/:queue, POST /tasks/:queue/:collection
-        #"Disbatch::Web::V3": null,			# deprecated v3 routes: *-json
     },
     #"pre_hook": {
     #    "name": "Disbatch::Plugin::Prehook",		# used by lib/Disbatch.pm to load the appropriate code. required by `disbatchd`.

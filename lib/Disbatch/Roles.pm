@@ -204,7 +204,7 @@ L<Disbatch::Plugin::Demo>
 
 L<disbatchd>
 
-L<disbatch.pl>
+L<disbatch>
 
 L<task_runner>
 

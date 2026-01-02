@@ -50,12 +50,12 @@ Copyright (c) 2016, 2019 by Ashley Willis.
 
 * CLI
 
-  * With `disbatch.pl`, you can list queues, create queues, modify max threads
+  * With `disbatch`, you can list queues, create queues, modify max threads
     of queues, create a single task in a queue, create many tasks in a queue
     based off a filter from another collection, search for tasks in a queue, and
     list queue plugin types available.
 
-  * For a full description, run `perldoc disbatch.pl`
+  * For a full description, run `perldoc disbatch`
 
   * If the Disbatch Command Interface is not running on `http://localhost:8080`,
     pass the URL with the `--url` option.

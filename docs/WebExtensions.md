@@ -43,8 +43,6 @@ Disbatch (by being passed the `Disbatch::Web` object).
         # do whatever you may need to do with $args
     }
 
-For an example using `init()`, see `Disbatch::Web::Tasks` (not loaded by default).
-
 For a simple example not using `init()`, see `Disbatch::Web::Files` (which is automatically loaded at the end of `init()`, after any custom routes).
 
 To see how `template` is used, see `Disbatch::Web` itself. Templates all get inserted as the `[% content %]` part of `views/layouts/main.tt`.

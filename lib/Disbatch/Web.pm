@@ -387,7 +387,6 @@ sub create_tasks {
 }
 
 sub post_tasks {
-    my ($legacy_params) = @_;
     undef $disbatch->{mongo};
     my $params = parse_params;
     # NEW:
@@ -396,7 +395,6 @@ sub post_tasks {
     # { "queue": queue, "params": generic_task_params, "collection": collection, "filter": collection_filter }
 
     $params = { params => $params } if ref $params eq 'ARRAY';
-    $params = { %$params, %$legacy_params } if defined $legacy_params;
 
     my $queue_id = get_queue_oid($params->{queue});
     unless (defined $queue_id) {
@@ -927,9 +925,9 @@ Creates one queued task document for the given queue _id per C<$tasks> entry. Ea
 
 Returns: the repsonse object from a C<MongoDB::Collection#insert_many> request.
 
-=item post_tasks($legacy_params)
+=item post_tasks
 
-Parameters: legacy params (optional, used by routes in Disbatch::Web::Tasks), also parses request parameters
+Parameters: none (but parses request parameters, see C<POST /tasks> below)
 
 Handles creating tasks to insert, and then creates them via C<create_tasks()>. See C<POST /tasks> below for usage.
 
@@ -1284,7 +1282,7 @@ If a custom route package needs to interface with Disbatch or have any arguments
         # do whatever you may need to do with $args
     }
 
-For examples see L<Disbatch::Web::Files> (which is automatically loaded at the end of C<init(), after any custom routes) and L<Disbatch::Web::Tasks> (not loaded by default).
+For examples see L<Disbatch::Web::Files> (which is automatically loaded at the end of C<init(), after any custom routes).
 
 =head1 BROWSER ROUTES
 
@@ -1312,7 +1310,7 @@ L<Disbatch::Plugin::Demo>
 
 L<disbatchd>
 
-L<disbatch.pl>
+L<disbatch>
 
 L<task_runner>
 
