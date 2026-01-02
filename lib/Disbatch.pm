@@ -6,7 +6,6 @@ use warnings;
 use boolean 0.25;
 use Cpanel::JSON::XS;
 use Data::Dumper;
-use DateTime;
 use Encode;
 use File::Slurp;
 use Log::Log4perl;
@@ -441,7 +440,7 @@ sub put_gfs {
     $filename ||= 'unknown';
     my $chunk_size = 255 * 1024;
     my $file_doc = {
-        uploadDate => DateTime->now,
+        uploadDate => BSON::Time->new,
         filename   => $filename,
         chunkSize  => $chunk_size,
         length     => defined $content ? length encode_utf8($content) : 0,

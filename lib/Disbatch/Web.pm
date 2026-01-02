@@ -496,9 +496,9 @@ sub _munge_tasks {
                 $task->{$type} = try { $disbatch->get_gfs($task->{$type}) } catch { Limper::warning "Could not get task $task->{_id} $type: $_"; $task->{$type} };
             }
         }
-        if ($options->{'.epoch'}) {
+        unless ($options->{'.epoch'}) {
             for my $type (qw/ctime mtime/) {
-                $task->{$type} = $task->{$type}->hires_epoch if ref $task->{$type} eq 'DateTime';
+                $task->{$type} = $task->{$type}->as_datetime if ref $task->{$type} eq 'BSON::Time';
             }
         }
     }
@@ -938,7 +938,7 @@ Options handled are C<.terse>, C<.full>, and C<.epoch>, all booleans.
 
 If C<.terse>, C<stdout> and C<stderr> values of each document will be C<[terse mode]> if defined and not a L<BSON::OID> object.
 Else if C<.full>, C<stdout> and C<stderr> values of each document will be actual content instead of L<BSON::OID> objects.
-If C<.epoch>, C<ctime> and C<mtime> will be turned into C<hires_epoch> (ex: C<1548272576.574>) insteaad of stringified (ex: C<2019-01-23T19:42:56>) if they are C<DateTime> objects.
+If C<.epoch>, C<ctime> and C<mtime> will be hires epoch (ex: C<1548272576.574>) insteaad of stringified (ex: C<2019-01-23T19:42:56>) if they are C<BSON::Time> objects.
 
 Returns nothing, modifies passed tasks.
 
