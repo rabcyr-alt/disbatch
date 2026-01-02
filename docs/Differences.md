@@ -1,6 +1,29 @@
-### Differences in Disbatch 4.2 compared to Disbatch 4.0
+### Differences in Disbatch 4.4 compared to Disbatch 4.2
 
-Copyright (c) 2016, 2019 by Ashley Willis.
+Copyright (c) 2016, 2019, 2026 by Ashley Willis.
+
+- removed code deprecated in 4.200 and 4.000:
+  - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3)
+  - file `lib/Disbatch/Web/Tasks.pm` (Disbatch::Web::Tasks)
+  - `search` command and `post_search()` in `bin/disbatch`
+  - file `bin/disbatch.pl`
+
+- updated code to use perl MongoDB v2.2.2 (maybe earlier v2 could but this is the EOL version from over 5 years ago) instead of v1.8.0 (maybe v1.0.4 still worked)
+  - `use MongoDB 2.2.2` instead of 1.0.4
+  - `BSON::OID` instead of `MongoDB::OID`, which has quite a different format
+  - `BSON::Time` instead of `DateTime`
+  - `count_documents()` instead of `count()`
+  - `insert_one()` instead of `insert()`
+
+- updated t/002_full.t for MongoDB changes from v3.6.8 (i think it worked with v4) to v6.0.26 (i think it may work with v5)
+  - `--noprealloc` is no longer a `mongod` option
+  - NOTE: `--nojournal` is no longer a `mongod` option in v8.2. i did not upgrade to that as the `--fork` option is broken, breaking current testing
+  - SSL options changed
+
+- updated code for perl v5.32.1 (really 5.24 and later), but should still work on v5.16.2 and possibly back to 5.12.0)
+  - `keys` can no longer take a scalar expression
+
+### Differences in Disbatch 4.2 compared to Disbatch 4.0
 
 - added QueueBalance: automatically maintain a maximum number of threads across
   queues depending on the time of day and day of week.

@@ -1,6 +1,19 @@
-### Upgrading from Disbatch 4.0 to Disbatch 4.2
+### Upgrading from Disbatch 4.2 to Disbatch 4.4
 
-Copyright (c) 2016, 2019 by Ashley Willis.
+Copyright (c) 2016, 2019, 2026 by Ashley Willis.
+
+This release is made to use newer Perl (v5.32.1, though v5.16.2 and maybe
+5.12.0 should work), the latest (and last) Perl MongoDB driver (v2.2.2), and
+was tested against MongoDB v6.0.26 (though v3.6.8 should still work, and
+possibly 8.2).
+
+The only requirement to upgrade should be the Perl driver, if not already
+using v2.2.2.
+
+No changes were made to how data is stored, nor to config files. No new
+features were added, but features deprecated in 4.2 and 4.0 were removed.
+
+### Upgrading from Disbatch 4.0 to Disbatch 4.2
 
 #### Configure
 
