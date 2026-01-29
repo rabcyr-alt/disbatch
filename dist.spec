@@ -10,7 +10,7 @@ Source: <% $archive %>
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-BUILD
 BuildArch: noarch
-BuildRequires: perl >= 0:5.01204
+BuildRequires: perl >= 0:5.032001
 
 Requires: perl(Limper::Engine::PSGI) perl(Starwoman) perl(Template::Plugin::SimpleJson) perl(Daemon::Control)
 
