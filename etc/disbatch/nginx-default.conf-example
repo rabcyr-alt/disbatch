@@ -1,7 +1,16 @@
 # redirect all standard port traffic to ssl
 server {
-    listen 80;
-    return 301 https://$host$request_uri;
+    listen      80;
+    server_name disbatch01.example.com;
+
+    # can serve some content on port 80 that you do not want redirected to 443
+    #location /repos/ {
+    #    alias /var/repos/;
+    #}
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 
 # redirect non-localhost traffic on port 8080 to ssl
