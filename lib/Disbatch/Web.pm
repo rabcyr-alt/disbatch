@@ -1278,7 +1278,7 @@ If a custom route package needs to interface with Disbatch or have any arguments
         # do whatever you may need to do with $args
     }
 
-For examples see L<Disbatch::Web::Files> (which is automatically loaded at the end of C<init(), after any custom routes).
+For examples see L<Disbatch::Web::Files> (which is automatically loaded at the end of C<init()>, after any custom routes).
 
 =head1 BROWSER ROUTES
 
