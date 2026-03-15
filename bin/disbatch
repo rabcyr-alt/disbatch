@@ -44,7 +44,7 @@ GetOptions(
     'count'         => \$count,
     'fields=s'      => \$fields,
     'limit=i'       => \$limit,
-    'skip'          => \$skip,
+    'skip=i'        => \$skip,
     'epoch'         => \$epoch,
     'terse!'        => \$terse,
     'full'          => \$full,
