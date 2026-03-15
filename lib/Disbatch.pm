@@ -194,24 +194,6 @@ sub scheduler_report {
     \@result;
 }
 
-sub scheduler_report_old_api {
-    my ($self) = @_;
-    my @result;
-    my @queues = try { $self->queues->find->all } catch { $self->logger->error("Could not find queues: $_"); () };
-    for my $queue (@queues) {
-        push @result, {
-            id             => $queue->{_id}{value},
-            plugin         => $queue->{plugin},
-            name           => $queue->{name},
-            threads        => $queue->{threads},
-            queued         => $self->count_queued($queue->{_id}),
-            running        => $self->count_running($queue->{_id}),
-            completed      => $self->count_completed($queue->{_id}),
-        };
-    }
-    \@result;
-}
-
 # updates the nodes collection
 sub update_node_status {
     my ($self) = @_;
