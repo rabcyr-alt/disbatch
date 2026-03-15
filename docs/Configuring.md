@@ -1,6 +1,6 @@
 ### Configuring Disbatch 4.4
 
-Copyright (c) 2016, 2019 by Ashley Willis.
+Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 #### Configure `/etc/disbatch/config.json`
 1. Copy `/etc/disbatch/config.json-example` to `/etc/disbatch/config.json`

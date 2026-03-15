@@ -1,6 +1,6 @@
 ### Running Disbatch 4
 
-Copyright (c) 2016, 2019 by Ashley Willis.
+Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 * [Configure](Configuring.md) Disbatch before running
 

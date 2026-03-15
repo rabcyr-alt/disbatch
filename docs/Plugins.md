@@ -1,6 +1,6 @@
 ### Writing Perl plugins for Disbatch 4
 
-Copyright (c) 2016 by Ashley Willis.
+Copyright (c) 2016, 2026 by Ashley Willis.
 
 For a simple example, see `lib/Disbatch/Plugin/Demo.pm`.
 

@@ -1,6 +1,6 @@
 ### QueueBalance
 
-Copyright (c) 2019 by Ashley Willis.
+Copyright (c) 2019, 2026 by Ashley Willis.
 
 QueueBalance automatically maintains a maximum number of threads across queues
 depending on the time of day and day of week.

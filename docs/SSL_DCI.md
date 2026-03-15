@@ -1,6 +1,6 @@
 ### Configuring and Using SSL with the Disbatch Command Interface
 
-Copyright (c) 2016 by Ashley Willis.
+Copyright (c) 2016, 2026 by Ashley Willis.
 
 #### Configuring
 
