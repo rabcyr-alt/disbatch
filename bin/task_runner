@@ -160,9 +160,13 @@ __END__
 
 task_runner - run a single Disbatch task
 
+=head1 DESCRIPTION
+
+Subprocess spawned by L<disbatchd> for each claimed task. Loads the appropriate plugin, executes it, and writes status, stdout, and stderr back to MongoDB.
+
 =head1 SYNOPSIS
 
-  task_runner --task 565bc0d43fb6ecd1c8504492 --config etc/disbatch/config.json
+  task_runner --task 565bc0d43fb6ecd1c8504492 --config /etc/disbatch/config.json
 
 =head1 ARGUMENTS
 
@@ -170,7 +174,7 @@ task_runner - run a single Disbatch task
 
 =item --config <string>
 
-Path to the JSON Disbatch config file.
+Path to the JSON Disbatch config file. Mandatory.
 
 =item --task <string>
 
@@ -184,7 +188,7 @@ While using GridFS can make analysing task output more complicated, we periodica
 
 To turn this on for all tasks, add the argument C<--gfs> with no value. To turn it on for tasks with large C<stdout> and C<stderr>, use C<--gfs auto>.
 Both C<stdout> and C<stderr> will be stored in the task document if they will fit, otherwise C<stderr> will be stored in the task document if it will fit
-and C<stdout> in GridFS, and finally both with be stored in GridFS if C<stderr> will not fit.
+and C<stdout> in GridFS, and finally both will be stored in GridFS if C<stderr> will not fit.
 
 In the config file, this is disabled with C<"gfs": false>, enabled with C<"gfs": true>, and automatic with C<"gfs": "auto"> (Note that automatic is the Disbatch default).
 
@@ -214,13 +218,15 @@ L<disbatch>
 
 L<disbatch-create-users>
 
+L<queuebalanced>
+
 =head1 AUTHORS
 
 Ashley Willis <awillis@synacor.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2016, 2019 by Ashley Willis.
+This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 

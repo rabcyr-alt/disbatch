@@ -18,19 +18,43 @@ while (1) {
 
 __END__
 
+=encoding utf8
+
 =head1 NAME
 
-queuebalanced
-
-=head1 SYNOPSIS
-
-    ./bin/queuebalanced [--config <config_file>]
+queuebalanced - QueueBalance daemon
 
 =head1 DESCRIPTION
 
 Runs L<Disbatch::QueueBalance>, sleeping C<30> seconds after every call to C<update()>.
 
-The C<config_file> defaults to C</etc/disbatch/config.json>.
+=head1 SYNOPSIS
+
+    queuebalanced [--config <config_file>]
+
+=head1 ARGUMENTS
+
+=over 2
+
+=item --config <string>
+
+Path to the JSON Disbatch config file. Default is C</etc/disbatch/config.json>.
+
+=back
+
+=head1 SEE ALSO
+
+L<Disbatch>
+
+L<Disbatch::QueueBalance>
+
+L<Disbatch::Web>
+
+L<disbatchd>
+
+L<disbatch>
+
+L<disbatch-create-users>
 
 =head1 AUTHORS
 
@@ -38,7 +62,7 @@ Ashley Willis <awillis@synacor.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2015, 2019 by Ashley Willis.
+This software is Copyright (c) 2015, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 
