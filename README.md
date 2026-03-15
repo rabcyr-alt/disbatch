@@ -58,12 +58,12 @@ See [Running](docs/Running.md)
 See [QueueBalance](docs/QueueBalance.md)
 
 
-#### Changes from Disbatch 4.0 and Disbatch 3
+#### Changes from Previous Versions
 
 See [Differences](docs/Differences.md)
 
 
-#### Upgrading from Disbatch 4.0 and Disbatch 3
+#### Upgrading from Previous Versions
 
 See [Upgrading](docs/Upgrading.md)
 
@@ -92,7 +92,7 @@ Matt Busigin (<mbusigin@hovernetworks.com>)
 
 #### Copyright and License
 
-This software is Copyright (c) 2016, 2019 by Ashley Willis.
+This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 
