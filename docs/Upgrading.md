@@ -18,7 +18,7 @@ features were added, but features deprecated in 4.2 and 4.0 were removed.
 #### Configure
 
 For new features to work, the config file must be updated and
-`disbatch-create-users` must be ran again.
+`disbatch-create-users` must be run again.
 
 - For QueueBalance to work:
   - Add `auth.queuebalance` with a password to the config file
@@ -54,7 +54,7 @@ For new features to work, the config file must be updated and
   different names
 
 - Set each queue's `threads` to how many maximum concurrent threads should be
-  ran for that queue across all DENs. The queue field `maxthreads`, which
+  run for that queue across all DENs. The queue field `maxthreads`, which
   applied per DEN, is no longer used.
 
 - Run one of the following on each database, as the `constructor` field has been

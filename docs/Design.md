@@ -95,7 +95,7 @@ task's document in MongoDB with these values as well as the `mtime`.
 
         { sort: { _id: 1 } }
 
-See your MongoDB driver's documentation on its implemenation of
+See your MongoDB driver's documentation on its implementation of
 `findOneAndUpdate()`. If it is not available, you can use `findAndModify()`.
 
 This ensures that there will be no race conditions amongst DENs, even in a
@@ -295,7 +295,7 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 * `attributes`
 
   A hash of connection attributes for
-  [MongoDB::MongoClient](https://metacpan.org/pod/MongoDB::MongoClient).
+  [MongoDB->connect()](https://metacpan.org/pod/MongoDB).
   For SSL, it will contain the key `ssl` with a value of `1` if using a public
   certificate, a value of `{"SSL_ca_file": PATH_TO_CERTIFICATE_AUTHORITY }` if
   using an internally-signed certificate, or a value of `{"SSL_verify_mode": 0}`

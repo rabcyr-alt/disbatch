@@ -1,4 +1,4 @@
-### Configuring Disbatch 4.2
+### Configuring Disbatch 4.4
 
 Copyright (c) 2016, 2019 by Ashley Willis.
 

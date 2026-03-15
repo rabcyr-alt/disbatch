@@ -9,7 +9,7 @@ A set of queues can have the same priority, and other queues can have other
 priorities.
 
 This is useful to maintain load across multiple queues, but have priority
-queues for the occasional tasks which must be ran ASAP.  You can also have
+queues for the occasional tasks which must be run ASAP.  You can also have
 different max threads depending on the time of day and day of week.
 
 To enable, set `balance.enabled` to `true` in the config file.
@@ -17,7 +17,7 @@ To enable, set `balance.enabled` to `true` in the config file.
 Start it with the following, which will initialize the needed collection and
 every 30 seconds make changes to threads per queue if needed.
 
-    sudo etc/init.d/queuebalanced start
+    sudo /etc/init.d/queuebalanced start
 
 The web interface is at `/balance` (default: `http://localhost:8080/balance`).
 
