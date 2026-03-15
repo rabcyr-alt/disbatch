@@ -28,7 +28,7 @@ See also [Configuring and Using SSL with MongoDB](SSL_MongoDB.md) and
 #### Create MongoDB users for Disbatch if using authentication
 - Configure the permissions your plugin needs in
   `/etc/disbatch/plugin-permissions.json`.
-- If your MongoDB `root` user has a different name, passs that to `--root_user`.
+- If your MongoDB `root` user has a different name, pass that to `--root_user`.
   If no users exist yet, also pass `--create_root`. See the perldoc for more
   info.
 

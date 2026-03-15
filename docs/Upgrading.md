@@ -74,7 +74,7 @@ For new features to work, the config file must be updated and
 
 #### Configure
 
-See [Configuring](/docs/Configuring.md)
+See [Configuring](Configuring.md)
 
 Consult `/etc/disbatch/disbatch.ini` for reference of current settings.
 

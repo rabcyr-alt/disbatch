@@ -23,8 +23,8 @@ Copyright (c) 2016, 2019 by Ashley Willis.
     a `Type` from the drop-down menu, and clicking `Create`.
 
   * Modify an existing queue by clicking on its `Type`, `Name`, or `Threads`.
-    `Threads` is the number of concurrent tasks to run from this queue **per
-    DEN**. You cannot delete a queue from the web interface.
+    `Threads` is the number of concurrent tasks to run from this queue **across
+    all DENs**. You cannot delete a queue from the web interface.
 
   * To limit the total number of concurrent tasks to run per DEN, set `Max
     Threads` for that DEN in the `Disbatch Execution Nodes` table. This will
@@ -38,7 +38,7 @@ Copyright (c) 2016, 2019 by Ashley Willis.
 
 * QueueBalance
 
-  * See [QueueBalance](docs/QueueBalance.md) on how to use the tool for
+  * See [QueueBalance](QueueBalance.md) on how to use the tool for
     automatically maintaining a maximum number of threads across queues depending
     on the time of day and day of week.
 

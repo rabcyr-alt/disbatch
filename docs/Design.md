@@ -71,7 +71,7 @@ Each task is initialised with its `node` as `null` (unclaimed) and `status` as
 DENs claim tasks from queues using `findOneAndUpdate(filter, update, options)`,
 (which returns the task object), by putting them into a claimed state (setting
 `status` to `-1` and `node` to the hostname of the DEN) until the per-DEN
-`maxthreads` and per-queue `theads` thresholds are reached. The DEN then
+`maxthreads` and per-queue `threads` thresholds are reached. The DEN then
 notifies the DTR of the task, and the DTR puts the task into a running state
 (setting `status` to `0`). When the plugin has finished, it reports back the
 status, stdout, and stderr of the task to the DTR. The DTR then updates the

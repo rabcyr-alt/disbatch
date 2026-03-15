@@ -3,10 +3,10 @@ disbatch
 a scalable distributed batch processing framework
 
 
-Disbatch 4.2 is a scalable distributed batch processing framework using MongoDB.
+Disbatch 4.4 is a scalable distributed batch processing framework using MongoDB.
 It runs on one-to-many Disbatch Execution Nodes (DEN), where each DEN handles
 hundreds to thousands of concurrent tasks for one or more plugins.
-Disbatch 4.2 can be updated and restarted as needed to deploy changes without
+Disbatch 4.4 can be updated and restarted as needed to deploy changes without
 interrupting currently running tasks.
 
 Each DEN starts independent tasks using the specified plugin, and a separate
@@ -33,7 +33,7 @@ For an in-depth description of the design, see
         cpanm disbatch-<VERSION>.tar.gz
 
 
-#### Configuring Disbatch 4.2
+#### Configuring Disbatch 4.4
 
 See [Configuring](docs/Configuring.md)
 
@@ -48,7 +48,7 @@ See [Plugins](docs/Plugins.md)
 See [WebExtensions](docs/WebExtensions.md)
 
 
-#### Running Disbatch 4.2
+#### Running Disbatch 4.4
 
 See [Running](docs/Running.md)
 
