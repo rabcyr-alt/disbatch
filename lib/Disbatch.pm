@@ -111,11 +111,11 @@ sub load_config {
 
         # validate node_increase and queue_increase
         if (defined $self->{config}{node_increase} and ($self->{config}{node_increase} !~ /^\d+$/ or $self->{config}{node_increase} <= 0)) {
-            $self->logger->logdie("config.node_increase but be an integer > 0, or null");
+            $self->logger->logdie("config.node_increase must be an integer > 0, or null");
         }
         if (defined $self->{config}{queue_increase}) {
             if ($self->{config}{queue_increase} !~ /^\d+$/ or $self->{config}{queue_increase} <= 0) {
-                $self->logger->logdie("config.queue_increase but be an integer > 0, or null");
+                $self->logger->logdie("config.queue_increase must be an integer > 0, or null");
             } elsif (defined $self->{config}{node_increase} and $self->{config}{queue_increase} > $self->{config}{node_increase}) {
                 $self->logger->logdie("config.queue_increase must be <= config.node_increase");
             }
@@ -299,7 +299,7 @@ sub unclaim_task {
     my ($self, $task_id) = @_;
     my $query  = { _id => $task_id, node => $self->{node}, status => -1 };
     my $update = { '$set' => {node => undef, status => -2, mtime => Time::Moment->now_utc} };
-    $self->logger->warn("Unclaliming task $task_id");
+    $self->logger->warn("Unclaiming task $task_id");
     retry { $self->tasks->find_one_and_update($query, $update) } catch { $self->logger->error("Could not unclaim task $task_id: $_"); undef };
 }
 
