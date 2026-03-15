@@ -172,7 +172,7 @@ sub update {
                 if (!$self->{pretend}) {
                     my $res = $self->{disbatch}->queues->update_one({name => $queue->{name}}, {'$set' => {maxthreads => $queue->{max} } });
                     if (ref $res eq 'MongoDB::UpdateResult' and $res->modified_count == 1) {
-                        my $status = $self->queues->find_one({name => $queue->{name}});
+                        my $status = $self->{disbatch}->queues->find_one({name => $queue->{name}});
                         $status->{id} = delete $status->{_id};
                         $status->{collection} = 'queues';
                         $self->{disbatch}->changelog->insert_one($status);

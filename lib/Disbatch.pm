@@ -5,6 +5,7 @@ use warnings;
 
 use boolean 0.25;
 use Cpanel::JSON::XS;
+use Digest::MD5;
 use Data::Dumper;
 use Encode;
 use File::Slurp;
@@ -373,9 +374,9 @@ sub count_total {
 sub is_active_queue {
     my ($self, $queue_id) = @_;
     if (@{$self->{config}{activequeues}}) {
-        grep($queue_id->{value} eq $_, @{$self->{config}{activequeues}}) ? 1 : 0;
+        grep($queue_id->hex eq $_, @{$self->{config}{activequeues}}) ? 1 : 0;
     } elsif (@{$self->{config}{ignorequeues}}) {
-        grep($queue_id->{value} eq $_, @{$self->{config}{ignorequeues}}) ? 0 : 1;
+        grep($queue_id->hex eq $_, @{$self->{config}{ignorequeues}}) ? 0 : 1;
     } else {
         1;
     }
