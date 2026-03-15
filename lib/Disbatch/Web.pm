@@ -823,6 +823,18 @@ __END__
 
 Disbatch::Web - Disbatch Command Interface (JSON REST API and web browser interface to Disbatch).
 
+=head1 SYNOPSIS
+
+    use Disbatch::Web;
+
+    Disbatch::Web::init(config_file => '/etc/disbatch/config.json');
+
+=head1 DESCRIPTION
+
+Provides the Disbatch Command Interface (DCI): a PSGI-based JSON REST API and web browser interface
+using L<Limper> for routing and L<Starwoman> as the server. Entry point for production use is
+C<etc/disbatch/app.psgi>; for development use C<dev/disbatch-web>.
+
 =head1 EXPORTED
 
 parse_params, send_json_options, template
@@ -919,7 +931,7 @@ Parameters: C<BSON::OID> object of the queue _id, C<ARRAY> of task params.
 
 Creates one queued task document for the given queue _id per C<$tasks> entry. Each C<$task> entry becomes the value of the C<params> field of the document.
 
-Returns: the repsonse object from a C<MongoDB::Collection#insert_many> request.
+Returns: the response object from a C<MongoDB::Collection#insert_many> request.
 
 =item post_tasks
 
@@ -927,7 +939,7 @@ Parameters: none (but parses request parameters, see C<POST /tasks> below)
 
 Handles creating tasks to insert, and then creates them via C<create_tasks()>. See C<POST /tasks> below for usage.
 
-Returns the resonse of C<create_tasks()> as JSON with the key the ref type of the response and the value the response turned into a C<HASH>,
+Returns the response of C<create_tasks()> as JSON with the key the ref type of the response and the value the response turned into a C<HASH>,
 or on error sets HTTP status to C<400> and returns JSON of C<{"error":message}>.
 
 =item _munge_tasks($tasks, $options)
@@ -938,7 +950,7 @@ Options handled are C<.terse>, C<.full>, and C<.epoch>, all booleans.
 
 If C<.terse>, C<stdout> and C<stderr> values of each document will be C<[terse mode]> if defined and not a L<BSON::OID> object.
 Else if C<.full>, C<stdout> and C<stderr> values of each document will be actual content instead of L<BSON::OID> objects.
-If C<.epoch>, C<ctime> and C<mtime> will be hires epoch (ex: C<1548272576.574>) insteaad of stringified (ex: C<2019-01-23T19:42:56>) if they are C<BSON::Time> objects.
+If C<.epoch>, C<ctime> and C<mtime> will be hires epoch (ex: C<1548272576.574>) instead of stringified (ex: C<2019-01-23T19:42:56>) if they are C<BSON::Time> objects.
 
 Returns nothing, modifies passed tasks.
 
@@ -1203,8 +1215,6 @@ Parameters: Task OID in URL
 Returns the task matching OID as JSON, or C<{ "error": "no task with id :id" }> and status C<404> if OID not found.
 Or, via a web browser (based on C<Accept> header value), returns the task matching OID with some formatting, or C<No tasks found matching query> if OID not found.
 
-=cut
-
 =item POST /tasks
 
 Parameters: C<{ "queue": queue, "params": [single_task_params, another_task_params, ...] }> or C< { "queue": queue, "params": generic_task_params, "collection": collection, "filter": filter }>.
@@ -1320,7 +1330,7 @@ Matt Busigin
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2015, 2016, 2019 by Ashley Willis.
+This software is Copyright (c) 2015, 2016, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 

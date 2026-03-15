@@ -240,6 +240,8 @@ sub max_tasks {
 
 __END__
 
+=encoding utf8
+
 =head1 NAME
 
 Disbatch::QueueBalance
@@ -251,7 +253,7 @@ Disbatch::QueueBalance
     my $qb = Disbatch::QueueBalance->new($config_file); # where $config_file is the same as for Disbatch
     $qb->update();
 
-=head1 Subroutines
+=head1 SUBROUTINES
 
 =over 2
 
@@ -289,13 +291,29 @@ Returns: integer for current max_threads allowed
 
 =back
 
+=head1 SEE ALSO
+
+L<Disbatch>
+
+L<Disbatch::Web>
+
+L<Disbatch::Roles>
+
+L<Disbatch::Plugin::Demo>
+
+L<disbatchd>
+
+L<disbatch>
+
+L<queuebalanced>
+
 =head1 AUTHORS
 
 Ashley Willis <awillis@synacor.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2015, 2019 by Ashley Willis.
+This software is Copyright (c) 2015, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 

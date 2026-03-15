@@ -496,6 +496,20 @@ __END__
 
 Disbatch - a scalable distributed batch processing framework using MongoDB.
 
+=head1 SYNOPSIS
+
+    use Disbatch;
+
+    my $disbatch = Disbatch->new(class => 'Disbatch', config_file => '/etc/disbatch/config.json');
+    $disbatch->load_config;
+
+=head1 DESCRIPTION
+
+Base class for Disbatch. Handles MongoDB connection management, config loading, logging, task
+claiming and unclaiming, orphan cleanup, queue processing, plugin validation, and GridFS file storage.
+
+Used directly by L<disbatchd> and L<task_runner>, and as a base for plugin worker threads.
+
 =head1 SUBROUTINES
 
 =over 2
@@ -543,6 +557,12 @@ Returns a L<MongoDB::Collection> object for collection "tasks".
 Parameters: none
 
 Returns a L<MongoDB::Collection> object for collection "balance".
+
+=item changelog
+
+Parameters: none
+
+Returns a L<MongoDB::Collection> object for collection "changelog".
 
 =item load_config
 
@@ -675,7 +695,7 @@ Returns: a non-negative integer, or undef if an error.
 
 Parameters: L<BSON::OID> object for a queue or a query operator value or C<undef>
 
-Counts queued (status <= -2), running (status of 0 or -1), running on this node, completed (status >= 1), or all tasks for the given queue (status <= -2).
+Counts queued (status <= -2), running (status of 0 or -1), running on this node, completed (status >= 1), or all tasks for the given queue.
 
 Returns: a non-negative integer, or undef if an error.
 
@@ -738,7 +758,7 @@ Matt Busigin
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2016, 2019 by Ashley Willis.
+This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 

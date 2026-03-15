@@ -145,13 +145,26 @@ __END__
 
 Disbatch::Roles - define and create MongoDB roles and users for Disbatch
 
+=head1 SYNOPSIS
+
+    use Disbatch::Roles;
+
+    my $roles = Disbatch::Roles->new(db => $db, plugin_perms => $plugin_perms, %auth);
+    $roles->create_roles_and_users;
+
+=head1 DESCRIPTION
+
+Defines the five Disbatch MongoDB roles (C<disbatchd>, C<disbatch_web>, C<task_runner>,
+C<queuebalance>, C<plugin>) and provides utilities to create, drop, and update those roles
+and their associated users. Used by L<disbatch-create-users>.
+
 =head1 SUBROUTINES
 
 =over 2
 
 =item new
 
-Parameters: C<< db => $db, plugin_perms => $plugin_perms, additional_perms => $additional_perms, disbatchd => $disbatchd_pw, disbatch_web => $disbatch_web_pw, task_runner => $task_runner_pw, queuebalance => queuebalance, plugin => $plugin_pw >>
+Parameters: C<< db => $db, plugin_perms => $plugin_perms, additional_perms => $additional_perms, disbatchd => $disbatchd_pw, disbatch_web => $disbatch_web_pw, task_runner => $task_runner_pw, queuebalance => $queuebalance_pw, plugin => $plugin_pw >>
 
   C<db> is a C<MongoDB::Database> object which must be authenticated with an accout having the C<root> role.
   C<plugin_perms> is a C<HASH> in the format of C<< { collection_name => array_of_actions, ... } >>, to give the plugin the needed permissions for MongoDB.
@@ -216,7 +229,7 @@ Ashley Willis <awillis@synacor.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2016, 2019 by Ashley Willis.
+This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 
