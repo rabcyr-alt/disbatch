@@ -17,30 +17,15 @@ use Limper::SendJSON;
 use Limper 0.015;
 use Safe::Isa;
 use Scalar::Util qw/ looks_like_number /;
-use Template;
 use Time::Moment;
 use Try::Tiny::Retry;
 use URL::Encode qw/url_params_mixed/;
 
-our @EXPORT = qw/ parse_params send_json_options template /;
+our @EXPORT = qw/ parse_params send_json_options /;
 
 my $oid_keys = [ qw/ queue / ];	# NOTE: in addition to _id
 
 sub send_json_options { allow_blessed => 1, canonical => 1, convert_blessed => 1 }
-
-my $tt;
-
-# this should be compatible with Dancer's template(), except we do not support the optional settings (third value), and it was unused by RemoteControl
-sub template {
-    my ($template, $params) = @_;
-    my $output = '';
-    $params->{perl_version} = $];
-    $params->{limper_version} = $Limper::VERSION;
-    $params->{request} = request;
-    $tt->process($template, $params, \$output) || die $tt->error();
-    headers 'Content-Type' => 'text/html';
-    $output;
-}
 
 my $disbatch;
 
@@ -61,8 +46,6 @@ sub init {
         }
     }
     require Disbatch::Web::Files;	# this has a catch-all to send any matching file in the public root directory, so must be loaded last.
-    # the following options should be compatible with previous Dancer usage:
-    $tt = Template->new(ANYCASE => 1, ABSOLUTE => 1, ENCODING => 'utf8', INCLUDE_PATH => $disbatch->{config}{views_dir} // '/etc/disbatch/views/', START_TAG => '\[%', END_TAG => '%\]', WRAPPER => 'layouts/main.tt');
 }
 
 sub parse_params {
@@ -79,28 +62,13 @@ sub parse_params {
     wantarray ? ($params, $options) : $params;
 }
 
-sub parse_accept {
-    +{ map { @_ = split(/;q=/, $_); $_[0] => $_[1] // 1 } split /,\s*/, request->{headers}{accept} // '' };
-}
-
-sub want_json {
-    my $accept = parse_accept;
-    # prefer 'text/html' over 'application/json' if equal, but default to 'application/json'
-    ($accept->{'text/html'} // 0) >= ($accept->{'application/json'} // 1) ? 0 : 1;
-}
-
 ################
 #### NEW API ###
 ################
 
+# Serves the Angular single-page app. Limper::SendFile maps '/' to '/index.html' in public().
 get '/' => sub {
-    # NOTE: not doing just "template 'index.tt', $params;" because not using WRAPPER here
-    my $tt = Template->new(ANYCASE => 1, ABSOLUTE => 1, ENCODING => 'utf8', INCLUDE_PATH => $disbatch->{config}{views_dir} // '/etc/disbatch/views/', START_TAG => '\[%', END_TAG => '%\]');
-    my $output = '';
-    my $params = { database => $disbatch->{config}{database}, web_extensions => [sort keys %{$disbatch->{config}{web_extensions} // {}}], get_routes => [ grep { m{^/} } sort keys %{+{@{Limper::routes('GET')}}} ] };
-    $tt->process('index.tt', $params, \$output) || die $tt->error();
-    headers 'Content-Type' => 'text/html';
-    $output;
+    send_file '/index.html';
 };
 
 get '/info' => sub {
@@ -504,62 +472,28 @@ sub _munge_tasks {
     }
 }
 
-# IDEA: in query.tt at least toggleGroup() should run at $(document).ready() when returning a form because of invalid params, instead of only showing the limit (bug is there, not at all here) (note from 2019-03-25, it's now 2025)
 get '/tasks' => sub {
     undef $disbatch->{mongo};	# NOTE: why is this added? (note from 2019-03-29, it's now 2025)
     my ($params, $options) = parse_params;	# NOTE: $options may contain: .limit .skip .count .pretty .terse .epoch .full
     $params = undef if defined $params and $params eq '';	# IDEA: maybe move to parse_params() above (note from 2019-03-29, it's now 2025)
-    my $want_json = want_json;
 
     my $indexes = get_indexes($disbatch->tasks);
-    my $schema = {
-            verb => 'GET',
-            limit => 100,
-            title => 'Disbatch Tasks Query',
-            subtitle => 'Warning: this can return a LOT of data!',
-            params => +{ map { map { $_ => { repeatable => 'yes', type => ['string' ]} } @$_ } @$indexes },
-    };
-    if (!$want_json and !%$params and !%$options) {
-        my $result = { schema => $schema, indexes => $indexes };
-        return template 'query.tt', $result;
-    }
-
-    my $result = query($params, $options, $schema->{title}, $oid_keys, $disbatch->tasks, request->{path}, $want_json, $indexes);
-    if ($want_json) {
-        status 400 if ref $result ne 'ARRAY' and exists $result->{error};
-        _munge_tasks($result, $options);
-        send_json $result, send_json_options, pretty => $options->{'.pretty'} // 0;
-    } else {
-        if (exists $result->{error}) {
-            $result->{schema} = $schema;
-            $result->{schema}{error} = $result->{error};
-            status 400;
-        }
-        _munge_tasks($result, $options);	# NOTE: do we want _munge_tasks() here too? well let's TIAS (note from 2019-03-29, it's now 2025)
-        template 'query.tt', $result;
-    }
+    my $result = query($params, $options, 'Disbatch Tasks Query', $oid_keys, $disbatch->tasks, request->{path}, 1, $indexes);
+    status 400 if ref $result ne 'ARRAY' and exists $result->{error};
+    _munge_tasks($result, $options);
+    send_json $result, send_json_options, pretty => $options->{'.pretty'} // 0;
 };
 
 get qr'^/tasks/(?<id>[0-9a-f]{24})$' => sub {
     my $title = "Disbatch Single Task Query";
-    my $want_json = want_json;
-    my $result = query({id => $+{id}}, {'.limit' => 1}, $title, $oid_keys, $disbatch->tasks, request->{path}, $want_json, [['id']]);
-    if ($want_json) {
-        if (!keys %$result) {
-            status 404;
-            $result = { error => "no task with id $+{id}" };
-        } elsif (exists $result->{error}) {
-            status 400;
-        }
-        send_json $result, send_json_options, pretty => 1;
-    } else {
-        if (!defined $result->{result}) {
-            status 404;
-        } elsif (exists $result->{error}) {
-            status 400;
-        }
-        template 'query.tt', $result;
+    my $result = query({id => $+{id}}, {'.limit' => 1}, $title, $oid_keys, $disbatch->tasks, request->{path}, 1, [['id']]);
+    if (!keys %$result) {
+        status 404;
+        $result = { error => "no task with id $+{id}" };
+    } elsif (exists $result->{error}) {
+        status 400;
     }
+    send_json $result, send_json_options, pretty => 1;
 };
 
 sub get_balance {
@@ -625,12 +559,7 @@ sub post_balance {
 };
 
 get '/balance' => sub {
-    my $want_json = want_json;
-    if ($want_json) {
-        send_json get_balance(), send_json_options, pretty => 1;
-    } else {
-        template 'balance.tt', get_balance();
-    }
+    send_json get_balance(), send_json_options, pretty => 1;
 };
 
 post '/balance' => sub {
@@ -837,7 +766,7 @@ C<etc/disbatch/app.psgi>; for development use C<dev/disbatch-web>.
 
 =head1 EXPORTED
 
-parse_params, send_json_options, template
+parse_params, send_json_options
 
 =head1 SUBROUTINES
 
@@ -850,18 +779,6 @@ Parameters: path to the Disbatch config file. Default is C</etc/disbatch/config.
 Initializes the settings for the web server, including loading any custom routes via C<config.web_extensions> (see L<CUSTOM ROUTES> below).
 
 Returns nothing.
-
-=item template($template, $params)
-
-Parameters: template (C<.tt>) file name in the C<config.views_dir> directory, C<HASH> of parameters for the template.
-
-Creates a web page based on the passed data.
-
-Sets C<Content-Type> to C<text/html>.
-
-Returns the generated html document.
-
-NOTE: this sub is automatically exported, so any package using L<Disbatch::Web> can call it.
 
 =item parse_params
 
@@ -890,22 +807,6 @@ Used to enable the following options when returning JSON: C<allow_blessed>, C<ca
 Returns a C<list> of key/value pairs of options to pass to C<send_json>.
 
 NOTE: this sub is automatically exported, so any package using L<Disbatch::Web> can call it.
-
-=item parse_accept
-
-Parameters: none
-
-Parses C<Accept> header.
-
-Returns a C<HASH> where keys are types and values are q-factor weights.
-
-=item want_json
-
-Parameters: none
-
-Returns true if C<Accept> header has C<application/json> with a higher q-factor weight than C<text/html>.
-
-Note: if not specified, C<text/html> has an assumed q-factor weight of C<0> and C<application/json> has an assumed q-factor weight of C<1>.
 
 =item get_nodes
 
@@ -1197,23 +1098,24 @@ Parameters: anything indexed on the C<tasks> collection, as well as any dot opti
 
 Options can be C<.count>, C<.fields> to return, query C<.limit> and C<.skip>, C<.terse> or C<.full> output, dates as C<.epoch>, and C<.pretty> print JSON result.
 
-Performs a search of tasks, returning either JSON or a web page.
+Performs a search of tasks, always returning JSON.
 
-If C<want_json()> (based on the C<Accept> header), returns a JSON array (which may be pretty-printed if specified in the parameters) of task documents,
-or on error an object with an C<error> field (and possibly other fields).
+Returns a JSON array (which may be pretty-printed if specified in the parameters) of task documents,
+or on error an object with an C<error> field (and possibly other fields, including C<indexes> and C<invalid_params>).
 
-Otherwise, if no parameters returns a web form to perform a search of indexed fields. If parameters, returns a web page of results or error.
+With no parameters, returns a C<400> error object whose C<indexes> field lists the queryable index sets (used by the web UI to build its query form).
 
 Sets HTTP status to C<400> on error.
 
-Note: new in 4.2, replaces C<POST /tasks/search>
+Note: new in 4.2, replaces C<POST /tasks/search>. As of 5.0 this route is JSON-only (the server-rendered form was removed).
 
 =item GET /tasks/:id
 
 Parameters: Task OID in URL
 
 Returns the task matching OID as JSON, or C<{ "error": "no task with id :id" }> and status C<404> if OID not found.
-Or, via a web browser (based on C<Accept> header value), returns the task matching OID with some formatting, or C<No tasks found matching query> if OID not found.
+
+Note: as of 5.0 this route is JSON-only (the server-rendered page was removed).
 
 =item POST /tasks
 
@@ -1246,7 +1148,9 @@ Note: new in 4.2, replaces C<POST /tasks/:queue> and C<POST /tasks/:queue/:colle
 
 Parameters: none
 
-Returns a web page to view and update Queue Balance settings if the C<Accept> header wants C<text/html>, otherwise returns a pretty JSON result of C<get_balance>
+Returns a pretty JSON result of C<get_balance> (the Queue Balance settings).
+
+Note: as of 5.0 this route is JSON-only (the server-rendered page was removed).
 
 =item POST /balance
 
@@ -1296,7 +1200,7 @@ For examples see L<Disbatch::Web::Files> (which is automatically loaded at the e
 
 =item GET /
 
-Returns the contents of "/index.html" – the queue browser page.
+Returns the contents of "/index.html" – the Angular single-page web UI.
 
 =item GET qr{^/}
 

@@ -45,6 +45,7 @@ Disbatch (by being passed the `Disbatch::Web` object).
 
 For a simple example not using `init()`, see `Disbatch::Web::Files` (which is automatically loaded at the end of `init()`, after any custom routes).
 
-To see how `template` is used, see `Disbatch::Web` itself. Templates all get inserted as the `[% content %]` part of `views/layouts/main.tt`.
-
-The views directory defaults to `/etc/disbatch/views/`, but can be set via `config.views_dir`.
+Note: as of Disbatch 5.0 the built-in web UI is a compiled Angular single-page app served from
+`config.web_root`, and the server-rendered Template Toolkit views were removed. The `template`
+helper and the `config.views_dir` setting no longer exist. Web extensions that need to return HTML
+should build and return it directly (for example with `headers 'Content-Type' => 'text/html'`).

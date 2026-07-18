@@ -1,0 +1,33 @@
+<div class="dashboard-header">
+  <h1>Queues</h1>
+  <button mat-stroked-button (click)="reload()">
+    <mat-icon>refresh</mat-icon> Refresh
+  </button>
+</div>
+
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
+
+<app-queue-table
+  [queues]="queues()"
+  [plugins]="plugins()"
+  (changed)="reload()"
+  (editingChange)="setEditing($event)">
+</app-queue-table>
+
+<h1>Disbatch Execution Nodes</h1>
+<p class="hint">If Max Threads is blank, the DEN uses unlimited threads.</p>
+<app-node-table
+  [nodes]="liveNodes()"
+  (changed)="reload()"
+  (editingChange)="setEditing($event)">
+</app-node-table>
+
+<h1>Non-Running Disbatch Execution Nodes</h1>
+<p class="hint">Nodes that have not reported within the last 15 minutes.</p>
+<app-node-table
+  [nodes]="deadNodes()"
+  (changed)="reload()"
+  (editingChange)="setEditing($event)">
+</app-node-table>

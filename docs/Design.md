@@ -354,13 +354,9 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `web_root`
 
-  The path to the html, js, and other web documents for the web interface.
+  The path to the html, js, and other web documents for the web interface
+  (the compiled Angular single-page app).
   Default is `"/etc/disbatch/htdocs/"`.
-
-* `views_dir`
-
-  The path to the template files for the web interface.
-  Default is `"/etc/disbatch/views/"`.
 
 * `log4perl`
 

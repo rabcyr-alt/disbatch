@@ -1,6 +1,15 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+ - Replaced the legacy Bootstrap/EditableGrid/jQuery web UI with a modern Angular
+   single-page app (TypeScript, Angular Material). Sources live in web/; the compiled
+   output ships in etc/disbatch/htdocs/.
+ - Disbatch::Web is now JSON-only: GET /, GET /tasks, GET /tasks/:id, and GET /balance
+   no longer render HTML/Template Toolkit. The Accept header is no longer inspected.
+ - BREAKING: the `template` sub is no longer exported by Disbatch::Web (nor are the
+   internal parse_accept/want_json helpers), and the `config.views_dir` setting was
+   removed. Web extensions that imported `template` must build HTML themselves.
+ - Dropped the Template::Plugin::SimpleJson dependency.
 
 4.390     2026-01-02 19:02:18-05:00 EST5EDT
 

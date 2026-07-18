@@ -1,0 +1,112 @@
+<h1>QueueBalancer</h1>
+<p class="subtitle">Pre-populated with current settings.</p>
+
+@if (notice()) {
+  <div class="banner warn">{{ notice() }}</div>
+}
+@if (settings() && !isEnabled()) {
+  <div class="banner warn">NOT ENABLED (changes here will be saved but not applied)</div>
+}
+@if (isPretend()) {
+  <div class="banner warn">PRETEND MODE</div>
+}
+
+<form (ngSubmit)="submit()">
+  <section>
+    <h2>Queues</h2>
+    <p class="hint">Comma-separated queues in a row have equal priority. Later rows have higher priority.</p>
+    @for (group of queueGroups; track $index; let i = $index) {
+      <div class="row">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="queue-field"
+                        [class.invalid]="invalidGroups().has(i)">
+          <input matInput [(ngModel)]="queueGroups[i]" [name]="'queues_' + i"
+                 (ngModelChange)="recompute()" placeholder="queue1,queue2" />
+        </mat-form-field>
+        <span class="priority-label">{{ queueGroupLabel(i) }}</span>
+      </div>
+    }
+    <div class="row-actions">
+      <button type="button" mat-stroked-button (click)="addQueueGroup()">Add another</button>
+      <button type="button" mat-stroked-button (click)="removeQueueGroup()">Remove last</button>
+    </div>
+    <p class="hint">Known queues: {{ knownQueues().join(', ') || '(none)' }}</p>
+    @if (queueError()) {
+      <p class="error">{{ queueError() }}</p>
+    }
+  </section>
+
+  <section>
+    <h2>Intervals</h2>
+    <p class="hint">A specific day at the same time takes precedence over a daily event.</p>
+    <div class="interval-head">
+      <span class="col-dow">DOW</span>
+      <span class="col-time">HH:MM</span>
+      <span class="col-size">max</span>
+    </div>
+    @for (row of maxTasksRows; track $index; let i = $index) {
+      <div class="row interval-row" [class.invalid]="invalidRows().has(i)">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="col-dow">
+          <mat-select [(ngModel)]="maxTasksRows[i].dow" [name]="'dow_' + i"
+                      (ngModelChange)="recompute()">
+            <mat-option value=""></mat-option>
+            @for (opt of dowOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="col-time">
+          <input matInput [(ngModel)]="maxTasksRows[i].time" [name]="'time_' + i"
+                 (ngModelChange)="recompute()" placeholder="HH:MM" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="col-size">
+          <input matInput type="number" min="0" [(ngModel)]="maxTasksRows[i].size"
+                 [name]="'size_' + i" (ngModelChange)="recompute()" />
+        </mat-form-field>
+      </div>
+    }
+    <div class="row-actions">
+      <button type="button" mat-stroked-button (click)="addMaxTaskRow()">Add another</button>
+      <button type="button" mat-stroked-button (click)="removeMaxTaskRow()">Remove last</button>
+    </div>
+    @if (intervalError()) {
+      <p class="error">{{ intervalError() }}</p>
+    }
+  </section>
+
+  <section>
+    <h2>Disable</h2>
+    <div class="row">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="disable-field">
+        <mat-label>disable for</mat-label>
+        <mat-select [(ngModel)]="disableMinutes" name="disable" (ngModelChange)="recompute()">
+          <mat-option [value]="''">[don't disable]</mat-option>
+          @for (opt of durationOptions; track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      @if (disabledUntil(); as until) {
+        <span class="disabled-note">disabled until {{ until }}</span>
+        <mat-checkbox [(ngModel)]="reenable" name="reenable" (ngModelChange)="recompute()">
+          re-enable now
+        </mat-checkbox>
+      } @else {
+        <span class="disabled-note">currently enabled</span>
+      }
+    </div>
+  </section>
+
+  @if (generalError()) {
+    <p class="error">{{ generalError() }}</p>
+  }
+
+  <div class="submit-row">
+    <button type="submit" mat-flat-button color="primary">Save</button>
+    <span class="hint">changes take effect every 30 seconds</span>
+  </div>
+</form>
+
+<section>
+  <h2>JSON preview</h2>
+  <pre class="json-preview">{{ jsonPreview() || '(fix validation errors above to preview)' }}</pre>
+</section>

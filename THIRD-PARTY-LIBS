@@ -1,47 +1,34 @@
-Some web browser code in `etc/disbatch/htdocs/` includes third-party libraries copyright others and licensed under their own terms.
+The web browser code in `etc/disbatch/htdocs/` is a compiled Angular single-page
+application. Its TypeScript/SCSS sources live in `web/` (excluded from the release
+tarball); the committed `etc/disbatch/htdocs/` contains only the build output.
 
-etc/disbatch/htdocs/javascripts/jquery.serialize-object.min.js
- * jQuery serializeObject
- * @copyright 2014, macek <paulmacek@gmail.com>
- * @link https://github.com/macek/jquery-serialize-object
- * @license BSD
- * @version 2.2.0
+The bundled JavaScript and CSS include third-party libraries copyright others and
+licensed under their own terms:
 
-etc/disbatch/htdocs/javascripts/jquery.js
- * jQuery JavaScript Library v1.4.2
- * http://jquery.com/
- *
- * Copyright 2010, John Resig
- * Dual licensed under the MIT or GPL Version 2 licenses.
- * http://jquery.org/license
- *
- * Includes Sizzle.js
- * http://sizzlejs.com/
- * Copyright 2010, The Dojo Foundation
- * Released under the MIT, BSD, and GPL Licenses.
+Angular (@angular/*)
+ * Copyright Google LLC
+ * https://angular.dev/
+ * Licensed under the MIT License
 
-etc/disbatch/htdocs/css/editablegrid.css
-etc/disbatch/htdocs/css/simple.css
-etc/disbatch/htdocs/js/editablegrid.js
-etc/disbatch/htdocs/js/editablegrid_editors.js
-etc/disbatch/htdocs/js/editablegrid_renderers.js
-etc/disbatch/htdocs/js/editablegrid_utils.js
-etc/disbatch/htdocs/js/editablegrid_validators.js
-etc/disbatch/htdocs/images/bullet_arrow_up.png
-etc/disbatch/htdocs/images/bullet_arrow_down.png
-  EditableGrid
-  Copyright (c) 2012 Webismymind SPRL
-  Dual licensed under the MIT or GPL Version 2 licenses.
-  http://www.editablegrid.net/page/en/9/license.html
-  https://github.com/webismymind/editablegrid/blob/39fddf7d3aa8d9c38280b2db6e0bcfce63fab684/LICENSE.txt
+Angular Material and the Angular CDK (@angular/material, @angular/cdk)
+ * Copyright Google LLC
+ * https://material.angular.io/
+ * Licensed under the MIT License
 
-etc/disbatch/htdocs/javascripts/expander.js
-etc/disbatch/htdocs/images/expand.gif
-etc/disbatch/htdocs/images/collapse.gif
-  by Jessica Brown, no copyright nor license stated
-  http://www.raebear.net/jwinblad/webprogramming/expander/expander.php
+RxJS
+ * Copyright (c) 2015-present Google, Inc. and the RxJS contributors
+ * https://rxjs.dev/
+ * Licensed under the Apache License, Version 2.0
 
-etc/disbatch/htdocs/css/style.css
-  This software is copyright (c) 2010 by Alexis Sukrieh.
-  This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.
-  https://metacpan.org/pod/distribution/Dancer/bin/dancer#COPYRIGHT-AND-LICENSE
+zone.js
+ * Copyright Google LLC
+ * https://github.com/angular/angular/tree/main/packages/zone.js
+ * Licensed under the MIT License
+
+tslib
+ * Copyright Microsoft Corporation
+ * https://github.com/Microsoft/tslib
+ * Licensed under the 0BSD License
+
+The full text of these licenses is included in the compiled `3rdpartylicenses.txt`
+produced by a production `ng build`, and in each package under `web/node_modules/`.

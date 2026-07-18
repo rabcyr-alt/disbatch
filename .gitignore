@@ -7,3 +7,6 @@ disbatch3-*.tar.gz
 disbatch3-*/
 etc/disbatch/config.json
 .build/
+web/node_modules/
+web/.angular/
+web/dist/

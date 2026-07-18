@@ -1,0 +1,103 @@
+<h1>Task Query</h1>
+<p class="subtitle">Warning: this can return a LOT of data. You can query any indexed field; to
+  use a field that is not first in an index set, also fill every preceding field in that set.</p>
+
+@if (bootstrapError()) {
+  <p class="error">{{ bootstrapError() }}</p>
+}
+
+@if (indexes().length) {
+  <mat-card class="index-note" appearance="outlined">
+    <strong>Index sets:</strong>
+    @for (set of indexes(); track $index) {
+      <code>[{{ set.join(', ') }}]</code>
+    }
+  </mat-card>
+}
+
+<form (ngSubmit)="submit()" class="query-form">
+  <div class="query-fields">
+    @for (field of fields(); track field) {
+      <div class="field-group">
+        <div class="field-label">{{ field }}</div>
+        <div class="field-inputs">
+          @for (val of values[field]; track trackByIndex($index); let i = $index) {
+            <div class="or-row">
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <input matInput [(ngModel)]="values[field][i]" [name]="field + '_' + i" />
+              </mat-form-field>
+              @if (values[field].length > 1) {
+                <button type="button" mat-icon-button (click)="removeValue(field, i)"
+                        aria-label="Remove value">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+            </div>
+          }
+          <button type="button" mat-button (click)="addValue(field)">
+            <mat-icon>add</mat-icon> add another (OR)
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="query-options">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="limit-field">
+      <mat-label>limit</mat-label>
+      <input matInput type="number" min="0" [(ngModel)]="limit" name="limit" />
+    </mat-form-field>
+    <mat-checkbox [(ngModel)]="count" name="count">count</mat-checkbox>
+    <mat-checkbox [(ngModel)]="terse" name="terse">terse</mat-checkbox>
+    <mat-checkbox [(ngModel)]="full" name="full">full</mat-checkbox>
+    <mat-checkbox [(ngModel)]="epoch" name="epoch">epoch</mat-checkbox>
+  </div>
+
+  <div class="query-actions">
+    <button type="submit" mat-flat-button color="primary">
+      <mat-icon>search</mat-icon> Search
+    </button>
+  </div>
+</form>
+
+@if (errorMsg()) {
+  <div class="results">
+    <p class="error">{{ errorMsg() }}</p>
+    @if (invalidParams().length) {
+      <p>Invalid (non-indexed) params: <code>{{ invalidParams().join(', ') }}</code></p>
+    }
+    @if (errorIndexes().length) {
+      <p><strong>Index sets:</strong>
+        @for (set of errorIndexes(); track $index) {
+          <code>[{{ set.join(', ') }}]</code>
+        }
+      </p>
+    }
+  </div>
+} @else if (countResult() !== null) {
+  <div class="results">
+    <p>Count: <strong>{{ countResult() }}</strong></p>
+  </div>
+} @else if (results() !== null) {
+  <div class="results">
+    <p>Results returned: <strong>{{ results()!.length }}</strong>
+      @if (pageNumber > 1) { (page {{ pageNumber }}) }
+    </p>
+    @if (!results()!.length) {
+      <p class="empty-note">No tasks found.</p>
+    }
+    @for (task of results(); track $index) {
+      <div class="task-result">
+        @if (taskId(task); as id) {
+          <a mat-button color="primary" [routerLink]="['/tasks', id]">
+            <mat-icon>open_in_new</mat-icon> {{ id }}
+          </a>
+        }
+        <pre>{{ pretty(task) }}</pre>
+      </div>
+    }
+    @if (canPaginate) {
+      <button mat-stroked-button (click)="nextPage()">Next {{ lastLimit }}</button>
+    }
+  </div>
+}

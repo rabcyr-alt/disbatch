@@ -1,0 +1,111 @@
+h1 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 24px 0 8px;
+}
+
+.subtitle {
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0 0 16px;
+}
+
+.hint {
+  color: rgba(0, 0, 0, 0.54);
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.banner {
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.banner.warn {
+  background: #fff3cd;
+  color: #7a5b00;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.priority-label,
+.disabled-note {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+}
+
+.queue-field {
+  width: 320px;
+}
+
+.disable-field {
+  width: 200px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.interval-head {
+  display: flex;
+  gap: 12px;
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.interval-row {
+  align-items: flex-start;
+}
+
+.col-dow {
+  width: 120px;
+}
+
+.col-time {
+  width: 100px;
+}
+
+.col-size {
+  width: 90px;
+}
+
+.invalid ::ng-deep .mat-mdc-text-field-wrapper,
+.invalid ::ng-deep .mdc-text-field {
+  background: #ffe0e0;
+}
+
+.submit-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.error {
+  color: #b00020;
+  font-weight: 500;
+}
+
+.json-preview {
+  background: rgba(0, 0, 0, 0.04);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+  min-height: 40px;
+}

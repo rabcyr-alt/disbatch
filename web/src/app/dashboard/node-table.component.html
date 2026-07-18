@@ -1,0 +1,38 @@
+<table mat-table [dataSource]="nodes" class="disbatch-table">
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef>ID</th>
+    <td mat-cell *matCellDef="let row" class="mono">{{ row.id }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="node">
+    <th mat-header-cell *matHeaderCellDef>Node</th>
+    <td mat-cell *matCellDef="let row">{{ row.node }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="maxthreads">
+    <th mat-header-cell *matHeaderCellDef>Max Threads</th>
+    <td mat-cell *matCellDef="let row" (click)="startEdit(row)" class="editable">
+      @if (isEditing(row)) {
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+          <input matInput type="number" min="0" [(ngModel)]="editValue"
+                 (keydown.enter)="commitEdit(row)" (keydown.escape)="cancelEdit()"
+                 (blur)="commitEdit(row)" placeholder="unlimited" cdkFocusInitial />
+        </mat-form-field>
+      } @else {
+        {{ row.maxthreads == null ? '—' : row.maxthreads }}
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="timestamp">
+    <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+    <td mat-cell *matCellDef="let row">{{ formatTimestamp(row.timestamp) }}</td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="columns"></tr>
+  <tr mat-row *matRowDef="let row; columns: columns"></tr>
+</table>
+
+@if (!nodes.length) {
+  <p class="empty-note">None.</p>
+}

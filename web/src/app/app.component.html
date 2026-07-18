@@ -1,0 +1,37 @@
+<mat-toolbar color="primary" class="app-toolbar">
+  <span class="app-title">Disbatch@if (database(); as db) {&nbsp;({{ db }})}</span>
+
+  <nav class="app-nav">
+    <a mat-button routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
+    <a mat-button routerLink="/tasks" routerLinkActive="active-link">Tasks</a>
+    <a mat-button routerLink="/balance" routerLinkActive="active-link">Balance</a>
+  </nav>
+
+  <span class="app-spacer"></span>
+
+  @if (getRoutes().length) {
+    <button mat-button [matMenuTriggerFor]="routesMenu">
+      Routes <mat-icon>arrow_drop_down</mat-icon>
+    </button>
+    <mat-menu #routesMenu="matMenu">
+      @for (route of getRoutes(); track route) {
+        <a mat-menu-item [href]="route">{{ route }}</a>
+      }
+    </mat-menu>
+  }
+
+  @if (extensions().length) {
+    <button mat-button [matMenuTriggerFor]="extMenu">
+      Extensions <mat-icon>arrow_drop_down</mat-icon>
+    </button>
+    <mat-menu #extMenu="matMenu">
+      @for (ext of extensions(); track ext) {
+        <span mat-menu-item disabled>{{ ext }}</span>
+      }
+    </mat-menu>
+  }
+</mat-toolbar>
+
+<main class="app-content">
+  <router-outlet></router-outlet>
+</main>

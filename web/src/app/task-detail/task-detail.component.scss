@@ -1,0 +1,24 @@
+.detail-header {
+  margin-bottom: 8px;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 500;
+  font-family: 'Roboto Mono', ui-monospace, monospace;
+  word-break: break-all;
+  margin: 0 0 16px;
+}
+
+pre {
+  background: rgba(0, 0, 0, 0.04);
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.error {
+  color: #b00020;
+  font-weight: 500;
+}

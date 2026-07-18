@@ -1,0 +1,15 @@
+<div class="detail-header">
+  <a mat-button routerLink="/tasks">
+    <mat-icon>arrow_back</mat-icon> Back to query
+  </a>
+</div>
+
+<h1>Task {{ id() }}</h1>
+
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+} @else if (errorMsg()) {
+  <p class="error">{{ errorMsg() }}</p>
+} @else if (task()) {
+  <pre>{{ pretty(task()!) }}</pre>
+}

@@ -69,7 +69,6 @@ my $config = {
     web_extensions => {
     },
     web_root => 'etc/disbatch/htdocs/',
-    views_dir => 'etc/disbatch/views/',
     task_runner => './bin/task_runner',
     testing => 1,	# for task_runner to use lib 'lib'
     gfs => 'auto',	# default
@@ -185,15 +184,17 @@ if ($webpid == 0) {
 
     ### BROWSER ROUTES ###
 
-    # Returns the contents of "/index.html" – the queue browser page.
+    # Returns the contents of "/index.html" – the Angular single-page web UI.
     $res = Net::HTTP::Client->request(GET => "$uri/");
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'text/html', 'text/html';
+    like $res->content, qr|<app-root|, 'index.html contains <app-root';
 
     # Returns the contents of the request path.
-    $res = Net::HTTP::Client->request(GET => "$uri/js/queues.js");
+    $res = Net::HTTP::Client->request(GET => "$uri/index.html");
     is $res->status_line, '200 OK', '200 status';
-    is $res->content_type, 'application/javascript', 'application/javascript';
+    is $res->content_type, 'text/html', 'text/html';
+    like $res->content, qr|<app-root|, '/index.html contains <app-root';
 
     ### GET JSON ROUTES ####
 
@@ -484,11 +485,13 @@ if ($webpid == 0) {
     is $content->{status}, $task->{status}, 'status matches';
     is $content->{stdout}, $task->{stdout}, 'stdout matches';
 
-    # GET /tasks/:id (web)
+    # GET /tasks/:id (Accept: text/html now returns JSON, as the route is JSON-only)
     $res = Net::HTTP::Client->request(GET => "$uri/tasks/$success_id", Accept => 'text/html');
     is $res->status_line, '200 OK', '200 status';
-    is $res->content_type, 'text/html', 'text/html';
-    like $res->content, qr|<h1> Disbatch Single Task Query Results </h1>.+Results returned: 1<br />.+"_id" : "$success_id"|s, 'html response';
+    is $res->content_type, 'application/json', 'application/json';
+    $content = decode_json($res->content);
+    is ref $content, 'HASH', 'content is HASH';
+    is $content->{_id}, $success_id, 'oid matches';
 
     # GET /tasks/:id
     my ($queued_id) = grep {  $_ ne $success_id } @task_ids;
@@ -510,11 +513,13 @@ if ($webpid == 0) {
     is ref $content, 'HASH', 'content is HASH';
     is_deeply $content, {error => "no task with id $zero_id" }, 'error message';
 
-    # GET /tasks/:id (web)
+    # GET /tasks/:id (Accept: text/html now returns JSON, as the route is JSON-only)
     $res = Net::HTTP::Client->request(GET => "$uri/tasks/$zero_id", Accept => 'text/html');
     is $res->status_line, '404 Not Found', '404 status';
-    is $res->content_type, 'text/html', 'text/html';
-    like $res->content, qr|<h1> Disbatch Single Task Query Results </h1>.+<pre>Document\(s\) not found.</pre>|s, 'html response';
+    is $res->content_type, 'application/json', 'application/json';
+    $content = decode_json($res->content);
+    is ref $content, 'HASH', 'content is HASH';
+    is_deeply $content, {error => "no task with id $zero_id" }, 'error message';
 
     # Returns hash: {ref $res: Object}
     $res = Net::HTTP::Client->request(DELETE => "$uri/queues/$queueid");
@@ -701,17 +706,16 @@ if ($webpid == 0) {
     }
 
     # BALANCE TESTS:
-    # * get '/balance'		send_json get_balance(), send_json_options, pretty => 1;	template 'balance.tt', get_balance();
+    # * get '/balance'		send_json get_balance(), send_json_options, pretty => 1;
     # * post '/balance'		send_json post_balance(), send_json_options;
 
     # create some queues (and assume they succeed)
     Net::HTTP::Client->request(POST => "$uri/queues", 'Content-Type' => 'application/json', encode_json({ name => $_, plugin => $plugin })) for qw/ oneoff bulk api /;
 
-    # get /balance (html)
+    # get /balance (Accept: text/html now returns JSON, as the route is JSON-only)
     $res = Net::HTTP::Client->request(GET => "$uri/balance", Accept => 'text/html');
     is $res->status_line, '200 OK', '200 status';
-    is $res->content_type, 'text/html', 'text/html';
-    like $res->content, qr|<h2>QueueBalancer\b|, "response content looks good for GET /balance";
+    is $res->content_type, 'application/json', 'application/json';
 
     # get /balance
     $res = Net::HTTP::Client->request(GET => "$uri/balance");
