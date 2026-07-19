@@ -62,7 +62,10 @@ export class NewQueueDialogComponent {
   constructor(
     public dialogRef: MatDialogRef<NewQueueDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: NewQueueDialogData,
-  ) {}
+  ) {
+    // Default the type to the first available plugin.
+    this.plugin = data.plugins[0] ?? '';
+  }
 
   create(): void {
     const name = this.name.trim();
