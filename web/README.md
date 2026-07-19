@@ -2,6 +2,14 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.27.
 
+## NOTE
+
+This Angular redesign of the Disbatch Command Interface was designed and directed by me, and implemented with Claude
+Code. For out-of-the-box features, it is complete and improved. The `web_extensions` feature works with no changes
+for basic JSON routes and has been tested. However, `template`, `parse_accept`, and `want_json` have been removed from `Disbatch::Web`.
+If your code requires them, see `Disbatch::Web::ExtensionTest` to copy, and it should work but has not yet been tested.
+More consideration is needed on this before this redesign is released.
+
 ## Development server
 
 To start a local development server, run:
