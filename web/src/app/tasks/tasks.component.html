@@ -21,12 +21,13 @@
       <div class="field-group">
         <div class="field-label">{{ field }}</div>
         <div class="field-inputs">
-          @for (val of values[field]; track trackByIndex($index); let i = $index) {
+          @for (val of values()[field]; track $index; let i = $index) {
             <div class="or-row">
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <input matInput [(ngModel)]="values[field][i]" [name]="field + '_' + i" />
+                <input matInput [ngModel]="val" [name]="field + '_' + i"
+                       (ngModelChange)="setValue(field, i, $event)" />
               </mat-form-field>
-              @if (values[field].length > 1) {
+              @if (values()[field].length > 1) {
                 <button type="button" mat-icon-button (click)="removeValue(field, i)"
                         aria-label="Remove value">
                   <mat-icon>close</mat-icon>
@@ -81,7 +82,7 @@
 } @else if (results() !== null) {
   <div class="results">
     <p>Results returned: <strong>{{ results()!.length }}</strong>
-      @if (pageNumber > 1) { (page {{ pageNumber }}) }
+      @if (pageNumber() > 1) { (page {{ pageNumber() }}) }
     </p>
     @if (!results()!.length) {
       <p class="empty-note">No tasks found.</p>
@@ -96,8 +97,8 @@
         <pre>{{ pretty(task) }}</pre>
       </div>
     }
-    @if (canPaginate) {
-      <button mat-stroked-button (click)="nextPage()">Next {{ lastLimit }}</button>
+    @if (canPaginate()) {
+      <button mat-stroked-button (click)="nextPage()">Next {{ lastLimit() }}</button>
     }
   </div>
 }

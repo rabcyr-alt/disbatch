@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
@@ -25,7 +25,6 @@ import { Task } from '../core/models';
     MatCardModule,
   ],
   templateUrl: './tasks.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './tasks.component.scss',
 })
 export class TasksComponent implements OnInit {
@@ -38,13 +37,13 @@ export class TasksComponent implements OnInit {
   readonly bootstrapError = signal<string | null>(null);
 
   /** OR-able values per field (each starts with a single empty input). */
-  values: Record<string, string[]> = {};
+  readonly values = signal<Record<string, string[]>>({});
 
-  limit = 100;
-  count = false;
-  terse = false;
-  full = false;
-  epoch = false;
+  readonly limit = signal(100);
+  readonly count = signal(false);
+  readonly terse = signal(false);
+  readonly full = signal(false);
+  readonly epoch = signal(false);
 
   // Results state
   readonly results = signal<Task[] | null>(null);
@@ -55,8 +54,8 @@ export class TasksComponent implements OnInit {
   readonly searched = signal(false);
 
   private lastParams: TaskQueryParams = {};
-  lastLimit = 100;
-  private skip = 0;
+  readonly lastLimit = signal(100);
+  private readonly skip = signal(0);
 
   ngOnInit(): void {
     // Bootstrap the form from the API's own 400 error (its `indexes`).
@@ -88,34 +87,39 @@ export class TasksComponent implements OnInit {
       }
     }
     this.fields.set(fields);
-    for (const field of fields) {
-      if (!this.values[field]) {
-        this.values[field] = [''];
+    this.values.update((values) => {
+      const next = { ...values };
+      for (const field of fields) {
+        next[field] ??= [''];
       }
-    }
+      return next;
+    });
+  }
+
+  /** Writes one value back; `[(ngModel)]` cannot assign into a signal's array. */
+  setValue(field: string, i: number, value: string): void {
+    this.values.update((values) => ({
+      ...values,
+      [field]: (values[field] ?? ['']).map((v, idx) => (idx === i ? value : v)),
+    }));
   }
 
   addValue(field: string): void {
-    this.values[field] = [...(this.values[field] ?? ['']), ''];
+    this.values.update((values) => ({ ...values, [field]: [...(values[field] ?? ['']), ''] }));
   }
 
   removeValue(field: string, i: number): void {
-    const arr = this.values[field] ?? [''];
-    if (arr.length <= 1) {
-      this.values[field] = [''];
-    } else {
-      this.values[field] = arr.filter((_, idx) => idx !== i);
-    }
-  }
-
-  trackByIndex(i: number): number {
-    return i;
+    this.values.update((values) => {
+      const arr = values[field] ?? [''];
+      return { ...values, [field]: arr.length <= 1 ? [''] : arr.filter((_, idx) => idx !== i) };
+    });
   }
 
   private buildParams(): TaskQueryParams {
     const params: TaskQueryParams = {};
+    const values = this.values();
     for (const field of this.fields()) {
-      const vals = (this.values[field] ?? []).map((v) => v.trim()).filter((v) => v !== '');
+      const vals = (values[field] ?? []).map((v) => String(v).trim()).filter((v) => v !== '');
       if (vals.length === 1) {
         params[field] = vals[0];
       } else if (vals.length > 1) {
@@ -126,23 +130,23 @@ export class TasksComponent implements OnInit {
   }
 
   private buildOptions(skip: number): TaskQueryOptions {
-    const options: TaskQueryOptions = { '.limit': this.limit, '.skip': skip };
-    if (this.count) options['.count'] = true;
-    if (this.terse) options['.terse'] = true;
-    if (this.full) options['.full'] = true;
-    if (this.epoch) options['.epoch'] = true;
+    const options: TaskQueryOptions = { '.limit': this.limit(), '.skip': skip };
+    if (this.count()) options['.count'] = true;
+    if (this.terse()) options['.terse'] = true;
+    if (this.full()) options['.full'] = true;
+    if (this.epoch()) options['.epoch'] = true;
     return options;
   }
 
   submit(): void {
     this.lastParams = this.buildParams();
-    this.lastLimit = this.limit;
-    this.skip = 0;
+    this.lastLimit.set(this.limit());
+    this.skip.set(0);
     this.runQuery();
   }
 
   nextPage(): void {
-    this.skip += this.lastLimit;
+    this.skip.update((skip) => skip + this.lastLimit());
     this.runQuery();
   }
 
@@ -152,12 +156,12 @@ export class TasksComponent implements OnInit {
     this.invalidParams.set([]);
     this.errorIndexes.set([]);
 
-    this.api.getTasks(this.lastParams, this.buildOptions(this.skip)).subscribe({
+    this.api.getTasks(this.lastParams, this.buildOptions(this.skip())).subscribe({
       next: (body: unknown) => {
         if (Array.isArray(body)) {
           this.countResult.set(null);
           this.results.set(body as Task[]);
-        } else if (this.count && body && typeof body === 'object' && 'count' in body) {
+        } else if (this.count() && body && typeof body === 'object' && 'count' in body) {
           this.countResult.set((body as { count: number }).count);
           this.results.set(null);
         } else if (body && typeof body === 'object' && Object.keys(body).length === 0) {
@@ -201,12 +205,14 @@ export class TasksComponent implements OnInit {
     return JSON.stringify(task, null, 2);
   }
 
-  get canPaginate(): boolean {
-    const r = this.results();
-    return !this.count && this.lastLimit > 0 && r != null && r.length === this.lastLimit;
-  }
+  readonly canPaginate = computed(() => {
+    const results = this.results();
+    const limit = this.lastLimit();
+    return !this.count() && limit > 0 && results != null && results.length === limit;
+  });
 
-  get pageNumber(): number {
-    return this.lastLimit > 0 ? Math.floor(this.skip / this.lastLimit) + 1 : 1;
-  }
+  readonly pageNumber = computed(() => {
+    const limit = this.lastLimit();
+    return limit > 0 ? Math.floor(this.skip() / limit) + 1 : 1;
+  });
 }

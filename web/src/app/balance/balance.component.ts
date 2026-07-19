@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -58,7 +58,6 @@ const QUEUE_NAME_RE = /^[\w-]+$/;
     MatCardModule,
   ],
   templateUrl: './balance.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './balance.component.scss',
 })
 export class BalanceComponent implements OnInit {
@@ -73,10 +72,10 @@ export class BalanceComponent implements OnInit {
   readonly knownQueues = signal<string[]>([]);
   readonly currentlyDisabled = signal<number | null>(null);
 
-  queueGroups: string[] = [''];
-  maxTasksRows: MaxTaskRow[] = [{ dow: '', time: '', size: '' }];
-  disableMinutes: number | '' = '';
-  reenable = false;
+  readonly queueGroups = signal<string[]>(['']);
+  readonly maxTasksRows = signal<MaxTaskRow[]>([{ dow: '', time: '', size: '' }]);
+  readonly disableMinutes = signal<number | ''>('');
+  readonly reenable = signal(false);
 
   // Validation / preview state
   readonly queueError = signal<string | null>(null);
@@ -103,18 +102,19 @@ export class BalanceComponent implements OnInit {
     this.knownQueues.set([...(doc.known_queues ?? [])].sort());
     this.currentlyDisabled.set(typeof doc.disabled === 'number' ? doc.disabled : null);
 
-    this.queueGroups =
-      doc.queues && doc.queues.length ? doc.queues.map((g) => g.join(',')) : [''];
+    this.queueGroups.set(
+      doc.queues && doc.queues.length ? doc.queues.map((g) => g.join(',')) : [''],
+    );
 
     const rows: MaxTaskRow[] = [];
     for (const [key, size] of Object.entries(doc.max_tasks ?? {})) {
       const [dow, time] = key.split(' ');
       rows.push({ dow: dow ?? '', time: time ?? '', size: String(size) });
     }
-    this.maxTasksRows = rows.length ? rows : [{ dow: '', time: '', size: '' }];
+    this.maxTasksRows.set(rows.length ? rows : [{ dow: '', time: '', size: '' }]);
 
-    this.disableMinutes = '';
-    this.reenable = false;
+    this.disableMinutes.set('');
+    this.reenable.set(false);
     this.recompute();
   }
 
@@ -133,17 +133,19 @@ export class BalanceComponent implements OnInit {
 
   // ---- Queue groups ----
 
+  /** Writes one group back; `[(ngModel)]` cannot assign into a signal's array. */
+  setQueueGroup(i: number, value: string): void {
+    this.queueGroups.update((groups) => groups.map((g, idx) => (idx === i ? value : g)));
+    this.recompute();
+  }
+
   addQueueGroup(): void {
-    this.queueGroups = [...this.queueGroups, ''];
+    this.queueGroups.update((groups) => [...groups, '']);
     this.recompute();
   }
 
   removeQueueGroup(): void {
-    if (this.queueGroups.length > 1) {
-      this.queueGroups = this.queueGroups.slice(0, -1);
-    } else {
-      this.queueGroups = [''];
-    }
+    this.queueGroups.update((groups) => (groups.length > 1 ? groups.slice(0, -1) : ['']));
     this.recompute();
   }
 
@@ -153,17 +155,35 @@ export class BalanceComponent implements OnInit {
 
   // ---- Max tasks ----
 
+  /** Writes one field of one row back; see {@link setQueueGroup}. */
+  setMaxTaskField(i: number, field: keyof MaxTaskRow, value: string): void {
+    this.maxTasksRows.update((rows) =>
+      rows.map((row, idx) => (idx === i ? { ...row, [field]: value } : row)),
+    );
+    this.recompute();
+  }
+
   addMaxTaskRow(): void {
-    this.maxTasksRows = [...this.maxTasksRows, { dow: '', time: '', size: '' }];
+    this.maxTasksRows.update((rows) => [...rows, { dow: '', time: '', size: '' }]);
     this.recompute();
   }
 
   removeMaxTaskRow(): void {
-    if (this.maxTasksRows.length > 1) {
-      this.maxTasksRows = this.maxTasksRows.slice(0, -1);
-    } else {
-      this.maxTasksRows = [{ dow: '', time: '', size: '' }];
-    }
+    this.maxTasksRows.update((rows) =>
+      rows.length > 1 ? rows.slice(0, -1) : [{ dow: '', time: '', size: '' }],
+    );
+    this.recompute();
+  }
+
+  // ---- Disable / re-enable ----
+
+  setDisableMinutes(value: number | ''): void {
+    this.disableMinutes.set(value);
+    this.recompute();
+  }
+
+  setReenable(value: boolean): void {
+    this.reenable.set(value);
     this.recompute();
   }
 
@@ -178,18 +198,22 @@ export class BalanceComponent implements OnInit {
     const json: BalancePost = { max_tasks: {}, queues: [] };
 
     // disable / re-enable
-    if (this.disableMinutes !== '' && this.reenable) {
+    const disableMinutes = this.disableMinutes();
+    const reenable = this.reenable();
+    const queueGroups = this.queueGroups();
+
+    if (disableMinutes !== '' && reenable) {
       generalError = "can't set both a disable duration and re-enable together";
-    } else if (this.disableMinutes !== '') {
-      json.disabled = Math.round(Number(this.disableMinutes) * 60 + Date.now() / 1000);
-    } else if (this.reenable) {
+    } else if (disableMinutes !== '') {
+      json.disabled = Math.round(Number(disableMinutes) * 60 + Date.now() / 1000);
+    } else if (reenable) {
       json.disabled = null;
     }
 
     // queues
     const allNames: string[] = [];
     const known = this.knownQueues();
-    this.queueGroups.forEach((raw, i) => {
+    queueGroups.forEach((raw, i) => {
       const normalized = raw.trim().replace(/,\s+/g, ',');
       if (normalized === '') {
         return;
@@ -220,7 +244,7 @@ export class BalanceComponent implements OnInit {
     }
     if (dups.length) {
       queueError = `duplicate queue names: ${dups.join(', ')}`;
-      this.queueGroups.forEach((raw, i) => {
+      queueGroups.forEach((raw, i) => {
         const names = raw.trim().replace(/,\s+/g, ',').split(',');
         if (names.some((n) => dups.includes(n))) {
           invalidGroups.add(i);
@@ -229,7 +253,7 @@ export class BalanceComponent implements OnInit {
     }
 
     // max_tasks
-    this.maxTasksRows.forEach((row, i) => {
+    this.maxTasksRows().forEach((row, i) => {
       const dow = row.dow;
       const time = row.time.trim();
       const size = String(row.size ?? '').trim();

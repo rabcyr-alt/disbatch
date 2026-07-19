@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,7 +13,6 @@ import { apiErrorMessage, messageFromBody } from '../core/api-error';
   selector: 'app-node-table',
   imports: [FormsModule, MatTableModule, MatFormFieldModule, MatInputModule],
   templateUrl: './node-table.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './table.shared.scss',
 })
 export class NodeTableComponent {
@@ -27,11 +26,12 @@ export class NodeTableComponent {
 
   readonly columns = ['id', 'node', 'maxthreads', 'timestamp'];
 
-  editingNode: string | null = null;
-  editValue: string = '';
+  private readonly editingNode = signal<string | null>(null);
+  /** `<input type="number">` writes a number here, not a string. */
+  readonly editValue = signal<string | number>('');
 
   isEditing(row: DenNode): boolean {
-    return this.editingNode === row.node;
+    return this.editingNode() === row.node;
   }
 
   formatTimestamp(ms: number): string {
@@ -45,14 +45,14 @@ export class NodeTableComponent {
     if (this.isEditing(row)) {
       return;
     }
-    this.editingNode = row.node;
-    this.editValue = row.maxthreads == null ? '' : String(row.maxthreads);
+    this.editingNode.set(row.node);
+    this.editValue.set(row.maxthreads == null ? '' : String(row.maxthreads));
     this.editingChange.emit(true);
   }
 
   cancelEdit(): void {
-    if (this.editingNode !== null) {
-      this.editingNode = null;
+    if (this.editingNode() !== null) {
+      this.editingNode.set(null);
       this.editingChange.emit(false);
     }
   }
@@ -61,10 +61,10 @@ export class NodeTableComponent {
     if (!this.isEditing(row)) {
       return;
     }
-    this.editingNode = null;
+    this.editingNode.set(null);
     this.editingChange.emit(false);
 
-    const trimmed = String(this.editValue ?? '').trim();
+    const trimmed = String(this.editValue() ?? '').trim();
     const previous = row.maxthreads == null ? '' : String(row.maxthreads);
     if (trimmed === previous) {
       return; // no change

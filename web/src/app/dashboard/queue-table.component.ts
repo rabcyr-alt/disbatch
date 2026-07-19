@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy, input, output } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -29,7 +29,6 @@ type EditableField = 'name' | 'threads';
     MatIconModule,
   ],
   templateUrl: './queue-table.component.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './table.shared.scss',
 })
 export class QueueTableComponent {
@@ -55,25 +54,27 @@ export class QueueTableComponent {
     'completed',
   ];
 
-  editing: { id: string; field: EditableField } | null = null;
-  editValue: string | number = '';
+  private readonly editing = signal<{ id: string; field: EditableField } | null>(null);
+  /** `<input type="number">` writes a number here, not a string. */
+  readonly editValue = signal<string | number>('');
 
   isEditing(row: Queue, field: EditableField): boolean {
-    return this.editing?.id === row.id && this.editing?.field === field;
+    const editing = this.editing();
+    return editing?.id === row.id && editing?.field === field;
   }
 
   startEdit(row: Queue, field: EditableField): void {
     if (this.isEditing(row, field)) {
       return;
     }
-    this.editing = { id: row.id, field };
-    this.editValue = row[field];
+    this.editing.set({ id: row.id, field });
+    this.editValue.set(row[field]);
     this.editingChange.emit(true);
   }
 
   cancelEdit(): void {
-    if (this.editing) {
-      this.editing = null;
+    if (this.editing()) {
+      this.editing.set(null);
       this.editingChange.emit(false);
     }
   }
@@ -82,10 +83,10 @@ export class QueueTableComponent {
     if (!this.isEditing(row, field)) {
       return;
     }
-    this.editing = null;
+    this.editing.set(null);
     this.editingChange.emit(false);
 
-    const raw = this.editValue;
+    const raw = this.editValue();
     if (String(raw) === String(row[field])) {
       return; // no change
     }

@@ -15,12 +15,12 @@
   <section>
     <h2>Queues</h2>
     <p class="hint">Comma-separated queues in a row have equal priority. Later rows have higher priority.</p>
-    @for (group of queueGroups; track $index; let i = $index) {
+    @for (group of queueGroups(); track $index; let i = $index) {
       <div class="row">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="queue-field"
                         [class.invalid]="invalidGroups().has(i)">
-          <input matInput [(ngModel)]="queueGroups[i]" [name]="'queues_' + i"
-                 (ngModelChange)="recompute()" placeholder="queue1,queue2" />
+          <input matInput [ngModel]="group" [name]="'queues_' + i"
+                 (ngModelChange)="setQueueGroup(i, $event)" placeholder="queue1,queue2" />
         </mat-form-field>
         <span class="priority-label">{{ queueGroupLabel(i) }}</span>
       </div>
@@ -43,11 +43,11 @@
       <span class="col-time">HH:MM</span>
       <span class="col-size">max</span>
     </div>
-    @for (row of maxTasksRows; track $index; let i = $index) {
+    @for (row of maxTasksRows(); track $index; let i = $index) {
       <div class="row interval-row" [class.invalid]="invalidRows().has(i)">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="col-dow">
-          <mat-select [(ngModel)]="maxTasksRows[i].dow" [name]="'dow_' + i"
-                      (ngModelChange)="recompute()">
+          <mat-select [ngModel]="row.dow" [name]="'dow_' + i"
+                      (ngModelChange)="setMaxTaskField(i, 'dow', $event)">
             <mat-option value="" />
             @for (opt of dowOptions; track opt.value) {
               <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
@@ -55,12 +55,12 @@
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="col-time">
-          <input matInput [(ngModel)]="maxTasksRows[i].time" [name]="'time_' + i"
-                 (ngModelChange)="recompute()" placeholder="HH:MM" />
+          <input matInput [ngModel]="row.time" [name]="'time_' + i"
+                 (ngModelChange)="setMaxTaskField(i, 'time', $event)" placeholder="HH:MM" />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="col-size">
-          <input matInput type="number" min="0" [(ngModel)]="maxTasksRows[i].size"
-                 [name]="'size_' + i" (ngModelChange)="recompute()" />
+          <input matInput type="number" min="0" [ngModel]="row.size"
+                 [name]="'size_' + i" (ngModelChange)="setMaxTaskField(i, 'size', $event)" />
         </mat-form-field>
       </div>
     }
@@ -78,7 +78,8 @@
     <div class="row">
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="disable-field">
         <mat-label>disable for</mat-label>
-        <mat-select [(ngModel)]="disableMinutes" name="disable" (ngModelChange)="recompute()">
+        <mat-select [ngModel]="disableMinutes()" name="disable"
+                    (ngModelChange)="setDisableMinutes($event)">
           <mat-option [value]="''">[don't disable]</mat-option>
           @for (opt of durationOptions; track opt.value) {
             <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
@@ -87,7 +88,8 @@
       </mat-form-field>
       @if (disabledUntil(); as until) {
         <span class="disabled-note">disabled until {{ until }}</span>
-        <mat-checkbox [(ngModel)]="reenable" name="reenable" (ngModelChange)="recompute()">
+        <mat-checkbox [ngModel]="reenable()" name="reenable"
+                      (ngModelChange)="setReenable($event)">
           re-enable now
         </mat-checkbox>
       } @else {
