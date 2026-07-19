@@ -13,7 +13,6 @@ import { ApiService } from '../core/api.service';
 import { Queue } from '../core/models';
 import { unwrapMongoResult } from '../core/mongo-result';
 import { apiErrorMessage, messageFromBody } from '../core/api-error';
-import { ConfirmDialogComponent, ConfirmDialogData } from './confirm-dialog.component';
 import { NewQueueDialogComponent } from './new-queue-dialog.component';
 
 type EditableField = 'name' | 'threads';
@@ -53,7 +52,6 @@ export class QueueTableComponent {
     'queued',
     'running',
     'completed',
-    'delete',
   ];
 
   editing: { id: string; field: EditableField } | null = null;
@@ -134,35 +132,6 @@ export class QueueTableComponent {
           const unwrapped = unwrapMongoResult(res);
           const msg = messageFromBody(res);
           if (msg && !unwrapped.id) {
-            this.snack.open(msg, 'Dismiss', { duration: 5000 });
-          }
-          this.changed.emit();
-        },
-        error: (err) => {
-          this.snack.open(apiErrorMessage(err), 'Dismiss', { duration: 5000 });
-          this.changed.emit();
-        },
-      });
-    });
-  }
-
-  confirmDelete(row: Queue): void {
-    this.editingChange.emit(true);
-    const data: ConfirmDialogData = {
-      title: 'Delete queue',
-      message: `Delete queue "${row.name}"? This cannot be undone.`,
-      confirmText: 'Delete',
-    };
-    const ref = this.dialog.open(ConfirmDialogComponent, { data, width: '360px' });
-    ref.afterClosed().subscribe((confirmed?: boolean) => {
-      this.editingChange.emit(false);
-      if (!confirmed) {
-        return;
-      }
-      this.api.deleteQueue(row.id).subscribe({
-        next: (res) => {
-          const msg = messageFromBody(res);
-          if (msg) {
             this.snack.open(msg, 'Dismiss', { duration: 5000 });
           }
           this.changed.emit();

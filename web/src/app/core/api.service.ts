@@ -62,10 +62,6 @@ export class ApiService {
     return this.http.post('/queues/' + encodeURIComponent(id), body, { headers: this.jsonHeaders });
   }
 
-  deleteQueue(id: string): Observable<unknown> {
-    return this.http.delete('/queues/' + encodeURIComponent(id), { headers: this.jsonHeaders });
-  }
-
   // ---- Tasks ----
 
   getTasks(params: TaskQueryParams, options: TaskQueryOptions): Observable<Task[]> {
