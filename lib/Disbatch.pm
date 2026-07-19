@@ -318,7 +318,7 @@ sub start_task {
     unless (fork) {
         setsid != -1 or die "Can't start a new session: $!";
         unless (exec $command, @args) {
-            $self->mongo->reconnect;
+            $self->mongo->client->reconnect;
             $self->logger->error("Could not exec '$command', unclaiming task $task->{_id} and setting threads to 0 for $queue->{name}");
             my $res = retry { $self->queues->update_one({_id => $queue->{_id}}, {'$set' => {threads => 0}}) } catch { "Could not set queues to 0 for $queue->{name}: $_" };
             if (ref $res eq 'MongoDB::UpdateResult' and $res->modified_count == 1) {
