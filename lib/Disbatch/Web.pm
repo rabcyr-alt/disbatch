@@ -744,9 +744,9 @@ sub params_to_query {
         if ($k eq 'id' or grep { $k eq $_ } @$oid_keys) {
             # TT doesn't like keys starting with an underscore:
             $k = '_id' if $k eq 'id';
-            # change $v into an ObjectId / ARRAY of ObectIds:
+            # change $v into an ObjectId / ARRAY of ObjectIds:
             push @and, ref($v) eq 'ARRAY'
-                ? { '$or' => [ map { BSON::OID->new(oid => pack 'H*', $_) } @$v ] }
+                ? { '$or' => [ map { +{ $k => BSON::OID->new(oid => pack 'H*', $_) } } @$v ] }
                 : { $k => BSON::OID->new(oid => pack 'H*', $v) };
         } elsif (looks_like_number(ref $v eq 'ARRAY' ? $v->[0] : $v)) {	# NOTE: this only checks the first element in @$v
             push @and, ref($v) eq 'ARRAY'
