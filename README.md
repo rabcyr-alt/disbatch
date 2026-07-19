@@ -19,6 +19,11 @@ For an in-depth description of the design, see
 [Design](docs/Design.md).
 
 
+## NOTE
+
+The web UI is being rewritten in Angular 22/TypeScript on the [`angular` branch](https://github.com/rabcyr-alt/disbatch/tree/angular), developed with Claude Code. 
+See its [`web/README.md`](https://github.com/rabcyr-alt/disbatch/blob/angular/web/README.md) for status and approach.
+
 #### Installing
 
 * From CPAN (not yet published):
