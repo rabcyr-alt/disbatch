@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -29,6 +29,7 @@ type EditableField = 'name' | 'threads';
     MatIconModule,
   ],
   templateUrl: './queue-table.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './table.shared.scss',
 })
 export class QueueTableComponent {

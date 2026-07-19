@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
@@ -25,6 +25,7 @@ import { Task } from '../core/models';
     MatCardModule,
   ],
   templateUrl: './tasks.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './tasks.component.scss',
 })
 export class TasksComponent implements OnInit {

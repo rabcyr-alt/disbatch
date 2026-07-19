@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,6 +13,7 @@ import { apiErrorMessage, messageFromBody } from '../core/api-error';
   selector: 'app-node-table',
   imports: [FormsModule, MatTableModule, MatFormFieldModule, MatInputModule],
   templateUrl: './node-table.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './table.shared.scss',
 })
 export class NodeTableComponent {

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +12,7 @@ import { Task } from '../core/models';
   selector: 'app-task-detail',
   imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressBarModule],
   templateUrl: './task-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './task-detail.component.scss',
 })
 export class TaskDetailComponent implements OnInit {

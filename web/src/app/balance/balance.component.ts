@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -58,6 +58,7 @@ const QUEUE_NAME_RE = /^[\w-]+$/;
     MatCardModule,
   ],
   templateUrl: './balance.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './balance.component.scss',
 })
 export class BalanceComponent implements OnInit {
