@@ -13,6 +13,7 @@ import { Api } from '../core/api';
 import { Queue } from '../core/models';
 import { unwrapMongoResult } from '../core/mongo-result';
 import { apiErrorMessage, messageFromBody } from '../core/api-error';
+import { isUnchanged, normalizeEdit } from './threads';
 import { NewQueueDialog } from './new-queue-dialog';
 
 type EditableField = 'name' | 'threads';
@@ -87,10 +88,11 @@ export class QueueTable {
     this.editingChange.emit(false);
 
     const raw = this.editValue();
-    if (String(raw) === String(row[field])) {
-      return; // no change
+    if (isUnchanged(raw, row[field])) {
+      return;
     }
-    const value: string | number = field === 'threads' ? Number(raw) : String(raw);
+    const value: string | number =
+      field === 'threads' ? Number(normalizeEdit(raw)) : normalizeEdit(raw);
     this.postUpdate(row.id, { [field]: value });
   }
 

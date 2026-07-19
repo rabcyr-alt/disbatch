@@ -21,7 +21,7 @@ const DEFAULT_REFRESH_MS = 30_000;
 const DEFAULT_LIVE_WINDOW_MS = 15_000;
 
 /** Human-readable duration for a millisecond value (e.g. "15 seconds", "15 minutes"). */
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
   const seconds = Math.round(ms / 1000);
   if (seconds % 60 === 0 && seconds >= 60) {
     const minutes = seconds / 60;

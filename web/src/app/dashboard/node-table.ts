@@ -8,6 +8,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Api } from '../core/api';
 import { DenNode } from '../core/models';
 import { apiErrorMessage, messageFromBody } from '../core/api-error';
+import { isUnchanged, parseMaxThreads } from './threads';
 
 @Component({
   selector: 'app-node-table',
@@ -64,12 +65,10 @@ export class NodeTable {
     this.editingNode.set(null);
     this.editingChange.emit(false);
 
-    const trimmed = String(this.editValue() ?? '').trim();
-    const previous = row.maxthreads == null ? '' : String(row.maxthreads);
-    if (trimmed === previous) {
-      return; // no change
+    if (isUnchanged(this.editValue(), row.maxthreads)) {
+      return;
     }
-    const maxthreads = trimmed === '' ? null : Number(trimmed);
+    const maxthreads = parseMaxThreads(this.editValue());
     this.api.updateNode(row.node, { maxthreads }).subscribe({
       next: (res) => {
         const msg = messageFromBody(res);

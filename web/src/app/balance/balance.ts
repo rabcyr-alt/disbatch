@@ -13,12 +13,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Api } from '../core/api';
 import { BalanceDoc, BalancePost, BalanceSettings } from '../core/models';
 import { apiErrorMessage } from '../core/api-error';
-
-interface MaxTaskRow {
-  dow: string;
-  time: string;
-  size: string;
-}
+import { MaxTaskRow, validateBalance } from './validate';
 
 const DOW_OPTIONS: { value: string; label: string }[] = [
   { value: '*', label: 'Daily' },
@@ -41,9 +36,6 @@ const DURATION_OPTIONS: { value: number; label: string }[] = [
   { value: 720, label: '12 hours' },
   { value: 1440, label: '24 hours' },
 ];
-
-const TIME_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
-const QUEUE_NAME_RE = /^[\w-]+$/;
 
 @Component({
   selector: 'app-balance',
@@ -189,110 +181,22 @@ export class Balance implements OnInit {
 
   /** Recomputes validation errors and the JSON preview. Returns the body if valid. */
   recompute(): BalancePost | null {
-    let queueError: string | null = null;
-    let intervalError: string | null = null;
-    let generalError: string | null = null;
-    const invalidGroups = new Set<number>();
-    const invalidRows = new Set<number>();
-
-    const json: BalancePost = { max_tasks: {}, queues: [] };
-
-    // disable / re-enable
-    const disableMinutes = this.disableMinutes();
-    const reenable = this.reenable();
-    const queueGroups = this.queueGroups();
-
-    if (disableMinutes !== '' && reenable) {
-      generalError = "can't set both a disable duration and re-enable together";
-    } else if (disableMinutes !== '') {
-      json.disabled = Math.round(Number(disableMinutes) * 60 + Date.now() / 1000);
-    } else if (reenable) {
-      json.disabled = null;
-    }
-
-    // queues
-    const allNames: string[] = [];
-    const known = this.knownQueues();
-    queueGroups.forEach((raw, i) => {
-      const normalized = raw.trim().replace(/,\s+/g, ',');
-      if (normalized === '') {
-        return;
-      }
-      if (!/^[\w-]+(?:,[\w-]+)*$/.test(normalized)) {
-        queueError = queueError ?? `invalid queue list: "${normalized}"`;
-        invalidGroups.add(i);
-        return;
-      }
-      const names = normalized.split(',');
-      for (const name of names) {
-        if (!QUEUE_NAME_RE.test(name) || !known.includes(name)) {
-          queueError = queueError ?? `unknown queue name: "${name}"`;
-          invalidGroups.add(i);
-        }
-      }
-      json.queues.push(names);
-      allNames.push(...names);
+    const result = validateBalance({
+      queueGroups: this.queueGroups(),
+      maxTasksRows: this.maxTasksRows(),
+      disableMinutes: this.disableMinutes(),
+      reenable: this.reenable(),
+      knownQueues: this.knownQueues(),
     });
 
-    // duplicate queue names across all groups
-    const sorted = [...allNames].sort();
-    const dups: string[] = [];
-    for (let i = 0; i < sorted.length - 1; i++) {
-      if (sorted[i + 1] === sorted[i] && !dups.includes(sorted[i])) {
-        dups.push(sorted[i]);
-      }
-    }
-    if (dups.length) {
-      queueError = `duplicate queue names: ${dups.join(', ')}`;
-      queueGroups.forEach((raw, i) => {
-        const names = raw.trim().replace(/,\s+/g, ',').split(',');
-        if (names.some((n) => dups.includes(n))) {
-          invalidGroups.add(i);
-        }
-      });
-    }
+    this.queueError.set(result.queueError);
+    this.intervalError.set(result.intervalError);
+    this.generalError.set(result.generalError);
+    this.invalidGroups.set(result.invalidGroups);
+    this.invalidRows.set(result.invalidRows);
+    this.jsonPreview.set(result.json ? JSON.stringify(result.json, null, 2) : '');
 
-    // max_tasks
-    this.maxTasksRows().forEach((row, i) => {
-      const dow = row.dow;
-      const time = row.time.trim();
-      const size = String(row.size ?? '').trim();
-      if (dow === '' && time === '' && size === '') {
-        return;
-      }
-      if (dow === '' || time === '' || size === '') {
-        intervalError = intervalError ?? 'fields left blank for interval(s)';
-        invalidRows.add(i);
-        return;
-      }
-      if (!TIME_RE.test(time)) {
-        intervalError = intervalError ?? `invalid time: "${time}" (use 24-hour HH:MM)`;
-        invalidRows.add(i);
-        return;
-      }
-      if (!/^\d+$/.test(size)) {
-        intervalError = intervalError ?? `not an integer: "${size}"`;
-        invalidRows.add(i);
-        return;
-      }
-      const key = `${dow} ${time}`;
-      if (key in json.max_tasks) {
-        intervalError = intervalError ?? 'dow+time duplicated for intervals';
-        invalidRows.add(i);
-        return;
-      }
-      json.max_tasks[key] = Number(size);
-    });
-
-    this.queueError.set(queueError);
-    this.intervalError.set(intervalError);
-    this.generalError.set(generalError);
-    this.invalidGroups.set(invalidGroups);
-    this.invalidRows.set(invalidRows);
-
-    const valid = !queueError && !intervalError && !generalError;
-    this.jsonPreview.set(valid ? JSON.stringify(json, null, 2) : '');
-    return valid ? json : null;
+    return result.json;
   }
 
   submit(): void {
