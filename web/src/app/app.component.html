@@ -11,7 +11,7 @@
 
   @if (getRoutes().length) {
     <button mat-button [matMenuTriggerFor]="routesMenu">
-      Routes <mat-icon>arrow_drop_down</mat-icon>
+      JSON Routes <mat-icon>arrow_drop_down</mat-icon>
     </button>
     <mat-menu #routesMenu="matMenu">
       @for (route of getRoutes(); track route) {
