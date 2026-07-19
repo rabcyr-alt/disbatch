@@ -225,7 +225,7 @@ L<disbatch-create-users>
 
 =head1 AUTHORS
 
-Ashley Willis <awillis@synacor.com>
+Ashley Willis <consul-5flap@icloud.com>
 
 =head1 COPYRIGHT AND LICENSE
 

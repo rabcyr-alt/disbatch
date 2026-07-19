@@ -90,7 +90,7 @@ See [SSL_DCI](docs/SSL_DCI.md)
 
 #### Authors
 
-Ashley Willis (<awillis@synacor.com>)
+Ashley Willis (<consul-5flap@icloud.com>)
 
 Matt Busigin (<mbusigin@hovernetworks.com>)
 
