@@ -31,6 +31,10 @@
     },
     "web_extensions": {					# new in 4.2
     },
+    "dashboard": {					# optional; controls the web dashboard's auto-refresh and node-liveness display
+        "refresh_ms": 30000,				# how often the dashboard reloads queues/nodes, in ms. defaults to 30000 (30 seconds).
+        "live_window_ms": 15000,			# a node quiet longer than this is shown as "non-running", in ms. defaults to 15000 (15 seconds).
+    },
     #"pre_hook": {
     #    "name": "Disbatch::Plugin::Prehook",		# used by lib/Disbatch.pm to load the appropriate code. required by `disbatchd`.
     #    "fatal": false,				# default is false. if true, and `disbatchd` will die if it cannot load the hook or the hook throws an error. otherwise the error is logged but ignored.

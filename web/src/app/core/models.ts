@@ -5,6 +5,15 @@ export interface Info {
   database: string;
   web_extensions: string[];
   routes: { [verb: string]: string[] };
+  dashboard?: DashboardConfig;
+}
+
+/** Dashboard tunables from GET /info (sourced from the `dashboard` config key). */
+export interface DashboardConfig {
+  /** Auto-refresh interval in ms (default 30000). */
+  refresh_ms?: number;
+  /** Node-liveness window in ms; nodes quiet longer are "non-running" (default 15000). */
+  live_window_ms?: number;
 }
 
 /** An entry from GET /queues (Disbatch::scheduler_report). */

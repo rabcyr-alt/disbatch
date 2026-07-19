@@ -25,7 +25,7 @@
 </app-node-table>
 
 <h1>Non-Running Disbatch Execution Nodes</h1>
-<p class="hint">Nodes that have not reported within the last 15 minutes.</p>
+<p class="hint">Nodes that have not reported within the last {{ liveWindowLabel() }}.</p>
 <app-node-table
   [nodes]="deadNodes()"
   (changed)="reload()"
