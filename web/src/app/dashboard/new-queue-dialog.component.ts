@@ -1,4 +1,4 @@
-import { Component, Inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -57,16 +57,12 @@ export interface NewQueueDialogData {
   ],
 })
 export class NewQueueDialogComponent {
-  name = '';
-  plugin = '';
+  readonly dialogRef = inject<MatDialogRef<NewQueueDialogComponent>>(MatDialogRef);
+  readonly data = inject<NewQueueDialogData>(MAT_DIALOG_DATA);
 
-  constructor(
-    public dialogRef: MatDialogRef<NewQueueDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: NewQueueDialogData,
-  ) {
-    // Default the type to the first available plugin.
-    this.plugin = data.plugins[0] ?? '';
-  }
+  name = '';
+  /** Defaults to the first available plugin. */
+  plugin = this.data.plugins[0] ?? '';
 
   create(): void {
     const name = this.name.trim();

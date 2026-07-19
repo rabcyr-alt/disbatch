@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -37,13 +37,13 @@ export class QueueTableComponent {
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
-  @Input() queues: Queue[] = [];
-  @Input() plugins: string[] = [];
+  readonly queues = input<Queue[]>([]);
+  readonly plugins = input<string[]>([]);
 
   /** Emitted when data changed and the parent should reload. */
-  @Output() changed = new EventEmitter<void>();
+  readonly changed = output<void>();
   /** Emitted true while an editor/dialog is open (pauses auto-refresh). */
-  @Output() editingChange = new EventEmitter<boolean>();
+  readonly editingChange = output<boolean>();
 
   readonly columns = [
     'id',
@@ -120,7 +120,7 @@ export class QueueTableComponent {
   openNewQueue(): void {
     this.editingChange.emit(true);
     const ref = this.dialog.open(NewQueueDialogComponent, {
-      data: { plugins: this.plugins },
+      data: { plugins: this.plugins() },
       width: '360px',
     });
     ref.afterClosed().subscribe((result?: { name: string; plugin: string }) => {

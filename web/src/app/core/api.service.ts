@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
@@ -20,9 +20,9 @@ export type TaskQueryOptions = { [dotKey: string]: string | number | boolean | n
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  private readonly jsonHeaders = new HttpHeaders({ Accept: 'application/json' });
+  private http = inject(HttpClient);
 
-  constructor(private http: HttpClient) {}
+  private readonly jsonHeaders = new HttpHeaders({ Accept: 'application/json' });
 
   getInfo(): Observable<Info> {
     return this.http.get<Info>('/info', { headers: this.jsonHeaders });

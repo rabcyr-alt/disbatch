@@ -48,7 +48,7 @@
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="col-dow">
           <mat-select [(ngModel)]="maxTasksRows[i].dow" [name]="'dow_' + i"
                       (ngModelChange)="recompute()">
-            <mat-option value=""></mat-option>
+            <mat-option value="" />
             @for (opt of dowOptions; track opt.value) {
               <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
             }

@@ -1,4 +1,4 @@
-<table mat-table [dataSource]="queues" class="disbatch-table">
+<table mat-table [dataSource]="queues()" class="disbatch-table">
   <ng-container matColumnDef="id">
     <th mat-header-cell *matHeaderCellDef>ID</th>
     <td mat-cell *matCellDef="let row" class="mono">{{ row.id }}</td>
@@ -11,7 +11,7 @@
         <mat-select [value]="row.plugin"
                     (selectionChange)="commitPlugin(row, $event.value)"
                     (openedChange)="editingChange.emit($event)">
-          @for (p of plugins; track p) {
+          @for (p of plugins(); track p) {
             <mat-option [value]="p">{{ p }}</mat-option>
           }
         </mat-select>
@@ -67,7 +67,7 @@
   <tr mat-row *matRowDef="let row; columns: columns"></tr>
 </table>
 
-@if (!queues.length) {
+@if (!queues().length) {
   <p class="empty-note">No queues defined.</p>
 }
 

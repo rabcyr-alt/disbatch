@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -20,10 +20,10 @@ export class NodeTableComponent {
   private api = inject(ApiService);
   private snack = inject(MatSnackBar);
 
-  @Input() nodes: DenNode[] = [];
+  readonly nodes = input<DenNode[]>([]);
 
-  @Output() changed = new EventEmitter<void>();
-  @Output() editingChange = new EventEmitter<boolean>();
+  readonly changed = output<void>();
+  readonly editingChange = output<boolean>();
 
   readonly columns = ['id', 'node', 'maxthreads', 'timestamp'];
 
