@@ -72,9 +72,24 @@ function in a new file. Signals, template, and API calls are untouched.
 The alternative (test in place through TestBed) was rejected: no refactor risk, but
 slower tests that are more coupled to a framework whose testing patterns just shifted.
 
-Tier 2 was left open at the time of writing — worth adding if a written record of the
-endpoint contract would be useful when changing `Disbatch::Web`, and worth skipping if
-reading `web/src/app/core/api.ts` directly would serve the same purpose.
+**Tier 2 was subsequently added** (`core/api.spec.ts`), for the executable-documentation
+value: when `Disbatch::Web` changes, that file states exactly what the UI sends to each
+endpoint. It is the one spec that needs Angular's `TestBed`, because `HttpClient` comes
+from dependency injection; everything else imports no Angular at all.
+
+## What exists now
+
+| File | Tier | Covers |
+| --- | --- | --- |
+| `balance/validate.spec.ts` | 1 | queue-list and interval validation, disable/re-enable, JSON body |
+| `dashboard/threads.spec.ts` | 0 | number/string coercion in the inline editors |
+| `core/api-error.spec.ts` | 0 | error-message extraction from the API's several body shapes |
+| `core/mongo-result.spec.ts` | 0 | MongoDB driver result envelopes |
+| `dashboard/dashboard.spec.ts` | 0 | duration formatting |
+| `core/api.spec.ts` | 2 | endpoint URLs, methods, params, bodies |
+
+55 tests, about 10 seconds, `ng test`. Two of them are explicit regression tests for the
+`.trim()`-on-a-number bug.
 
 ## Practical note
 
