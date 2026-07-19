@@ -19,7 +19,7 @@ export type TaskQueryParams = { [field: string]: string | string[] };
 export type TaskQueryOptions = { [dotKey: string]: string | number | boolean | null | undefined };
 
 @Injectable({ providedIn: 'root' })
-export class ApiService {
+export class Api {
   private http = inject(HttpClient);
 
   private readonly jsonHeaders = new HttpHeaders({ Accept: 'application/json' });

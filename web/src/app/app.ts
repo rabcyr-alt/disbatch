@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
 
-import { ApiService } from './core/api.service';
+import { Api } from './core/api';
 
 @Component({
   selector: 'app-root',
@@ -18,11 +18,11 @@ import { ApiService } from './core/api.service';
     MatMenuModule,
     MatIconModule,
   ],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.scss',
+  templateUrl: './app.html',
+  styleUrl: './app.scss',
 })
-export class AppComponent implements OnInit {
-  private api = inject(ApiService);
+export class App implements OnInit {
+  private api = inject(Api);
 
   readonly database = signal<string | null>(null);
   readonly getRoutes = signal<string[]>([]);

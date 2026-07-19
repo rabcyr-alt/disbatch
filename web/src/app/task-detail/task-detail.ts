@@ -5,17 +5,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 
-import { ApiService } from '../core/api.service';
+import { Api } from '../core/api';
 import { Task } from '../core/models';
 
 @Component({
   selector: 'app-task-detail',
   imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressBarModule],
-  templateUrl: './task-detail.component.html',
-  styleUrl: './task-detail.component.scss',
+  templateUrl: './task-detail.html',
+  styleUrl: './task-detail.scss',
 })
-export class TaskDetailComponent implements OnInit {
-  private api = inject(ApiService);
+export class TaskDetail implements OnInit {
+  private api = inject(Api);
   private route = inject(ActivatedRoute);
 
   readonly id = signal<string>('');

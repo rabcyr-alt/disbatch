@@ -9,11 +9,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ApiService } from '../core/api.service';
+import { Api } from '../core/api';
 import { Queue } from '../core/models';
 import { unwrapMongoResult } from '../core/mongo-result';
 import { apiErrorMessage, messageFromBody } from '../core/api-error';
-import { NewQueueDialogComponent } from './new-queue-dialog.component';
+import { NewQueueDialog } from './new-queue-dialog';
 
 type EditableField = 'name' | 'threads';
 
@@ -28,11 +28,11 @@ type EditableField = 'name' | 'threads';
     MatButtonModule,
     MatIconModule,
   ],
-  templateUrl: './queue-table.component.html',
+  templateUrl: './queue-table.html',
   styleUrl: './table.shared.scss',
 })
-export class QueueTableComponent {
-  private api = inject(ApiService);
+export class QueueTable {
+  private api = inject(Api);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
 
@@ -120,7 +120,7 @@ export class QueueTableComponent {
 
   openNewQueue(): void {
     this.editingChange.emit(true);
-    const ref = this.dialog.open(NewQueueDialogComponent, {
+    const ref = this.dialog.open(NewQueueDialog, {
       data: { plugins: this.plugins() },
       width: '360px',
     });

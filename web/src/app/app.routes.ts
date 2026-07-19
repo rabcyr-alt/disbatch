@@ -3,20 +3,20 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    loadComponent: () => import('./dashboard/dashboard.component').then((m) => m.DashboardComponent),
+    loadComponent: () => import('./dashboard/dashboard').then((m) => m.Dashboard),
   },
   {
     path: 'tasks',
-    loadComponent: () => import('./tasks/tasks.component').then((m) => m.TasksComponent),
+    loadComponent: () => import('./tasks/tasks').then((m) => m.Tasks),
   },
   {
     path: 'tasks/:id',
     loadComponent: () =>
-      import('./task-detail/task-detail.component').then((m) => m.TaskDetailComponent),
+      import('./task-detail/task-detail').then((m) => m.TaskDetail),
   },
   {
     path: 'balance',
-    loadComponent: () => import('./balance/balance.component').then((m) => m.BalanceComponent),
+    loadComponent: () => import('./balance/balance').then((m) => m.Balance),
   },
   { path: '**', redirectTo: '' },
 ];

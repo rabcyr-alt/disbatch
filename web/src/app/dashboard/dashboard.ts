@@ -6,11 +6,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ApiService } from '../core/api.service';
+import { Api } from '../core/api';
 import { DenNode, Queue } from '../core/models';
 import { apiErrorMessage } from '../core/api-error';
-import { QueueTableComponent } from './queue-table.component';
-import { NodeTableComponent } from './node-table.component';
+import { QueueTable } from './queue-table';
+import { NodeTable } from './node-table';
 
 /**
  * Defaults for the dashboard tunables, used when GET /info omits them or the
@@ -36,14 +36,14 @@ function formatDuration(ms: number): string {
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
-    QueueTableComponent,
-    NodeTableComponent,
+    QueueTable,
+    NodeTable,
   ],
-  templateUrl: './dashboard.component.html',
-  styleUrl: './dashboard.component.scss',
+  templateUrl: './dashboard.html',
+  styleUrl: './dashboard.scss',
 })
-export class DashboardComponent implements OnInit {
-  private api = inject(ApiService);
+export class Dashboard implements OnInit {
+  private api = inject(Api);
   private snack = inject(MatSnackBar);
   private destroyRef = inject(DestroyRef);
 

@@ -55,8 +55,8 @@ export interface NewQueueDialogData {
     `,
   ],
 })
-export class NewQueueDialogComponent {
-  readonly dialogRef = inject<MatDialogRef<NewQueueDialogComponent>>(MatDialogRef);
+export class NewQueueDialog {
+  readonly dialogRef = inject<MatDialogRef<NewQueueDialog>>(MatDialogRef);
   readonly data = inject<NewQueueDialogData>(MAT_DIALOG_DATA);
 
   name = '';

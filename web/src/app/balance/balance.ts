@@ -10,7 +10,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ApiService } from '../core/api.service';
+import { Api } from '../core/api';
 import { BalanceDoc, BalancePost, BalanceSettings } from '../core/models';
 import { apiErrorMessage } from '../core/api-error';
 
@@ -57,11 +57,11 @@ const QUEUE_NAME_RE = /^[\w-]+$/;
     MatCheckboxModule,
     MatCardModule,
   ],
-  templateUrl: './balance.component.html',
-  styleUrl: './balance.component.scss',
+  templateUrl: './balance.html',
+  styleUrl: './balance.scss',
 })
-export class BalanceComponent implements OnInit {
-  private api = inject(ApiService);
+export class Balance implements OnInit {
+  private api = inject(Api);
   private snack = inject(MatSnackBar);
 
   readonly dowOptions = DOW_OPTIONS;

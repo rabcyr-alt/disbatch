@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 
-import { ApiService, TaskQueryOptions, TaskQueryParams } from '../core/api.service';
+import { Api, TaskQueryOptions, TaskQueryParams } from '../core/api';
 import { Task } from '../core/models';
 
 @Component({
@@ -24,11 +24,11 @@ import { Task } from '../core/models';
     MatIconModule,
     MatCardModule,
   ],
-  templateUrl: './tasks.component.html',
-  styleUrl: './tasks.component.scss',
+  templateUrl: './tasks.html',
+  styleUrl: './tasks.scss',
 })
-export class TasksComponent implements OnInit {
-  private api = inject(ApiService);
+export class Tasks implements OnInit {
+  private api = inject(Api);
 
   /** Index sets from the API; the first element of each is the leading field. */
   readonly indexes = signal<string[][]>([]);

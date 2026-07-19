@@ -5,18 +5,18 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ApiService } from '../core/api.service';
+import { Api } from '../core/api';
 import { DenNode } from '../core/models';
 import { apiErrorMessage, messageFromBody } from '../core/api-error';
 
 @Component({
   selector: 'app-node-table',
   imports: [FormsModule, MatTableModule, MatFormFieldModule, MatInputModule],
-  templateUrl: './node-table.component.html',
+  templateUrl: './node-table.html',
   styleUrl: './table.shared.scss',
 })
-export class NodeTableComponent {
-  private api = inject(ApiService);
+export class NodeTable {
+  private api = inject(Api);
   private snack = inject(MatSnackBar);
 
   readonly nodes = input<DenNode[]>([]);
