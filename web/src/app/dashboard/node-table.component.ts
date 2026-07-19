@@ -63,7 +63,7 @@ export class NodeTableComponent {
     this.editingNode = null;
     this.editingChange.emit(false);
 
-    const trimmed = this.editValue.trim();
+    const trimmed = String(this.editValue ?? '').trim();
     const previous = row.maxthreads == null ? '' : String(row.maxthreads);
     if (trimmed === previous) {
       return; // no change

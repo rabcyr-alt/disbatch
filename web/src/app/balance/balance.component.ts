@@ -231,7 +231,7 @@ export class BalanceComponent implements OnInit {
     this.maxTasksRows.forEach((row, i) => {
       const dow = row.dow;
       const time = row.time.trim();
-      const size = row.size.trim();
+      const size = String(row.size ?? '').trim();
       if (dow === '' && time === '' && size === '') {
         return;
       }
