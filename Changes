@@ -16,6 +16,11 @@ Revision history for {{$dist->name}}
  - Removed the delete-queue button from the web dashboard (the DELETE /queues/:id API is
    unchanged); the new-queue dialog now defaults its type to the first available plugin.
  - Upgraded the Angular web UI to Angular 22 and made it zoneless (dropped zone.js).
+ - Modernized the Angular web UI to idiomatic v22: OnPush change detection (now the
+   framework default), signal-based component state and input()/output(), inject() over
+   constructor injection, and the v20+ file/class naming convention. Dropped the
+   @angular/animations dependency, the withXhr() HTTP backend, and the karma/jasmine test
+   scaffolding (replaced by the @angular/build Vitest unit-test builder). No API changes.
 
 4.390     2026-01-02 19:02:18-05:00 EST5EDT
 
