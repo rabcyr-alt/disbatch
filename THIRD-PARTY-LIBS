@@ -20,11 +20,6 @@ RxJS
  * https://rxjs.dev/
  * Licensed under the Apache License, Version 2.0
 
-zone.js
- * Copyright Google LLC
- * https://github.com/angular/angular/tree/main/packages/zone.js
- * Licensed under the MIT License
-
 tslib
  * Copyright Microsoft Corporation
  * https://github.com/Microsoft/tslib

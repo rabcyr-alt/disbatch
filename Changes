@@ -10,6 +10,12 @@ Revision history for {{$dist->name}}
    internal parse_accept/want_json helpers), and the `config.views_dir` setting was
    removed. Web extensions that imported `template` must build HTML themselves.
  - Dropped the Template::Plugin::SimpleJson dependency.
+ - GET /info now returns a `dashboard` object (`refresh_ms`, `live_window_ms`) sourced
+   from the optional `dashboard` config key, controlling the web dashboard's auto-refresh
+   interval and node-liveness window (defaults 30000 and 15000 ms).
+ - Removed the delete-queue button from the web dashboard (the DELETE /queues/:id API is
+   unchanged); the new-queue dialog now defaults its type to the first available plugin.
+ - Upgraded the Angular web UI to Angular 22 and made it zoneless (dropped zone.js).
 
 4.390     2026-01-02 19:02:18-05:00 EST5EDT
 
