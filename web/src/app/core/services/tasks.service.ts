@@ -38,6 +38,13 @@ export class TasksService {
       }
     }
     for (const [key, value] of Object.entries(options)) {
+      // The Perl backend parses query-string values as strings, where "false"
+      // is truthy. So boolean options (.terse, .full, .epoch, .pretty, .count)
+      // are sent as "1" when true and omitted entirely when false.
+      if (typeof value === 'boolean') {
+        if (value) httpParams = httpParams.set(key, '1');
+        continue;
+      }
       if (value === undefined || value === null) continue;
       httpParams = httpParams.set(key, String(value));
     }
