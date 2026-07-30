@@ -1,0 +1,43 @@
+/* Global styles for the Disbatch SPA. */
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+  @include mat.theme((
+    color: (
+      theme-type: light,
+      primary: mat.$azure-palette,
+      tertiary: mat.$blue-palette,
+    ),
+    typography: Roboto,
+    density: 0,
+  ));
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+}
+
+/* Pretty-printed JSON blocks (task results, info, balance preview). */
+pre.json {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'Roboto Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+}
+
+/* Spacing helper used across feature views. */
+.spacer {
+  flex: 1 1 auto;
+}
+
+table.full-width {
+  width: 100%;
+}

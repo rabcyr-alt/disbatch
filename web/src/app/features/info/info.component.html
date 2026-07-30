@@ -1,0 +1,50 @@
+<mat-toolbar>
+  <span>Info</span>
+</mat-toolbar>
+
+@if (info(); as i) {
+  <div class="cards">
+    <mat-card>
+      <mat-card-header><mat-card-title>Database</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <p class="mono db">{{ i.database }}</p>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-header><mat-card-title>Loaded web extensions</mat-card-title></mat-card-header>
+      <mat-card-content>
+        @if (i.web_extensions.length) {
+          <mat-chip-set>
+            @for (ext of i.web_extensions; track ext) {
+              <mat-chip>{{ ext }}</mat-chip>
+            }
+          </mat-chip-set>
+        } @else {
+          <p class="hint">(none)</p>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="routes-card">
+      <mat-card-header><mat-card-title>Routes</mat-card-title></mat-card-header>
+      <mat-card-content>
+        @for (entry of routeEntries(i.routes); track entry.verb) {
+          <h4>{{ entry.verb }}</h4>
+          <ul class="mono">
+            @for (path of entry.paths; track path) {
+              <li>{{ path }}</li>
+            }
+          </ul>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="raw-card">
+      <mat-card-header><mat-card-title>Raw JSON</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <app-json-viewer [value]="i" />
+      </mat-card-content>
+    </mat-card>
+  </div>
+}

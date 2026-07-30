@@ -1,0 +1,53 @@
+:host {
+  display: block;
+  height: 100vh;
+}
+
+.shell {
+  height: 100vh;
+}
+
+.sidenav {
+  width: 220px;
+  border-right: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .brand-name {
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .db-name {
+    font-size: 18px;
+    font-weight: 500;
+  }
+
+  .db-label {
+    opacity: 0.85;
+  }
+
+  .interval-label {
+    font-size: 14px;
+    opacity: 0.9;
+  }
+}
+
+.view {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}

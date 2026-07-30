@@ -1,0 +1,40 @@
+:host {
+  display: block;
+}
+
+mat-toolbar {
+  margin-bottom: 16px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+mat-card-header {
+  display: flex;
+  align-items: center;
+
+  .badge-wrap {
+    margin-left: auto;
+  }
+}
+
+h4 {
+  margin: 12px 0 4px;
+}
+
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.hint {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.mono {
+  font-family: 'Roboto Mono', Consolas, monospace;
+  font-size: 13px;
+}
