@@ -823,7 +823,7 @@ You can test only one type of GFS tests by setting C<GFS_TESTS> to C<auto>, C<1>
 
 =head1 AUTHORS
 
-Ashley Willis <awillis@synacor.com>
+Ashley Willis <consul-5flap@icloud.com>
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -85,5 +85,5 @@ fi
 %defattr(-,root,root)
 
 %changelog
-* %(date '+%a %b %d %Y') Ashley Willis <awillis@synacor.com> %{version}-1
+* %(date '+%a %b %d %Y') Ashley Willis <consul-5flap@icloud.com> %{version}-1
 - Initial Synacor build.
