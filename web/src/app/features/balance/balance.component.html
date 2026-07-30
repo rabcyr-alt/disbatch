@@ -1,0 +1,104 @@
+<mat-toolbar>
+  <span>QueueBalancer</span>
+</mat-toolbar>
+
+@if (notice(); as n) {
+  <div class="notice">{{ n }}</div>
+}
+@if (settings(); as s) {
+  @if (!s.enabled) {
+    <div class="warning">NOT ENABLED (can't change here)</div>
+  }
+  @if (s.pretend) {
+    <div class="warning">PRETEND MODE (can't change here)</div>
+  }
+}
+
+<form [formGroup]="form" (ngSubmit)="submit()" class="balance-form">
+  <h3>queues</h3>
+  <p class="hint">Comma-separated list of queues have equal priority. Currently known queues: {{ knownQueues().join(', ') }}</p>
+  <div formArrayName="queues" class="rows">
+    @for (ctrl of queues.controls; track ctrl; let i = $index) {
+      <div class="row">
+        <mat-form-field appearance="outline" class="queue-input">
+          <input matInput [formControlName]="i" placeholder="queue1,queue2" />
+        </mat-form-field>
+        <span class="row-label">{{ i === 0 ? 'default priority' : 'higher priority' }}</span>
+        @if (queues.length > 1) {
+          <button mat-icon-button type="button" (click)="removeQueueRow(i)" matTooltip="Remove">
+            <mat-icon>remove</mat-icon>
+          </button>
+        }
+      </div>
+    }
+  </div>
+  <div class="add-row">
+    <button mat-stroked-button type="button" (click)="addQueueRow()"><mat-icon>add</mat-icon> Add another</button>
+  </div>
+
+  <h3>intervals</h3>
+  <p class="hint">Specific day at same time has precedence over daily event.</p>
+  <div formArrayName="max_tasks" class="rows">
+    <div class="row header">
+      <span>DOW</span><span>HH:MM</span><span>max</span><span></span>
+    </div>
+    @for (row of maxTasks.controls; track row; let i = $index) {
+      <div [formGroupName]="i" class="row interval">
+        <mat-form-field appearance="outline">
+          <mat-select formControlName="dow">
+            @for (o of dowOptions; track o.value) {
+              <mat-option [value]="o.value">{{ o.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <input matInput formControlName="time" placeholder="HH:MM" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <input matInput formControlName="size" placeholder="0" />
+        </mat-form-field>
+        @if (maxTasks.length > 1) {
+          <button mat-icon-button type="button" (click)="removeMaxTaskRow(i)" matTooltip="Remove">
+            <mat-icon>remove</mat-icon>
+          </button>
+        }
+      </div>
+    }
+  </div>
+  <div class="add-row">
+    <button mat-stroked-button type="button" (click)="addMaxTaskRow()"><mat-icon>add</mat-icon> Add another</button>
+  </div>
+
+  <h3>disable</h3>
+  <div class="disable-row">
+    <mat-form-field appearance="outline">
+      <mat-label>disable for</mat-label>
+      <mat-select formControlName="disable">
+        @for (o of disableOptions; track o.value) {
+          <mat-option [value]="o.value">{{ o.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    @if (disabledUntil() !== null) {
+      <span class="hint">(disabled until {{ disabledUntil()! | date: 'medium' }})</span>
+      <mat-checkbox formControlName="reenable">re-enable</mat-checkbox>
+    } @else {
+      <span class="hint">(currently enabled)</span>
+    }
+  </div>
+
+  @if (submitted() && errors().length) {
+    <div class="error-box">
+      @for (e of errors(); track e) {
+        <div>{{ e }}</div>
+      }
+    </div>
+  }
+
+  <div class="actions">
+    <button mat-flat-button color="primary" type="submit">Submit (changes take effect every 30 seconds)</button>
+  </div>
+</form>
+
+<h3>JSON preview</h3>
+<app-json-viewer [value]="preview()" />

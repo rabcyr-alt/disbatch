@@ -1,0 +1,9 @@
+{
+  "/info": { "target": "http://localhost:8080", "secure": false },
+  "/plugins": { "target": "http://localhost:8080", "secure": false },
+  "/nodes": { "target": "http://localhost:8080", "secure": false },
+  "/queues": { "target": "http://localhost:8080", "secure": false },
+  "/tasks": { "target": "http://localhost:8080", "secure": false },
+  "/balance": { "target": "http://localhost:8080", "secure": false },
+  "/monitoring": { "target": "http://localhost:8080", "secure": false }
+}

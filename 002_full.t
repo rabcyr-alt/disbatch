@@ -46,9 +46,15 @@ sub get_free_port {
 
 my $mongoport = get_free_port;
 
+my $database;
+if ($ENV{MONGOPORT} and $ENV{DATABASE}) {
+    $mongoport = $ENV{MONGOPORT};
+    $database = $ENV{DATABASE};
+}
+
 # define config and make up a database name:
 my $config = {
-    monitoring => 1,
+    monitoring => 0,
     balance => {
         log => 1,
         verbose => 0,
@@ -56,7 +62,7 @@ my $config = {
         enabled => 0,
     },
     mongohost => "localhost:$mongoport",
-    database => "disbatch_test$$" . int(rand(10000)),
+    database => $database // ("disbatch_test$$" . int(rand(10000))),
     attributes => { ssl => { SSL_ca_file => 't/rootCA.crt', SSL_cert_file => 't/serverCert.pem' } },
     auth => {
         disbatchd => 'qwerty1',		# { username => 'disbatchd', password => 'qwerty1' },
@@ -96,6 +102,8 @@ mkdir "/tmp/$config->{database}";
 my $config_file = "/tmp/$config->{database}/config.json";
 write_file $config_file, encode_json $config;
 
+say "***** wrote file $config_file";
+
 diag "database = $config->{database}";
 
 my @mongo_args = (
@@ -104,28 +112,38 @@ my @mongo_args = (
     '--pidfilepath' => "/tmp/$config->{database}/mongod.pid",
     '--port' => $mongoport,
     #'--noprealloc',	# not on 8.2 nor 4.4
-    '--nojournal',	# not on 8.2 but is on 6.0
-    '--fork'
+    #'--nojournal',	# not on 8.2 but is on 6.0
+    #'--fork'		# does not work on 8.2
 );
 push @mongo_args, $use_auth ? '--auth' : '--noauth';
 push @mongo_args, '--tlsMode' => 'requireTLS', '--tlsCertificateKeyFile' => 't/serverCert.pem', '--tlsCAFile' => 't/rootCAcombined.pem' if $use_ssl;
 my $mongo_args = join ' ', @mongo_args;
-say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 2016-05-05, it's now 2025)
+if (!defined $database) {
+    #say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 2016-05-05, it's now 2025)
+    say "mongod $mongo_args";
+    exit;
+}
 
 # Get test database, authed as root:
 my $attributes = {};
 $attributes->{ssl} = $config->{attributes}{ssl} if $use_ssl;
+#$attributes->{read_pref_mode} = 'standalone';	#'nearest';	#'primaryPreferred';
+#$attributes->{read_pref_tag_sets} = [];
 if ($use_auth) {
-    my $admin = MongoDB->connect($config->{mongohost}, $attributes)->get_database('admin');
-    retry { $admin->run_command([createUser => 'root', pwd => 'kjfiwey76r3gjm', roles => [ { role => 'root', db => 'admin' } ]]) } catch { die $_ };
+    if (!defined $database) {
+        my $admin = MongoDB->connect($config->{mongohost}, $attributes)->get_database('admin');
+        retry { $admin->run_command([createUser => 'root', pwd => 'kjfiwey76r3gjm', roles => [ { role => 'root', db => 'admin' } ]]) } catch { die $_ };
+    }
     $attributes->{username} = 'root';
     $attributes->{password} = 'kjfiwey76r3gjm';
 }
 my $test_db_root = retry { MongoDB->connect($config->{mongohost}, $attributes)->get_database($config->{database}) } catch { die $_ };
 
-# Create roles and users for a database:
-my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
-Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, %{$config->{auth}})->create_roles_and_users if $use_auth;
+if (!defined $database) {
+    # Create roles and users for a database:
+    my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
+    Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, %{$config->{auth}})->create_roles_and_users if $use_auth;
+}
 
 # Create users collection:
 for my $username (qw/ foo bar /) {
@@ -786,7 +804,7 @@ if ($webpid == 0) {
 
 END {
     # Cleanup:
-    if (defined $config and $config->{database}) {
+    if (0 and defined $config and $config->{database}) {
         kill -9, $webpid if $webpid;
         my $pidfile = "/tmp/$config->{database}/mongod.pid";
         if (-e $pidfile) {

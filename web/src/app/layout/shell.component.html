@@ -1,0 +1,47 @@
+<mat-sidenav-container class="shell">
+  <mat-sidenav #drawer mode="side" opened class="sidenav">
+    <mat-toolbar color="primary" class="brand">
+      <mat-icon>layers</mat-icon>
+      <span class="brand-name">Disbatch</span>
+    </mat-toolbar>
+    <mat-nav-list>
+      @for (link of links; track link.path) {
+        <a mat-list-item [routerLink]="link.path" routerLinkActive #rla="routerLinkActive" [activated]="rla.isActive">
+          <mat-icon matListItemIcon>{{ link.icon }}</mat-icon>
+          <span matListItemTitle>{{ link.label }}</span>
+        </a>
+      }
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="content">
+    <mat-toolbar color="primary" class="toolbar">
+      <span class="db-name">Disbatch</span>
+      @if (database()) {
+        <span class="db-label">({{ database() }})</span>
+      }
+      <span class="spacer"></span>
+
+      <span class="interval-label">Refresh:</span>
+      <button mat-stroked-button [matMenuTriggerFor]="intervalMenu">
+        {{ intervalSeconds() === 0 ? 'Off' : intervalSeconds() + 's' }}
+        <mat-icon>arrow_drop_down</mat-icon>
+      </button>
+      <mat-menu #intervalMenu="matMenu">
+        @for (choice of intervalChoices; track choice) {
+          <button mat-menu-item (click)="setInterval(choice)">
+            {{ choice === 0 ? 'Off' : choice + 's' }}
+          </button>
+        }
+      </mat-menu>
+
+      <button mat-icon-button (click)="refresh()" matTooltip="Refresh now">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </mat-toolbar>
+
+    <div class="view">
+      <router-outlet />
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

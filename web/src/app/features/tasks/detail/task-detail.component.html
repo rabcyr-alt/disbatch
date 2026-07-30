@@ -1,0 +1,36 @@
+<mat-toolbar>
+  <a mat-icon-button routerLink="/tasks" matTooltip="Back to tasks"><mat-icon>arrow_back</mat-icon></a>
+  <span>Task {{ id() }}</span>
+  <span class="spacer"></span>
+  <mat-slide-toggle [checked]="full()" (change)="toggleFull()">full output</mat-slide-toggle>
+</mat-toolbar>
+
+@if (loading()) {
+  <p class="hint">Loading…</p>
+}
+
+@if (notFound()) {
+  <div class="error-box">No task with id {{ id() }}.</div>
+}
+
+@if (task(); as t) {
+  <div class="detail-card">
+    <dl class="fields">
+      <div><dt>_id</dt><dd class="mono">{{ t._id }}</dd></div>
+      <div><dt>queue</dt><dd class="mono">{{ t.queue }}</dd></div>
+      <div><dt>status</dt><dd>{{ t.status }} ({{ statusLabel() }})</dd></div>
+      <div><dt>node</dt><dd class="mono">{{ t.node ?? '(none)' }}</dd></div>
+      <div><dt>ctime</dt><dd class="mono">{{ t.ctime }}</dd></div>
+      <div><dt>mtime</dt><dd class="mono">{{ t.mtime }}</dd></div>
+    </dl>
+
+    <h3>params</h3>
+    <app-json-viewer [value]="t.params" />
+
+    <h3>stdout</h3>
+    <pre class="json">{{ outputText(t.stdout) }}</pre>
+
+    <h3>stderr</h3>
+    <pre class="json">{{ outputText(t.stderr) }}</pre>
+  </div>
+}

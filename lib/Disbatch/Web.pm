@@ -93,14 +93,16 @@ sub want_json {
 #### NEW API ###
 ################
 
+# Serve the Angular SPA shell (index.html) from web_root.
+# With hash-based routing (Option B) the browser only ever requests "/", so this
+# is the single backend routing change required; all other paths are either JSON
+# API calls or static assets served by the catch-all in Disbatch::Web::Files.
+sub serve_spa {
+    send_file '/index.html';
+}
+
 get '/' => sub {
-    # NOTE: not doing just "template 'index.tt', $params;" because not using WRAPPER here
-    my $tt = Template->new(ANYCASE => 1, ABSOLUTE => 1, ENCODING => 'utf8', INCLUDE_PATH => $disbatch->{config}{views_dir} // '/etc/disbatch/views/', START_TAG => '\[%', END_TAG => '%\]');
-    my $output = '';
-    my $params = { database => $disbatch->{config}{database}, web_extensions => [sort keys %{$disbatch->{config}{web_extensions} // {}}], get_routes => [ grep { m{^/} } sort keys %{+{@{Limper::routes('GET')}}} ] };
-    $tt->process('index.tt', $params, \$output) || die $tt->error();
-    headers 'Content-Type' => 'text/html';
-    $output;
+    serve_spa();
 };
 
 get '/info' => sub {
@@ -509,7 +511,6 @@ get '/tasks' => sub {
     undef $disbatch->{mongo};	# NOTE: why is this added? (note from 2019-03-29, it's now 2025)
     my ($params, $options) = parse_params;	# NOTE: $options may contain: .limit .skip .count .pretty .terse .epoch .full
     $params = undef if defined $params and $params eq '';	# IDEA: maybe move to parse_params() above (note from 2019-03-29, it's now 2025)
-    my $want_json = want_json;
 
     my $indexes = get_indexes($disbatch->tasks);
     my $schema = {
@@ -519,47 +520,28 @@ get '/tasks' => sub {
             subtitle => 'Warning: this can return a LOT of data!',
             params => +{ map { map { $_ => { repeatable => 'yes', type => ['string' ]} } @$_ } @$indexes },
     };
-    if (!$want_json and !%$params and !%$options) {
-        my $result = { schema => $schema, indexes => $indexes };
-        return template 'query.tt', $result;
+    # With no params and no options, return the schema and index sets as JSON so
+    # the SPA can build its query form. (Previously a 400 error body or HTML form.)
+    if (!%$params and !%$options) {
+        return send_json { schema => $schema, indexes => $indexes }, send_json_options;
     }
 
-    my $result = query($params, $options, $schema->{title}, $oid_keys, $disbatch->tasks, request->{path}, $want_json, $indexes);
-    if ($want_json) {
-        status 400 if ref $result ne 'ARRAY' and exists $result->{error};
-        _munge_tasks($result, $options);
-        send_json $result, send_json_options, pretty => $options->{'.pretty'} // 0;
-    } else {
-        if (exists $result->{error}) {
-            $result->{schema} = $schema;
-            $result->{schema}{error} = $result->{error};
-            status 400;
-        }
-        _munge_tasks($result, $options);	# NOTE: do we want _munge_tasks() here too? well let's TIAS (note from 2019-03-29, it's now 2025)
-        template 'query.tt', $result;
-    }
+    my $result = query($params, $options, $schema->{title}, $oid_keys, $disbatch->tasks, request->{path}, 1, $indexes);
+    status 400 if ref $result ne 'ARRAY' and exists $result->{error};
+    _munge_tasks($result, $options);
+    send_json $result, send_json_options, pretty => $options->{'.pretty'} // 0;
 };
 
 get qr'^/tasks/(?<id>[0-9a-f]{24})$' => sub {
     my $title = "Disbatch Single Task Query";
-    my $want_json = want_json;
-    my $result = query({id => $+{id}}, {'.limit' => 1}, $title, $oid_keys, $disbatch->tasks, request->{path}, $want_json, [['id']]);
-    if ($want_json) {
-        if (!keys %$result) {
-            status 404;
-            $result = { error => "no task with id $+{id}" };
-        } elsif (exists $result->{error}) {
-            status 400;
-        }
-        send_json $result, send_json_options, pretty => 1;
-    } else {
-        if (!defined $result->{result}) {
-            status 404;
-        } elsif (exists $result->{error}) {
-            status 400;
-        }
-        template 'query.tt', $result;
+    my $result = query({id => $+{id}}, {'.limit' => 1}, $title, $oid_keys, $disbatch->tasks, request->{path}, 1, [['id']]);
+    if (!keys %$result) {
+        status 404;
+        $result = { error => "no task with id $+{id}" };
+    } elsif (exists $result->{error}) {
+        status 400;
     }
+    send_json $result, send_json_options, pretty => 1;
 };
 
 sub get_balance {
@@ -625,12 +607,7 @@ sub post_balance {
 };
 
 get '/balance' => sub {
-    my $want_json = want_json;
-    if ($want_json) {
-        send_json get_balance(), send_json_options, pretty => 1;
-    } else {
-        template 'balance.tt', get_balance();
-    }
+    send_json get_balance(), send_json_options, pretty => 1;
 };
 
 post '/balance' => sub {
@@ -1197,12 +1174,12 @@ Parameters: anything indexed on the C<tasks> collection, as well as any dot opti
 
 Options can be C<.count>, C<.fields> to return, query C<.limit> and C<.skip>, C<.terse> or C<.full> output, dates as C<.epoch>, and C<.pretty> print JSON result.
 
-Performs a search of tasks, returning either JSON or a web page.
+Performs a search of tasks, always returning JSON.
 
-If C<want_json()> (based on the C<Accept> header), returns a JSON array (which may be pretty-printed if specified in the parameters) of task documents,
+With no parameters and no options, returns C<200> with an object of C<{ schema =E<gt> ..., indexes =E<gt> ... }> describing the indexed query fields (used by the SPA to build its query form).
+
+Otherwise returns a JSON array (which may be pretty-printed if specified in the parameters) of task documents,
 or on error an object with an C<error> field (and possibly other fields).
-
-Otherwise, if no parameters returns a web form to perform a search of indexed fields. If parameters, returns a web page of results or error.
 
 Sets HTTP status to C<400> on error.
 
@@ -1213,7 +1190,6 @@ Note: new in 4.2, replaces C<POST /tasks/search>
 Parameters: Task OID in URL
 
 Returns the task matching OID as JSON, or C<{ "error": "no task with id :id" }> and status C<404> if OID not found.
-Or, via a web browser (based on C<Accept> header value), returns the task matching OID with some formatting, or C<No tasks found matching query> if OID not found.
 
 =item POST /tasks
 
@@ -1246,7 +1222,7 @@ Note: new in 4.2, replaces C<POST /tasks/:queue> and C<POST /tasks/:queue/:colle
 
 Parameters: none
 
-Returns a web page to view and update Queue Balance settings if the C<Accept> header wants C<text/html>, otherwise returns a pretty JSON result of C<get_balance>
+Returns a pretty JSON result of C<get_balance>.
 
 =item POST /balance
 
@@ -1296,7 +1272,9 @@ For examples see L<Disbatch::Web::Files> (which is automatically loaded at the e
 
 =item GET /
 
-Returns the contents of "/index.html" – the queue browser page.
+Returns the Angular SPA shell (C<index.html>) from C<config.web_root>.
+All client-side routing is hash-based (after C<#>), so the server only ever
+serves this shell for C</>; data is fetched via the JSON API endpoints below.
 
 =item GET qr{^/}
 

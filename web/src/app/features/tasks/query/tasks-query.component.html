@@ -1,0 +1,116 @@
+<mat-toolbar>
+  <span>Disbatch Tasks Query</span>
+  <span class="spacer"></span>
+</mat-toolbar>
+<p class="hint">Warning: this can return a LOT of data!</p>
+
+@if (indexes().length) {
+  <p class="hint">
+    You can query anything that is indexed. If you use an index which is not the first in a set, you must also use the
+    preceding indexes in that set. You can combine sets.
+  </p>
+  <p class="hint">
+    Index sets:
+    @for (idx of indexes(); track idx) {
+      <code>{{ json(idx) }}</code>
+      @if (!$last) { , }
+    }
+  </p>
+}
+
+<form [formGroup]="fieldForm" (ngSubmit)="submit()" class="query-form">
+  <div class="fields">
+    @for (field of indexFields(); track field) {
+      <div class="field-group">
+        <span class="field-label">{{ field }}</span>
+        <div [formArrayName]="field" class="repeats">
+          @for (ctrl of fieldArray(field).controls; track ctrl; let i = $index) {
+            <div class="repeat-row">
+              <mat-form-field appearance="outline" class="repeat-input">
+                <input matInput [formControlName]="i" />
+              </mat-form-field>
+              @if (fieldArray(field).length > 1) {
+                <button mat-icon-button type="button" (click)="removeField(field, i)" matTooltip="Remove">
+                  <mat-icon>remove</mat-icon>
+                </button>
+              }
+            </div>
+          }
+          <button mat-stroked-button type="button" (click)="addField(field)" class="add-or">
+            <mat-icon>add</mat-icon> Add another for OR
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
+  <fieldset class="options" [formGroup]="optionsForm">
+    <legend>Options</legend>
+    <div class="opts-row">
+      <mat-form-field appearance="outline">
+        <mat-label>limit</mat-label>
+        <input matInput type="number" min="0" formControlName="limit" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>.fields (comma list)</mat-label>
+        <input matInput formControlName="fields" />
+      </mat-form-field>
+    </div>
+    <div class="opts-row checkboxes">
+      <mat-checkbox formControlName="terse">.terse</mat-checkbox>
+      <mat-checkbox formControlName="full">.full</mat-checkbox>
+      <mat-checkbox formControlName="epoch">.epoch</mat-checkbox>
+      <mat-checkbox formControlName="pretty">.pretty</mat-checkbox>
+    </div>
+  </fieldset>
+
+  <div class="actions">
+    <button mat-flat-button color="primary" type="submit">Submit</button>
+    @if (skip() > 0) {
+      <button mat-stroked-button type="button" (click)="prev()">Previous {{ limit() }}</button>
+    }
+    @if (hasMore()) {
+      <button mat-stroked-button type="button" (click)="next()">Next {{ limit() }} results</button>
+    }
+  </div>
+</form>
+
+@if (error()) {
+  <div class="error-box">
+    <strong>{{ error()!.error }}</strong>
+    @if (error()!.invalid_params?.length) {
+      <div>Invalid params: {{ error()!.invalid_params!.join(', ') }}</div>
+    }
+  </div>
+}
+
+@if (results().length) {
+  <div class="table-card">
+    <table mat-table [dataSource]="results()" class="full-width">
+      <ng-container matColumnDef="_id">
+        <th mat-header-cell *matHeaderCellDef>_id</th>
+        <td mat-cell *matCellDef="let t" class="mono">{{ t._id }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>status</th>
+        <td mat-cell *matCellDef="let t">{{ t.status }} ({{ statusLabel(t.status) }})</td>
+      </ng-container>
+      <ng-container matColumnDef="json">
+        <th mat-header-cell *matHeaderCellDef>document</th>
+        <td mat-cell *matCellDef="let t"><pre class="json">{{ pretty(t) }}</pre></td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let t">
+          <button mat-icon-button (click)="viewTask(t)" matTooltip="View task">
+            <mat-icon>open_in_new</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+  </div>
+} @else if (!loading() && !error() && indexFields().length) {
+  <div class="empty">No results.</div>
+}

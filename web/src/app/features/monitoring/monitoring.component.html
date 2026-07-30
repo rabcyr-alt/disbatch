@@ -1,0 +1,40 @@
+<mat-toolbar>
+  <span>Monitoring</span>
+</mat-toolbar>
+
+@if (monitoring(); as m) {
+  <div class="cards">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Disbatch</mat-card-title>
+        <span class="badge-wrap"><app-status-badge [status]="m.disbatch.status" /></span>
+      </mat-card-header>
+      <mat-card-content>
+        <p>{{ m.disbatch.message }}</p>
+        @if (m.disbatch.nodes) {
+          <h4>Nodes</h4>
+          <ul>
+            @for (n of nodeEntries(m.disbatch); track n.host) {
+              <li>
+                <span class="mono">{{ n.host }}</span> —
+                @if (n.age <= 60) { fresh ({{ n.age }}s ago) } @else { stale ({{ n.age }}s ago) }
+              </li>
+            }
+          </ul>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>QueueBalance</mat-card-title>
+        <span class="badge-wrap"><app-status-badge [status]="m.queuebalance.status" /></span>
+      </mat-card-header>
+      <mat-card-content>
+        <p>{{ m.queuebalance.message }}</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+} @else if (loading()) {
+  <p class="hint">Loading…</p>
+}

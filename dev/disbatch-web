@@ -7,4 +7,4 @@ use lib 'lib';
 use Disbatch::Web;
 
 Disbatch::Web::init(config_file => 'etc/disbatch/config.json');
-Disbatch::Web::limp({workers => 10});
+Disbatch::Web::limp({workers => 10}, LocalPort => 8080);
