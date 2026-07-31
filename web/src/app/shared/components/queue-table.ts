@@ -10,10 +10,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { QueuesService } from '../../core/services/queues.service';
 import { Queue } from '../../core/models/queue';
 import { isUnchanged, normalizeEdit, parseMaxThreads } from '../edit';
-import {
-  QueueCreateDialogComponent,
-  QueueCreateResult,
-} from './queue-create-dialog';
+import { QueueCreateDialogComponent, QueueCreateResult } from './queue-create-dialog';
 
 type EditableField = 'name' | 'threads';
 
@@ -60,7 +57,9 @@ export class QueueTableComponent {
       return;
     }
     this.editing.set({ id: row.id, field });
-    this.editValue.set(field === 'threads' ? (row.threads == null ? '' : String(row.threads)) : row[field]);
+    this.editValue.set(
+      field === 'threads' ? (row.threads == null ? '' : String(row.threads)) : row[field],
+    );
     this.editingChange.emit(true);
   }
 

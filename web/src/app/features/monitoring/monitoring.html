@@ -17,7 +17,11 @@
             @for (n of nodeEntries(m.disbatch); track n.host) {
               <li>
                 <span class="mono">{{ n.host }}</span> —
-                @if (n.age <= 60) { fresh ({{ n.age }}s ago) } @else { stale ({{ n.age }}s ago) }
+                @if (n.age <= 60) {
+                  fresh ({{ n.age }}s ago)
+                } @else {
+                  stale ({{ n.age }}s ago)
+                }
               </li>
             }
           </ul>

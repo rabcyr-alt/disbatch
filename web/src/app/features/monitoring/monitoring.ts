@@ -24,7 +24,9 @@ export class MonitoringComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {
-    this.refreshService.tick$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
+    this.refreshService.tick$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.load());
   }
 
   load(): void {

@@ -14,9 +14,17 @@
     <td mat-cell *matCellDef="let row" (click)="startEdit(row)" class="editable">
       @if (isEditing(row)) {
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-          <input matInput type="number" min="0" [(ngModel)]="editValue"
-                 (keydown.enter)="commitEdit(row)" (keydown.escape)="cancelEdit()"
-                 (blur)="commitEdit(row)" placeholder="unlimited" cdkFocusInitial />
+          <input
+            matInput
+            type="number"
+            min="0"
+            [(ngModel)]="editValue"
+            (keydown.enter)="commitEdit(row)"
+            (keydown.escape)="cancelEdit()"
+            (blur)="commitEdit(row)"
+            placeholder="unlimited"
+            cdkFocusInitial
+          />
         </mat-form-field>
       } @else {
         {{ row.maxthreads == null ? '—' : row.maxthreads }}

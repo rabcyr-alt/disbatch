@@ -136,7 +136,9 @@ export class BalanceComponent implements OnInit {
         if (entries.length) {
           for (const [key, size] of entries) {
             const [dow, time] = key.split(' ');
-            this.maxTasks.push(this.fb.group({ dow: [dow ?? ''], time: [time ?? ''], size: [String(size)] }));
+            this.maxTasks.push(
+              this.fb.group({ dow: [dow ?? ''], time: [time ?? ''], size: [String(size)] }),
+            );
           }
         } else {
           this.addMaxTaskRow();

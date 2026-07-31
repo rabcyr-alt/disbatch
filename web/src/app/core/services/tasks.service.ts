@@ -48,7 +48,9 @@ export class TasksService {
       if (value === undefined || value === null) continue;
       httpParams = httpParams.set(key, String(value));
     }
-    return this.http.get<Task[] | TaskCountResponse | TaskErrorResponse>('/tasks', { params: httpParams });
+    return this.http.get<Task[] | TaskCountResponse | TaskErrorResponse>('/tasks', {
+      params: httpParams,
+    });
   }
 
   /** GET /tasks/:id -> task object, or { error } with 404. */
