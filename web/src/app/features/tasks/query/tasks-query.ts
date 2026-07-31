@@ -51,7 +51,7 @@ export const TASK_STATUS_LABELS: Record<number, string> = {
   templateUrl: './tasks-query.html',
   styleUrl: './tasks-query.scss',
 })
-export class TasksQueryComponent implements OnInit {
+export class TasksQuery implements OnInit {
   private readonly tasksService = inject(TasksService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);

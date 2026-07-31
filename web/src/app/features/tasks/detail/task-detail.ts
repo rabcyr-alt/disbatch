@@ -10,7 +10,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { TasksService } from '../../../core/services/tasks.service';
 import { Task, TaskOutput } from '../../../core/models/task';
 import { TASK_STATUS_LABELS } from '../query/tasks-query';
-import { JsonViewerComponent } from '../../../shared/components/json-viewer';
+import { JsonViewer } from '../../../shared/components/json-viewer';
 
 @Component({
   selector: 'app-task-detail',
@@ -21,12 +21,12 @@ import { JsonViewerComponent } from '../../../shared/components/json-viewer';
     MatIconModule,
     MatSlideToggleModule,
     MatToolbarModule,
-    JsonViewerComponent,
+    JsonViewer,
   ],
   templateUrl: './task-detail.html',
   styleUrl: './task-detail.scss',
 })
-export class TaskDetailComponent implements OnInit {
+export class TaskDetail implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly tasksService = inject(TasksService);
   private readonly destroyRef = inject(DestroyRef);

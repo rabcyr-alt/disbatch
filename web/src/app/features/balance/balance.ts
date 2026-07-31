@@ -12,8 +12,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BalanceService } from '../../core/services/balance.service';
-import { Balance, BalanceSubmit } from '../../core/models/balance';
-import { JsonViewerComponent } from '../../shared/components/json-viewer';
+import { BalanceDoc, BalanceSubmit } from '../../core/models/balance';
+import { JsonViewer } from '../../shared/components/json-viewer';
 
 interface MaxTaskRow {
   dow: string;
@@ -63,12 +63,12 @@ const QUEUE_LIST_RE = /^[\w-]+(?:,[\w-]+)*$/;
     MatSelectModule,
     MatToolbarModule,
     MatTooltipModule,
-    JsonViewerComponent,
+    JsonViewer,
   ],
   templateUrl: './balance.html',
   styleUrl: './balance.scss',
 })
-export class BalanceComponent implements OnInit {
+export class Balance implements OnInit {
   private readonly balanceService = inject(BalanceService);
   private readonly fb = inject(FormBuilder);
 
@@ -76,7 +76,7 @@ export class BalanceComponent implements OnInit {
   readonly disableOptions = DISABLE_OPTIONS;
 
   readonly knownQueues = signal<string[]>([]);
-  readonly settings = signal<Balance['settings'] | null>(null);
+  readonly settings = signal<BalanceDoc['settings'] | null>(null);
   readonly notice = signal<string | null>(null);
   readonly disabledUntil = signal<number | null>(null);
   readonly errors = signal<string[]>([]);
@@ -114,7 +114,7 @@ export class BalanceComponent implements OnInit {
     this.balanceService
       .get()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((b: Balance) => {
+      .subscribe((b: BalanceDoc) => {
         this.knownQueues.set(b.known_queues ?? []);
         this.settings.set(b.settings ?? null);
         this.notice.set(b.notice ?? null);

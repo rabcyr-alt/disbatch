@@ -10,7 +10,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { QueuesService } from '../../core/services/queues.service';
 import { Queue } from '../../core/models/queue';
 import { isUnchanged, normalizeEdit, parseMaxThreads } from '../edit';
-import { QueueCreateDialogComponent, QueueCreateResult } from './queue-create-dialog';
+import { QueueCreateDialog, QueueCreateResult } from './queue-create-dialog';
 
 type EditableField = 'name' | 'threads';
 
@@ -29,7 +29,7 @@ type EditableField = 'name' | 'threads';
   templateUrl: './queue-table.html',
   styleUrl: './table.shared.scss',
 })
-export class QueueTableComponent {
+export class QueueTable {
   private readonly queuesService = inject(QueuesService);
   private readonly dialog = inject(MatDialog);
 
@@ -104,7 +104,7 @@ export class QueueTableComponent {
 
   openNewQueue(): void {
     this.editingChange.emit(true);
-    const ref = this.dialog.open(QueueCreateDialogComponent, { width: '420px' });
+    const ref = this.dialog.open(QueueCreateDialog, { width: '420px' });
     ref.componentInstance.setPlugins(this.plugins());
     ref.afterClosed().subscribe((result?: QueueCreateResult) => {
       this.editingChange.emit(false);

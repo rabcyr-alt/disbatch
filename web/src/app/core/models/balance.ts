@@ -8,7 +8,7 @@ export interface BalanceSettings {
 /** Keys: 'DOW HH:MM' (DOW is '*' or 0-6); values: max task count. */
 export type MaxTasksMap = Record<string, number>;
 
-export interface Balance {
+export interface BalanceDoc {
   known_queues: string[];
   settings: BalanceSettings;
   notice?: string;

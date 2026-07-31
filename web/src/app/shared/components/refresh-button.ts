@@ -14,7 +14,7 @@ import { RefreshService } from '../../core/services/refresh.service';
     </button>
   `,
 })
-export class RefreshButtonComponent {
+export class RefreshButton {
   private readonly refreshService = inject(RefreshService);
   refresh(): void {
     this.refreshService.refresh();

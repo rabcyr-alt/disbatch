@@ -14,7 +14,7 @@ import { isUnchanged, parseMaxThreads } from '../edit';
   templateUrl: './node-table.html',
   styleUrl: './table.shared.scss',
 })
-export class NodeTableComponent {
+export class NodeTable {
   private readonly nodesService = inject(NodesService);
 
   readonly nodes = input<DenNode[]>([]);

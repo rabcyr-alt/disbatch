@@ -5,7 +5,7 @@ export interface DashboardConfig {
   live_window_ms?: number;
 }
 
-export interface Info {
+export interface InfoResponse {
   database: string;
   web_extensions: string[];
   routes: Record<string, string[]>;

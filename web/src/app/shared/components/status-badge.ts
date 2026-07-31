@@ -28,7 +28,7 @@ import { MonitoringStatus } from '../../core/models/monitoring';
     `,
   ],
 })
-export class StatusBadgeComponent {
+export class StatusBadge {
   readonly status = input.required<MonitoringStatus>();
   protected cls() {
     return this.status();
