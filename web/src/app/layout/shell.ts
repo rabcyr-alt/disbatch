@@ -35,8 +35,8 @@ const SIDENAV_STORAGE_KEY = 'disbatch.sidenav.opened';
     MatToolbarModule,
     MatTooltipModule,
   ],
-  templateUrl: './shell.component.html',
-  styleUrl: './shell.component.scss',
+  templateUrl: './shell.html',
+  styleUrl: './shell.scss',
 })
 export class ShellComponent implements OnInit {
   private readonly infoService = inject(InfoService);

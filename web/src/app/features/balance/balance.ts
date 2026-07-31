@@ -13,7 +13,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BalanceService } from '../../core/services/balance.service';
 import { Balance, BalanceSubmit } from '../../core/models/balance';
-import { JsonViewerComponent } from '../../shared/components/json-viewer.component';
+import { JsonViewerComponent } from '../../shared/components/json-viewer';
 
 interface MaxTaskRow {
   dow: string;
@@ -65,8 +65,8 @@ const QUEUE_LIST_RE = /^[\w-]+(?:,[\w-]+)*$/;
     MatTooltipModule,
     JsonViewerComponent,
   ],
-  templateUrl: './balance.component.html',
-  styleUrl: './balance.component.scss',
+  templateUrl: './balance.html',
+  styleUrl: './balance.scss',
 })
 export class BalanceComponent implements OnInit {
   private readonly balanceService = inject(BalanceService);

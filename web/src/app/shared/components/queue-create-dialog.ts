@@ -24,7 +24,7 @@ export interface QueueCreateResult {
     MatInputModule,
     MatSelectModule,
   ],
-  templateUrl: './queue-create-dialog.component.html',
+  templateUrl: './queue-create-dialog.html',
 })
 export class QueueCreateDialogComponent {
   private readonly fb = inject(FormBuilder);

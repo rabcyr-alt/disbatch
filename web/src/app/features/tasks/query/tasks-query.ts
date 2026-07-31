@@ -36,8 +36,8 @@ export const TASK_STATUS_LABELS: Record<number, string> = {
     MatToolbarModule,
     MatTooltipModule,
   ],
-  templateUrl: './tasks-query.component.html',
-  styleUrl: './tasks-query.component.scss',
+  templateUrl: './tasks-query.html',
+  styleUrl: './tasks-query.scss',
 })
 export class TasksQueryComponent implements OnInit {
   private readonly tasksService = inject(TasksService);
