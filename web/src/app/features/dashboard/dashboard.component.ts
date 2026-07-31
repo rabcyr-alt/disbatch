@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Component, OnInit, DestroyRef, inject, signal, computed } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -39,7 +39,7 @@ export function formatDuration(ms: number): string {
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
-export class DashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit {
   private readonly queuesService = inject(QueuesService);
   private readonly nodesService = inject(NodesService);
   private readonly pluginsService = inject(PluginsService);
@@ -70,19 +70,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   readonly liveWindowLabel = computed(() => formatDuration(this.liveWindowMs()));
 
-  private readonly destroy$ = new Subject<void>();
+  private readonly destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {
     this.pluginsService
       .list()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((plugins) => this.plugins.set(plugins));
 
     // Load the liveness window from /info (if the backend provides it) before
     // the first refresh; fall back to the default otherwise.
     this.infoService
       .get()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((info) => {
         const w = info.dashboard?.live_window_ms;
         if (w != null && w > 0) {
@@ -90,16 +90,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       });
 
-    this.refreshService.tick$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+    this.refreshService.tick$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       if (!this.editing()) {
         this.reload();
       }
     });
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   setEditing(active: boolean): void {
@@ -121,7 +116,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
     this.queuesService
       .list()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (queues) => {
           this.queues.set(queues);
@@ -131,7 +126,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
     this.nodesService
       .list()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (nodes) => {
           this.nodes.set(nodes);

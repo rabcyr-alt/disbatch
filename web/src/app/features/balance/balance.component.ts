@@ -1,7 +1,8 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormGroup } from '@angular/forms';
-import { Subject, takeUntil, debounceTime } from 'rxjs';
+import { debounceTime } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -67,7 +68,7 @@ const QUEUE_LIST_RE = /^[\w-]+(?:,[\w-]+)*$/;
   templateUrl: './balance.component.html',
   styleUrl: './balance.component.scss',
 })
-export class BalanceComponent implements OnInit, OnDestroy {
+export class BalanceComponent implements OnInit {
   private readonly balanceService = inject(BalanceService);
   private readonly fb = inject(FormBuilder);
 
@@ -92,18 +93,13 @@ export class BalanceComponent implements OnInit, OnDestroy {
     reenable: this.fb.control(false),
   });
 
-  private readonly destroy$ = new Subject<void>();
+  private readonly destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {
     this.load();
     this.form.valueChanges
-      .pipe(takeUntil(this.destroy$), debounceTime(150))
+      .pipe(takeUntilDestroyed(this.destroyRef), debounceTime(150))
       .subscribe(() => this.rebuildPreview());
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   get queues(): FormArray {
@@ -117,7 +113,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
   private load(): void {
     this.balanceService
       .get()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((b: Balance) => {
         this.knownQueues.set(b.known_queues ?? []);
         this.settings.set(b.settings ?? null);
@@ -302,7 +298,7 @@ export class BalanceComponent implements OnInit, OnDestroy {
     if (!payload) return;
     this.balanceService
       .submit(payload)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.load());
   }
 }

@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Subject, takeUntil } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -39,9 +39,10 @@ export const TASK_STATUS_LABELS: Record<number, string> = {
   templateUrl: './tasks-query.component.html',
   styleUrl: './tasks-query.component.scss',
 })
-export class TasksQueryComponent implements OnInit, OnDestroy {
+export class TasksQueryComponent implements OnInit {
   private readonly tasksService = inject(TasksService);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly indexes = signal<IndexSet[]>([]);
   readonly indexFields = signal<string[]>([]);
@@ -63,12 +64,10 @@ export class TasksQueryComponent implements OnInit, OnDestroy {
     pretty: [false],
   });
 
-  private readonly destroy$ = new Subject<void>();
-
   ngOnInit(): void {
     this.tasksService
       .schema()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((res: TasksSchemaResponse) => {
         this.indexes.set(res.indexes);
         const fields = this.uniqueFields(res.indexes);
@@ -77,11 +76,6 @@ export class TasksQueryComponent implements OnInit, OnDestroy {
         this.limit.set(res.schema.limit);
         this.optionsForm.controls.limit.setValue(res.schema.limit);
       });
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   private uniqueFields(indexes: IndexSet[]): string[] {
@@ -158,7 +152,7 @@ export class TasksQueryComponent implements OnInit, OnDestroy {
     this.error.set(null);
     this.tasksService
       .query(params, options)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {
           this.loading.set(false);
