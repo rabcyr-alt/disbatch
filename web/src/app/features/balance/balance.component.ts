@@ -81,6 +81,9 @@ export class BalanceComponent implements OnInit, OnDestroy {
   readonly errors = signal<string[]>([]);
   readonly preview = signal<BalanceSubmit | null>(null);
   readonly submitted = signal(false);
+  /** Indices of queue groups / max-task rows failing validation (for highlighting). */
+  readonly invalidQueueGroups = signal<Set<number>>(new Set());
+  readonly invalidMaxTaskRows = signal<Set<number>>(new Set());
 
   readonly form = this.fb.group({
     queues: this.fb.array([this.fb.control('')]),
@@ -169,60 +172,102 @@ export class BalanceComponent implements OnInit, OnDestroy {
   }
 
   private rebuildPreview(): void {
-    const { payload } = this.buildPayload();
+    const { payload, invalidGroups, invalidRows } = this.buildPayload();
     this.preview.set(payload);
+    this.invalidQueueGroups.set(invalidGroups);
+    this.invalidMaxTaskRows.set(invalidRows);
   }
 
-  private buildPayload(): { payload: BalanceSubmit | null; errors: string[] } {
+  private buildPayload(): {
+    payload: BalanceSubmit | null;
+    errors: string[];
+    invalidGroups: Set<number>;
+    invalidRows: Set<number>;
+  } {
     const errors: string[] = [];
+    const invalidGroups = new Set<number>();
+    const invalidRows = new Set<number>();
     const known = this.knownQueues();
 
     // queues
     const queues: string[][] = [];
     const allQueueNames: string[] = [];
+    let i = 0;
     for (const ctrl of this.queues.controls) {
       const raw = ((ctrl.value as string) ?? '').trim().replace(/,\s+/g, ',');
-      if (raw === '') continue;
+      if (raw === '') {
+        i++;
+        continue;
+      }
       if (!QUEUE_LIST_RE.test(raw)) {
         errors.push(`Invalid queue list: "${raw}"`);
+        invalidGroups.add(i);
+        i++;
         continue;
       }
       const parts = raw.split(',');
+      let bad = false;
       for (const q of parts) {
-        if (!known.includes(q)) errors.push(`Unknown queue name: "${q}"`);
+        if (!known.includes(q)) {
+          errors.push(`Unknown queue name: "${q}"`);
+          bad = true;
+        }
       }
+      if (bad) invalidGroups.add(i);
       queues.push(parts);
       allQueueNames.push(...parts);
+      i++;
     }
-    const dupes = allQueueNames.filter((q, i) => allQueueNames.indexOf(q) !== i);
-    if (dupes.length) errors.push('duplicate queue names: ' + [...new Set(dupes)].join(', '));
+    const dupes = allQueueNames.filter((q, idx) => allQueueNames.indexOf(q) !== idx);
+    if (dupes.length) {
+      errors.push('duplicate queue names: ' + [...new Set(dupes)].join(', '));
+      // Flag every group that contains a duplicated name.
+      const dupeSet = new Set(dupes);
+      this.queues.controls.forEach((ctrl, idx) => {
+        const names = ((ctrl.value as string) ?? '').split(',').map((s) => s.trim());
+        if (names.some((n) => dupeSet.has(n))) invalidGroups.add(idx);
+      });
+    }
 
     // max_tasks
     const max_tasks: Record<string, number> = {};
     const seenKeys = new Set<string>();
+    let r = 0;
     for (const row of this.maxTasks.controls) {
       const { dow, time, size } = this.maxTaskRowValue(row as FormGroup);
       const empty = dow === '' && time === '' && size === '';
-      if (empty) continue;
+      if (empty) {
+        r++;
+        continue;
+      }
       if (dow === '' || time === '' || size === '') {
         errors.push('fields left blank for interval(s)');
+        invalidRows.add(r);
+        r++;
         continue;
       }
       if (!TIME_RE.test(time)) {
         errors.push(`Invalid time: "${time}" (use HH:MM)`);
+        invalidRows.add(r);
+        r++;
         continue;
       }
       if (!INT_RE.test(size)) {
         errors.push(`Not an integer: "${size}"`);
+        invalidRows.add(r);
+        r++;
         continue;
       }
       const key = `${dow} ${time}`;
       if (seenKeys.has(key)) {
         errors.push('dow+time duplicated for intervals');
+        invalidRows.add(r);
+        r++;
         continue;
       }
       seenKeys.add(key);
       max_tasks[key] = Number(size);
+      r++;
     }
 
     // disable / re-enable mutual exclusion
@@ -240,18 +285,20 @@ export class BalanceComponent implements OnInit, OnDestroy {
     }
 
     if (errors.length) {
-      return { payload: null, errors };
+      return { payload: null, errors, invalidGroups, invalidRows };
     }
 
     const payload: BalanceSubmit = { max_tasks, queues };
     if (disabled !== undefined) payload.disabled = disabled;
-    return { payload, errors };
+    return { payload, errors, invalidGroups, invalidRows };
   }
 
   submit(): void {
     this.submitted.set(true);
-    const { payload, errors } = this.buildPayload();
+    const { payload, errors, invalidGroups, invalidRows } = this.buildPayload();
     this.errors.set(errors);
+    this.invalidQueueGroups.set(invalidGroups);
+    this.invalidMaxTaskRows.set(invalidRows);
     if (!payload) return;
     this.balanceService
       .submit(payload)
