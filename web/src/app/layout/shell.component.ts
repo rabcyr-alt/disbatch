@@ -1,6 +1,6 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
@@ -38,7 +38,7 @@ const SIDENAV_STORAGE_KEY = 'disbatch.sidenav.opened';
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
-export class ShellComponent implements OnInit, OnDestroy {
+export class ShellComponent implements OnInit {
   private readonly infoService = inject(InfoService);
   protected readonly refreshService = inject(RefreshService);
 
@@ -60,22 +60,17 @@ export class ShellComponent implements OnInit, OnDestroy {
   /** Persisted open/collapsed state of the sidenav. */
   readonly sidenavOpened = signal<boolean>(readSidenavPref());
 
-  private readonly destroy$ = new Subject<void>();
+  private readonly destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {
     this.infoService
       .get()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((info) => {
         this.database.set(info.database);
         this.getRoutes.set((info.routes?.['GET'] ?? []).filter((r) => r.startsWith('/')));
       });
     this.intervalSeconds.set(this.refreshService.intervalSeconds());
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   toggleSidenav(): void {

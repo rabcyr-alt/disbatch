@@ -1,5 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Component, OnInit, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -16,14 +16,14 @@ import { JsonViewerComponent } from '../../shared/components/json-viewer.compone
 })
 export class InfoComponent implements OnInit {
   private readonly infoService = inject(InfoService);
-  private readonly destroy$ = new Subject<void>();
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly info = signal<Info | null>(null);
 
   ngOnInit(): void {
     this.infoService
       .get()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((i) => this.info.set(i));
   }
 

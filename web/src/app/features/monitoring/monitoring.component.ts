@@ -1,5 +1,5 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Component, OnInit, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatCardModule } from '@angular/material/card';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MonitoringService } from '../../core/services/monitoring.service';
@@ -14,29 +14,24 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge.compo
   templateUrl: './monitoring.component.html',
   styleUrl: './monitoring.component.scss',
 })
-export class MonitoringComponent implements OnInit, OnDestroy {
+export class MonitoringComponent implements OnInit {
   private readonly monitoringService = inject(MonitoringService);
   private readonly refreshService = inject(RefreshService);
 
   readonly monitoring = signal<Monitoring | null>(null);
   readonly loading = signal(false);
 
-  private readonly destroy$ = new Subject<void>();
+  private readonly destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {
-    this.refreshService.tick$.pipe(takeUntil(this.destroy$)).subscribe(() => this.load());
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
+    this.refreshService.tick$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
 
   load(): void {
     this.loading.set(true);
     this.monitoringService
       .get()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (m) => {
           this.monitoring.set(m);
