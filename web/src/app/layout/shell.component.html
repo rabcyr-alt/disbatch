@@ -1,8 +1,18 @@
 <mat-sidenav-container class="shell">
-  <mat-sidenav #drawer mode="side" opened class="sidenav">
+  <mat-sidenav
+    #drawer
+    mode="side"
+    [opened]="sidenavOpened()"
+    class="sidenav"
+  >
     <mat-toolbar color="primary" class="brand">
       <mat-icon>layers</mat-icon>
-      <span class="brand-name">Disbatch</span>
+      <span class="brand-text">
+        <span class="brand-name">Disbatch</span>
+        @if (database()) {
+          <span class="brand-db">{{ database() }}</span>
+        }
+      </span>
     </mat-toolbar>
     <mat-nav-list>
       @for (link of links; track link.path) {
@@ -16,11 +26,22 @@
 
   <mat-sidenav-content class="content">
     <mat-toolbar color="primary" class="toolbar">
-      <span class="db-name">Disbatch</span>
-      @if (database()) {
-        <span class="db-label">({{ database() }})</span>
-      }
+      <button mat-icon-button (click)="toggleSidenav()" matTooltip="Toggle sidebar">
+        <mat-icon>menu</mat-icon>
+      </button>
+
       <span class="spacer"></span>
+
+      @if (getRoutes().length) {
+        <button mat-button [matMenuTriggerFor]="routesMenu">
+          Routes <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+        <mat-menu #routesMenu="matMenu">
+          @for (route of getRoutes(); track route) {
+            <a mat-menu-item [href]="route">{{ route }}</a>
+          }
+        </mat-menu>
+      }
 
       <span class="interval-label">Refresh:</span>
       <button mat-stroked-button [matMenuTriggerFor]="intervalMenu">
