@@ -120,6 +120,42 @@ fieldset.options {
   font-size: 12px;
 }
 
+.results {
+  margin-top: 8px;
+}
+
+.result-count {
+  margin: 0 0 8px;
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+}
+
+.task-result {
+  margin-bottom: 16px;
+}
+
+.task-separator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.task-status {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+  font-family: 'Roboto Mono', Consolas, monospace;
+}
+
+.task-result pre.json {
+  background: rgba(0, 0, 0, 0.04);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+  margin: 0;
+}
+
 .empty {
   padding: 24px;
   text-align: center;
