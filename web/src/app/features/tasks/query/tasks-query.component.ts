@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup } from '@angular/forms';
-import { Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, takeUntil } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,7 +8,6 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatTableModule } from '@angular/material/table';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TasksService } from '../../../core/services/tasks.service';
@@ -28,12 +27,12 @@ export const TASK_STATUS_LABELS: Record<number, string> = {
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule,
     MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatTableModule,
     MatToolbarModule,
     MatTooltipModule,
   ],
@@ -42,7 +41,6 @@ export const TASK_STATUS_LABELS: Record<number, string> = {
 })
 export class TasksQueryComponent implements OnInit, OnDestroy {
   private readonly tasksService = inject(TasksService);
-  private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
 
   readonly indexes = signal<IndexSet[]>([]);
@@ -52,8 +50,6 @@ export class TasksQueryComponent implements OnInit, OnDestroy {
   readonly error = signal<TaskErrorResponse | null>(null);
   readonly skip = signal(0);
   readonly limit = signal(100);
-
-  readonly displayedColumns = ['_id', 'status', 'json', 'actions'];
 
   protected fieldForm!: FormGroup;
   private lastParams: Record<string, string | string[]> = {};
@@ -184,10 +180,6 @@ export class TasksQueryComponent implements OnInit, OnDestroy {
 
   hasMore(): boolean {
     return this.limit() > 1 && this.results().length >= this.limit();
-  }
-
-  viewTask(task: Task): void {
-    this.router.navigate(['/tasks', task._id]);
   }
 
   pretty(task: Task): string {
