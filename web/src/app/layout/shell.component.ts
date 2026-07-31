@@ -17,6 +17,8 @@ interface NavLink {
   icon: string;
 }
 
+const SIDENAV_STORAGE_KEY = 'disbatch.sidenav.opened';
+
 @Component({
   selector: 'app-shell',
   standalone: true,
@@ -40,6 +42,8 @@ export class ShellComponent implements OnInit, OnDestroy {
   protected readonly refreshService = inject(RefreshService);
 
   readonly database = signal<string>('');
+  /** GET routes starting with '/', surfaced as clickable links (incl. web extensions). */
+  readonly getRoutes = signal<string[]>([]);
   readonly intervalSeconds = signal<number>(60);
 
   readonly links: NavLink[] = [
@@ -53,19 +57,31 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   readonly intervalChoices = [0, 15, 30, 60, 120, 300];
 
+  /** Persisted open/collapsed state of the sidenav. */
+  readonly sidenavOpened = signal<boolean>(readSidenavPref());
+
   private readonly destroy$ = new Subject<void>();
 
   ngOnInit(): void {
     this.infoService
       .get()
       .pipe(takeUntil(this.destroy$))
-      .subscribe((info) => this.database.set(info.database));
+      .subscribe((info) => {
+        this.database.set(info.database);
+        this.getRoutes.set((info.routes?.['GET'] ?? []).filter((r) => r.startsWith('/')));
+      });
     this.intervalSeconds.set(this.refreshService.intervalSeconds());
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  toggleSidenav(): void {
+    const next = !this.sidenavOpened();
+    this.sidenavOpened.set(next);
+    writeSidenavPref(next);
   }
 
   setInterval(seconds: number): void {
@@ -75,5 +91,21 @@ export class ShellComponent implements OnInit, OnDestroy {
 
   refresh(): void {
     this.refreshService.refresh();
+  }
+}
+
+function readSidenavPref(): boolean {
+  try {
+    return localStorage.getItem(SIDENAV_STORAGE_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function writeSidenavPref(opened: boolean): void {
+  try {
+    localStorage.setItem(SIDENAV_STORAGE_KEY, opened ? '1' : '0');
+  } catch {
+    // ignore (private mode, etc.)
   }
 }

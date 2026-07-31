@@ -17,9 +17,20 @@
   align-items: center;
   gap: 10px;
 
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+
   .brand-name {
     font-size: 18px;
     font-weight: 500;
+  }
+
+  .brand-db {
+    font-size: 12px;
+    opacity: 0.8;
   }
 }
 
@@ -30,15 +41,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-
-  .db-name {
-    font-size: 18px;
-    font-weight: 500;
-  }
-
-  .db-label {
-    opacity: 0.85;
-  }
 
   .interval-label {
     font-size: 14px;
