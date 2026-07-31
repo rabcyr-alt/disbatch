@@ -1,0 +1,18 @@
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+h1 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 24px 0 8px;
+}
+
+.hint {
+  color: rgba(0, 0, 0, 0.54);
+  margin: 0 0 8px;
+  font-size: 13px;
+}

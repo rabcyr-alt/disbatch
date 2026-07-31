@@ -6,16 +6,10 @@ export const routes: Routes = [
     path: '',
     component: ShellComponent,
     children: [
-      { path: '', redirectTo: 'queues', pathMatch: 'full' },
       {
-        path: 'queues',
-        title: 'Queues · Disbatch',
-        loadComponent: () => import('./features/queues/queues-list.component').then((m) => m.QueuesListComponent),
-      },
-      {
-        path: 'nodes',
-        title: 'Nodes · Disbatch',
-        loadComponent: () => import('./features/nodes/nodes-list.component').then((m) => m.NodesListComponent),
+        path: '',
+        title: 'Dashboard · Disbatch',
+        loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
       },
       {
         path: 'tasks',

@@ -1,0 +1,37 @@
+.disbatch-table {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.mono {
+  font-family: 'Roboto Mono', ui-monospace, monospace;
+  font-size: 12px;
+}
+
+td.editable {
+  cursor: pointer;
+}
+
+td.editable:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.cell-field {
+  width: 100%;
+  min-width: 80px;
+
+  .mat-mdc-form-field-subscript-wrapper {
+    display: none;
+  }
+}
+
+.empty-note {
+  color: rgba(0, 0, 0, 0.54);
+  font-style: italic;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 24px;
+}
