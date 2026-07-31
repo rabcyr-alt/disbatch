@@ -15,6 +15,7 @@ interface NavLink {
   path: string;
   label: string;
   icon: string;
+  exact?: boolean;
 }
 
 const SIDENAV_STORAGE_KEY = 'disbatch.sidenav.opened';
@@ -47,8 +48,7 @@ export class ShellComponent implements OnInit, OnDestroy {
   readonly intervalSeconds = signal<number>(60);
 
   readonly links: NavLink[] = [
-    { path: '/queues', label: 'Queues', icon: 'queue' },
-    { path: '/nodes', label: 'Nodes', icon: 'dns' },
+    { path: '/', label: 'Dashboard', icon: 'dashboard', exact: true },
     { path: '/tasks', label: 'Tasks', icon: 'assignment' },
     { path: '/balance', label: 'Balance', icon: 'balance' },
     { path: '/monitoring', label: 'Monitoring', icon: 'monitor_heart' },

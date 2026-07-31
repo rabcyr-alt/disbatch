@@ -1,0 +1,78 @@
+<table mat-table [dataSource]="queues()" class="disbatch-table">
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef>ID</th>
+    <td mat-cell *matCellDef="let row" class="mono">{{ row.id }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="plugin">
+    <th mat-header-cell *matHeaderCellDef>Type</th>
+    <td mat-cell *matCellDef="let row">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+        <mat-select [value]="row.plugin"
+                    (selectionChange)="commitPlugin(row, $event.value)"
+                    (openedChange)="editingChange.emit($event)">
+          @for (p of plugins(); track p) {
+            <mat-option [value]="p">{{ p }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="name">
+    <th mat-header-cell *matHeaderCellDef>Name</th>
+    <td mat-cell *matCellDef="let row" (click)="startEdit(row, 'name')" class="editable">
+      @if (isEditing(row, 'name')) {
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+          <input matInput [(ngModel)]="editValue" (keydown.enter)="commitEdit(row, 'name')"
+                 (keydown.escape)="cancelEdit()" (blur)="commitEdit(row, 'name')" cdkFocusInitial />
+        </mat-form-field>
+      } @else {
+        {{ row.name }}
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="threads">
+    <th mat-header-cell *matHeaderCellDef>Threads</th>
+    <td mat-cell *matCellDef="let row" (click)="startEdit(row, 'threads')" class="editable">
+      @if (isEditing(row, 'threads')) {
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+          <input matInput type="number" min="0" [(ngModel)]="editValue"
+                 (keydown.enter)="commitEdit(row, 'threads')" (keydown.escape)="cancelEdit()"
+                 (blur)="commitEdit(row, 'threads')" placeholder="unlimited" cdkFocusInitial />
+        </mat-form-field>
+      } @else {
+        {{ row.threads == null ? '—' : row.threads }}
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="queued">
+    <th mat-header-cell *matHeaderCellDef>Queued</th>
+    <td mat-cell *matCellDef="let row">{{ row.queued }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="running">
+    <th mat-header-cell *matHeaderCellDef>Running</th>
+    <td mat-cell *matCellDef="let row">{{ row.running }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="completed">
+    <th mat-header-cell *matHeaderCellDef>Completed</th>
+    <td mat-cell *matCellDef="let row">{{ row.completed }}</td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="columns"></tr>
+  <tr mat-row *matRowDef="let row; columns: columns"></tr>
+</table>
+
+@if (!queues().length) {
+  <p class="empty-note">No queues defined.</p>
+}
+
+<div class="table-actions">
+  <button mat-flat-button color="primary" (click)="openNewQueue()">
+    <mat-icon>add</mat-icon> New Queue
+  </button>
+</div>
