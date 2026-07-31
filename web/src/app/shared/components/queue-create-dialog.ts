@@ -26,9 +26,9 @@ export interface QueueCreateResult {
   ],
   templateUrl: './queue-create-dialog.html',
 })
-export class QueueCreateDialogComponent {
+export class QueueCreateDialog {
   private readonly fb = inject(FormBuilder);
-  private readonly ref = inject(MatDialogRef<QueueCreateDialogComponent, QueueCreateResult>);
+  private readonly ref = inject(MatDialogRef<QueueCreateDialog, QueueCreateResult>);
 
   readonly plugins = signal<string[]>([]);
 

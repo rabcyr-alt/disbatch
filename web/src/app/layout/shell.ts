@@ -38,7 +38,7 @@ const SIDENAV_STORAGE_KEY = 'disbatch.sidenav.expanded';
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })
-export class ShellComponent implements OnInit {
+export class Shell implements OnInit {
   private readonly infoService = inject(InfoService);
   protected readonly refreshService = inject(RefreshService);
 

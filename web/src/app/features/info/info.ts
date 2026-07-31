@@ -4,21 +4,21 @@ import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { InfoService } from '../../core/services/info.service';
-import { Info } from '../../core/models/info';
-import { JsonViewerComponent } from '../../shared/components/json-viewer';
+import { InfoResponse } from '../../core/models/info';
+import { JsonViewer } from '../../shared/components/json-viewer';
 
 @Component({
   selector: 'app-info',
   standalone: true,
-  imports: [MatCardModule, MatChipsModule, MatToolbarModule, JsonViewerComponent],
+  imports: [MatCardModule, MatChipsModule, MatToolbarModule, JsonViewer],
   templateUrl: './info.html',
   styleUrl: './info.scss',
 })
-export class InfoComponent implements OnInit {
+export class Info implements OnInit {
   private readonly infoService = inject(InfoService);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly info = signal<Info | null>(null);
+  readonly info = signal<InfoResponse | null>(null);
 
   ngOnInit(): void {
     this.infoService

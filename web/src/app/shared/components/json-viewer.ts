@@ -6,7 +6,7 @@ import { Component, computed, input } from '@angular/core';
   standalone: true,
   template: `<pre class="json">{{ text() }}</pre>`,
 })
-export class JsonViewerComponent {
+export class JsonViewer {
   readonly value = input<unknown>(null);
   protected readonly text = computed(() => {
     const v = this.value();

@@ -10,8 +10,8 @@ import { InfoService } from '../../core/services/info.service';
 import { RefreshService } from '../../core/services/refresh.service';
 import { Queue } from '../../core/models/queue';
 import { DenNode } from '../../core/models/node';
-import { QueueTableComponent } from '../../shared/components/queue-table';
-import { NodeTableComponent } from '../../shared/components/node-table';
+import { QueueTable } from '../../shared/components/queue-table';
+import { NodeTable } from '../../shared/components/node-table';
 
 /** Default node-liveness window when GET /info omits `dashboard.live_window_ms`. */
 const DEFAULT_LIVE_WINDOW_MS = 15_000;
@@ -29,17 +29,11 @@ export function formatDuration(ms: number): string {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [
-    MatButtonModule,
-    MatIconModule,
-    MatProgressBarModule,
-    QueueTableComponent,
-    NodeTableComponent,
-  ],
+  imports: [MatButtonModule, MatIconModule, MatProgressBarModule, QueueTable, NodeTable],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
-export class DashboardComponent implements OnInit {
+export class Dashboard implements OnInit {
   private readonly queuesService = inject(QueuesService);
   private readonly nodesService = inject(NodesService);
   private readonly pluginsService = inject(PluginsService);

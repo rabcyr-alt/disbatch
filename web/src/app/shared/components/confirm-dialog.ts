@@ -24,9 +24,9 @@ export interface ConfirmDialogData {
     </mat-dialog-actions>
   `,
 })
-export class ConfirmDialogComponent {
+export class ConfirmDialog {
   readonly data = inject<ConfirmDialogData>(MAT_DIALOG_DATA);
-  private readonly ref = inject(MatDialogRef<ConfirmDialogComponent>);
+  private readonly ref = inject(MatDialogRef<ConfirmDialog>);
 
   cancel(): void {
     this.ref.close(false);

@@ -9,7 +9,7 @@ export interface MonitoringCheck {
   };
 }
 
-export interface Monitoring {
+export interface MonitoringReport {
   disbatch: MonitoringCheck;
   queuebalance: MonitoringCheck;
 }

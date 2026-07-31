@@ -4,21 +4,21 @@ import { MatCardModule } from '@angular/material/card';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { RefreshService } from '../../core/services/refresh.service';
-import { Monitoring, MonitoringCheck } from '../../core/models/monitoring';
-import { StatusBadgeComponent } from '../../shared/components/status-badge';
+import { MonitoringCheck, MonitoringReport } from '../../core/models/monitoring';
+import { StatusBadge } from '../../shared/components/status-badge';
 
 @Component({
   selector: 'app-monitoring',
   standalone: true,
-  imports: [MatCardModule, MatToolbarModule, StatusBadgeComponent],
+  imports: [MatCardModule, MatToolbarModule, StatusBadge],
   templateUrl: './monitoring.html',
   styleUrl: './monitoring.scss',
 })
-export class MonitoringComponent implements OnInit {
+export class Monitoring implements OnInit {
   private readonly monitoringService = inject(MonitoringService);
   private readonly refreshService = inject(RefreshService);
 
-  readonly monitoring = signal<Monitoring | null>(null);
+  readonly monitoring = signal<MonitoringReport | null>(null);
   readonly loading = signal(false);
 
   private readonly destroyRef = inject(DestroyRef);
