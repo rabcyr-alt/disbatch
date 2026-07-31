@@ -19,7 +19,7 @@
   <p class="hint">Comma-separated list of queues have equal priority. Currently known queues: {{ knownQueues().join(', ') }}</p>
   <div formArrayName="queues" class="rows">
     @for (ctrl of queues.controls; track ctrl; let i = $index) {
-      <div class="row">
+      <div class="row" [class.invalid]="invalidQueueGroups().has(i)">
         <mat-form-field appearance="outline" class="queue-input">
           <input matInput [formControlName]="i" placeholder="queue1,queue2" />
         </mat-form-field>
@@ -43,7 +43,7 @@
       <span>DOW</span><span>HH:MM</span><span>max</span><span></span>
     </div>
     @for (row of maxTasks.controls; track row; let i = $index) {
-      <div [formGroupName]="i" class="row interval">
+      <div [formGroupName]="i" class="row interval" [class.invalid]="invalidMaxTaskRows().has(i)">
         <mat-form-field appearance="outline">
           <mat-select formControlName="dow">
             @for (o of dowOptions; track o.value) {

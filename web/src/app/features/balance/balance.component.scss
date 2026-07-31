@@ -84,6 +84,11 @@ h3 {
   }
 }
 
+.row.invalid ::ng-deep .mat-mdc-text-field-wrapper,
+.row.invalid ::ng-deep .mdc-text-field {
+  background: #ffe0e0;
+}
+
 .add-row {
   margin-top: 8px;
 }
