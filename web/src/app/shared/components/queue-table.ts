@@ -13,7 +13,7 @@ import { isUnchanged, normalizeEdit, parseMaxThreads } from '../edit';
 import {
   QueueCreateDialogComponent,
   QueueCreateResult,
-} from './queue-create-dialog.component';
+} from './queue-create-dialog';
 
 type EditableField = 'name' | 'threads';
 
@@ -29,7 +29,7 @@ type EditableField = 'name' | 'threads';
     MatButtonModule,
     MatIconModule,
   ],
-  templateUrl: './queue-table.component.html',
+  templateUrl: './queue-table.html',
   styleUrl: './table.shared.scss',
 })
 export class QueueTableComponent {

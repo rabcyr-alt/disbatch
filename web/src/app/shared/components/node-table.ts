@@ -11,7 +11,7 @@ import { isUnchanged, parseMaxThreads } from '../edit';
   selector: 'app-node-table',
   standalone: true,
   imports: [FormsModule, MatTableModule, MatFormFieldModule, MatInputModule],
-  templateUrl: './node-table.component.html',
+  templateUrl: './node-table.html',
   styleUrl: './table.shared.scss',
 })
 export class NodeTableComponent {

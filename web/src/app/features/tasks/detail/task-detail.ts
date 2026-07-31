@@ -9,15 +9,15 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { TasksService } from '../../../core/services/tasks.service';
 import { Task, TaskOutput } from '../../../core/models/task';
-import { TASK_STATUS_LABELS } from '../query/tasks-query.component';
-import { JsonViewerComponent } from '../../../shared/components/json-viewer.component';
+import { TASK_STATUS_LABELS } from '../query/tasks-query';
+import { JsonViewerComponent } from '../../../shared/components/json-viewer';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
   imports: [RouterLink, MatButtonModule, MatIconModule, MatSlideToggleModule, MatToolbarModule, JsonViewerComponent],
-  templateUrl: './task-detail.component.html',
-  styleUrl: './task-detail.component.scss',
+  templateUrl: './task-detail.html',
+  styleUrl: './task-detail.scss',
 })
 export class TaskDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);

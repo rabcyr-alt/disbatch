@@ -5,14 +5,14 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { RefreshService } from '../../core/services/refresh.service';
 import { Monitoring, MonitoringCheck } from '../../core/models/monitoring';
-import { StatusBadgeComponent } from '../../shared/components/status-badge.component';
+import { StatusBadgeComponent } from '../../shared/components/status-badge';
 
 @Component({
   selector: 'app-monitoring',
   standalone: true,
   imports: [MatCardModule, MatToolbarModule, StatusBadgeComponent],
-  templateUrl: './monitoring.component.html',
-  styleUrl: './monitoring.component.scss',
+  templateUrl: './monitoring.html',
+  styleUrl: './monitoring.scss',
 })
 export class MonitoringComponent implements OnInit {
   private readonly monitoringService = inject(MonitoringService);

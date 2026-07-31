@@ -5,14 +5,14 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { InfoService } from '../../core/services/info.service';
 import { Info } from '../../core/models/info';
-import { JsonViewerComponent } from '../../shared/components/json-viewer.component';
+import { JsonViewerComponent } from '../../shared/components/json-viewer';
 
 @Component({
   selector: 'app-info',
   standalone: true,
   imports: [MatCardModule, MatChipsModule, MatToolbarModule, JsonViewerComponent],
-  templateUrl: './info.component.html',
-  styleUrl: './info.component.scss',
+  templateUrl: './info.html',
+  styleUrl: './info.scss',
 })
 export class InfoComponent implements OnInit {
   private readonly infoService = inject(InfoService);
