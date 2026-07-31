@@ -2,23 +2,32 @@
   <mat-sidenav
     #drawer
     mode="side"
-    [opened]="sidenavOpened()"
+    opened
     class="sidenav"
+    [class.collapsed]="!sidenavExpanded()"
   >
     <mat-toolbar color="primary" class="brand">
       <mat-icon>layers</mat-icon>
-      <span class="brand-text">
+      @if (sidenavExpanded()) {
         <span class="brand-name">Disbatch</span>
-        @if (database()) {
-          <span class="brand-db">{{ database() }}</span>
-        }
-      </span>
+      }
     </mat-toolbar>
     <mat-nav-list>
       @for (link of links; track link.path) {
-        <a mat-list-item [routerLink]="link.path" routerLinkActive #rla="routerLinkActive" [activated]="rla.isActive" [routerLinkActiveOptions]="link.exact ? { exact: true } : { exact: false }">
+        <a
+          mat-list-item
+          [routerLink]="link.path"
+          routerLinkActive
+          #rla="routerLinkActive"
+          [activated]="rla.isActive"
+          [routerLinkActiveOptions]="link.exact ? { exact: true } : { exact: false }"
+          [matTooltip]="sidenavExpanded() ? '' : link.label"
+          [matTooltipPosition]="'right'"
+        >
           <mat-icon matListItemIcon>{{ link.icon }}</mat-icon>
-          <span matListItemTitle>{{ link.label }}</span>
+          @if (sidenavExpanded()) {
+            <span matListItemTitle>{{ link.label }}</span>
+          }
         </a>
       }
     </mat-nav-list>
@@ -29,6 +38,8 @@
       <button mat-icon-button (click)="toggleSidenav()" matTooltip="Toggle sidebar">
         <mat-icon>menu</mat-icon>
       </button>
+
+      <span class="db-name">{{ database() }}</span>
 
       <span class="spacer"></span>
 

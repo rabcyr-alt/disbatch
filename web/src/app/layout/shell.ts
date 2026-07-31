@@ -18,7 +18,7 @@ interface NavLink {
   exact?: boolean;
 }
 
-const SIDENAV_STORAGE_KEY = 'disbatch.sidenav.opened';
+const SIDENAV_STORAGE_KEY = 'disbatch.sidenav.expanded';
 
 @Component({
   selector: 'app-shell',
@@ -57,8 +57,8 @@ export class ShellComponent implements OnInit {
 
   readonly intervalChoices = [0, 15, 30, 60, 120, 300];
 
-  /** Persisted open/collapsed state of the sidenav. */
-  readonly sidenavOpened = signal<boolean>(readSidenavPref());
+  /** Expanded (full labels) vs collapsed (icons only) sidenav. Persisted. */
+  readonly sidenavExpanded = signal<boolean>(readSidenavPref());
 
   private readonly destroyRef = inject(DestroyRef);
 
@@ -74,8 +74,8 @@ export class ShellComponent implements OnInit {
   }
 
   toggleSidenav(): void {
-    const next = !this.sidenavOpened();
-    this.sidenavOpened.set(next);
+    const next = !this.sidenavExpanded();
+    this.sidenavExpanded.set(next);
     writeSidenavPref(next);
   }
 
@@ -97,9 +97,9 @@ function readSidenavPref(): boolean {
   }
 }
 
-function writeSidenavPref(opened: boolean): void {
+function writeSidenavPref(expanded: boolean): void {
   try {
-    localStorage.setItem(SIDENAV_STORAGE_KEY, opened ? '1' : '0');
+    localStorage.setItem(SIDENAV_STORAGE_KEY, expanded ? '1' : '0');
   } catch {
     // ignore (private mode, etc.)
   }

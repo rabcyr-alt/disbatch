@@ -10,6 +10,22 @@
 .sidenav {
   width: 220px;
   border-right: none;
+  transition: width 200ms ease;
+  overflow: hidden;
+
+  &.collapsed {
+    width: 64px;
+
+    .brand {
+      justify-content: center;
+      gap: 0;
+    }
+
+    // Center the icon-only nav items.
+    .mat-mdc-list-item {
+      padding-left: 16px;
+    }
+  }
 }
 
 .brand {
@@ -17,20 +33,10 @@
   align-items: center;
   gap: 10px;
 
-  .brand-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.1;
-  }
-
   .brand-name {
     font-size: 18px;
     font-weight: 500;
-  }
-
-  .brand-db {
-    font-size: 12px;
-    opacity: 0.8;
+    white-space: nowrap;
   }
 }
 
@@ -41,6 +47,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
+
+  .db-name {
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0.95;
+  }
 
   .interval-label {
     font-size: 14px;
