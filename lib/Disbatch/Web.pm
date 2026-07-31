@@ -112,7 +112,16 @@ get '/info' => sub {
         # this takes just the even elements of @{$routes->{$verb}} and ensures they are strings, keeping their order
         $routes{$verb} = [ map { $routes->{$verb}[$_*2] . "" } (0..@{$routes->{$verb}}/2-1) ];
     }
-    my $info = { database => $disbatch->{config}{database}, web_extensions => [sort keys %{$disbatch->{config}{web_extensions} // {}}], routes => \%routes };
+    my $dashboard = $disbatch->{config}{dashboard} // {};
+    my $info = {
+        database => $disbatch->{config}{database},
+        web_extensions => [sort keys %{$disbatch->{config}{web_extensions} // {}}],
+        routes => \%routes,
+        dashboard => {
+            refresh_ms => $dashboard->{refresh_ms} // 30000,
+            live_window_ms => $dashboard->{live_window_ms} // 15000,
+        },
+    };
     send_json $info, send_json_options;
 };
 
@@ -1049,7 +1058,8 @@ NOTE: all JSON routes use C<send_json_options>, documented above.
 Parameters: none.
 
 Returns an object with the following fields: C<database> (the name of the MongoDB database used), C<web_extensions> (an array of configured web extensions for custom routes),
-and C<routes> (an object where fields are HTTP verbs and values are routes in the ordered configured).
+and C<routes> (an object where fields are HTTP verbs and values are routes in the ordered configured), and C<dashboard> (an object with C<refresh_ms> and C<live_window_ms>,
+the web dashboard's auto-refresh interval and node-liveness window in milliseconds, sourced from the optional C<dashboard> config key and defaulting to C<30000> and C<15000>).
 
 Note: new in Disbatch 4.2
 

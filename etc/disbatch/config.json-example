@@ -31,6 +31,10 @@
     },
     "web_extensions": {					# new in 4.2
     },
+    "dashboard": {						# new in 5.0. optional web UI tunables
+        "refresh_ms": 30000,				# auto-refresh interval in ms (default 30000)
+        "live_window_ms": 15000,				# node-liveness window in ms (default 15000)
+    },
     #"pre_hook": {
     #    "name": "Disbatch::Plugin::Prehook",		# used by lib/Disbatch.pm to load the appropriate code. required by `disbatchd`.
     #    "fatal": false,				# default is false. if true, and `disbatchd` will die if it cannot load the hook or the hook throws an error. otherwise the error is logged but ignored.
