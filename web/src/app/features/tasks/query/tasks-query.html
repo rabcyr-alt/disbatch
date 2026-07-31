@@ -6,14 +6,16 @@
 
 @if (indexes().length) {
   <p class="hint">
-    You can query anything that is indexed. If you use an index which is not the first in a set, you must also use the
-    preceding indexes in that set. You can combine sets.
+    You can query anything that is indexed. If you use an index which is not the first in a set, you
+    must also use the preceding indexes in that set. You can combine sets.
   </p>
   <p class="hint">
     Index sets:
     @for (idx of indexes(); track idx) {
       <code>{{ json(idx) }}</code>
-      @if (!$last) { , }
+      @if (!$last) {
+        ,
+      }
     }
   </p>
 }
@@ -30,13 +32,20 @@
                 <input matInput [formControlName]="i" />
               </mat-form-field>
               @if (fieldArray(field).length > 1) {
-                <button mat-icon-button type="button" (click)="removeField(field, i)" matTooltip="Remove">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="removeField(field, i)"
+                  matTooltip="Remove"
+                >
                   <mat-icon>remove</mat-icon>
                 </button>
               }
             </div>
           }
-          <button type="button" class="add-or" (click)="addField(field)">+ add another for OR</button>
+          <button type="button" class="add-or" (click)="addField(field)">
+            + add another for OR
+          </button>
         </div>
       </div>
     }
@@ -78,7 +87,9 @@
 
 @if (results().length) {
   <div class="results">
-    <p class="result-count">Results returned: <strong>{{ results().length }}</strong></p>
+    <p class="result-count">
+      Results returned: <strong>{{ results().length }}</strong>
+    </p>
     @for (task of results(); track task._id) {
       <div class="task-result">
         <div class="task-separator">
@@ -95,7 +106,9 @@
         @if (skip() > 0) {
           <button mat-stroked-button type="button" (click)="prev()">Previous {{ limit() }}</button>
         }
-        <button mat-stroked-button type="button" (click)="next()">Next {{ limit() }} results</button>
+        <button mat-stroked-button type="button" (click)="next()">
+          Next {{ limit() }} results
+        </button>
       </div>
     }
   </div>

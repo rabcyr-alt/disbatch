@@ -15,7 +15,12 @@ export class QueuesService {
     return this.http.get<Queue>(`/queues/${encodeURIComponent(queue)}`);
   }
 
-  create(name: string, plugin: string, threads?: number, sort?: string): Observable<CreateQueueResponse> {
+  create(
+    name: string,
+    plugin: string,
+    threads?: number,
+    sort?: string,
+  ): Observable<CreateQueueResponse> {
     const body: Record<string, unknown> = { name, plugin };
     if (threads != null) body['threads'] = threads;
     if (sort != null) body['sort'] = sort;

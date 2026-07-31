@@ -16,7 +16,10 @@
 
 <form [formGroup]="form" (ngSubmit)="submit()" class="balance-form">
   <h3>queues</h3>
-  <p class="hint">Comma-separated list of queues have equal priority. Currently known queues: {{ knownQueues().join(', ') }}</p>
+  <p class="hint">
+    Comma-separated list of queues have equal priority. Currently known queues:
+    {{ knownQueues().join(', ') }}
+  </p>
   <div formArrayName="queues" class="rows">
     @for (ctrl of queues.controls; track ctrl; let i = $index) {
       <div class="row" [class.invalid]="invalidQueueGroups().has(i)">
@@ -33,15 +36,15 @@
     }
   </div>
   <div class="add-row">
-    <button mat-stroked-button type="button" (click)="addQueueRow()"><mat-icon>add</mat-icon> Add another</button>
+    <button mat-stroked-button type="button" (click)="addQueueRow()">
+      <mat-icon>add</mat-icon> Add another
+    </button>
   </div>
 
   <h3>intervals</h3>
   <p class="hint">Specific day at same time has precedence over daily event.</p>
   <div formArrayName="max_tasks" class="rows">
-    <div class="row header">
-      <span>DOW</span><span>HH:MM</span><span>max</span><span></span>
-    </div>
+    <div class="row header"><span>DOW</span><span>HH:MM</span><span>max</span><span></span></div>
     @for (row of maxTasks.controls; track row; let i = $index) {
       <div [formGroupName]="i" class="row interval" [class.invalid]="invalidMaxTaskRows().has(i)">
         <mat-form-field appearance="outline">
@@ -66,7 +69,9 @@
     }
   </div>
   <div class="add-row">
-    <button mat-stroked-button type="button" (click)="addMaxTaskRow()"><mat-icon>add</mat-icon> Add another</button>
+    <button mat-stroked-button type="button" (click)="addMaxTaskRow()">
+      <mat-icon>add</mat-icon> Add another
+    </button>
   </div>
 
   <h3>disable</h3>
@@ -96,7 +101,9 @@
   }
 
   <div class="actions">
-    <button mat-flat-button color="primary" type="submit">Submit (changes take effect every 30 seconds)</button>
+    <button mat-flat-button color="primary" type="submit">
+      Submit (changes take effect every 30 seconds)
+    </button>
   </div>
 </form>
 

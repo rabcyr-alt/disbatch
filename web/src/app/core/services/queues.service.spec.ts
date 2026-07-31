@@ -29,7 +29,12 @@ describe('QueuesService', () => {
   it('creates a queue with name + plugin (and optional threads/sort)', () => {
     service.create('q1', 'Disbatch::Plugin::Demo', 4, 'fifo').subscribe();
     const req = http.expectOne((r) => r.url === '/queues' && r.method === 'POST');
-    expect(req.request.body).toEqual({ name: 'q1', plugin: 'Disbatch::Plugin::Demo', threads: 4, sort: 'fifo' });
+    expect(req.request.body).toEqual({
+      name: 'q1',
+      plugin: 'Disbatch::Plugin::Demo',
+      threads: 4,
+      sort: 'fifo',
+    });
     req.flush({});
   });
 

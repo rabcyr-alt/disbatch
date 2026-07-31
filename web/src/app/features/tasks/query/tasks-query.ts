@@ -1,6 +1,12 @@
 import { Component, OnInit, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ReactiveFormsModule, FormBuilder, FormArray, FormControl, FormGroup } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  FormArray,
+  FormControl,
+  FormGroup,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,7 +17,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TasksService } from '../../../core/services/tasks.service';
-import { IndexSet, Task, TaskErrorResponse, TaskQueryOptions, TasksSchemaResponse } from '../../../core/models/task';
+import {
+  IndexSet,
+  Task,
+  TaskErrorResponse,
+  TaskQueryOptions,
+  TasksSchemaResponse,
+} from '../../../core/models/task';
 
 export const TASK_STATUS_LABELS: Record<number, string> = {
   [-6]: 'orphaned',

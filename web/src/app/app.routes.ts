@@ -9,17 +9,20 @@ export const routes: Routes = [
       {
         path: '',
         title: 'Dashboard · Disbatch',
-        loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.DashboardComponent),
+        loadComponent: () =>
+          import('./features/dashboard/dashboard').then((m) => m.DashboardComponent),
       },
       {
         path: 'tasks',
         title: 'Tasks · Disbatch',
-        loadComponent: () => import('./features/tasks/query/tasks-query').then((m) => m.TasksQueryComponent),
+        loadComponent: () =>
+          import('./features/tasks/query/tasks-query').then((m) => m.TasksQueryComponent),
       },
       {
         path: 'tasks/:id',
         title: 'Task · Disbatch',
-        loadComponent: () => import('./features/tasks/detail/task-detail').then((m) => m.TaskDetailComponent),
+        loadComponent: () =>
+          import('./features/tasks/detail/task-detail').then((m) => m.TaskDetailComponent),
       },
       {
         path: 'balance',
@@ -29,7 +32,8 @@ export const routes: Routes = [
       {
         path: 'monitoring',
         title: 'Monitoring · Disbatch',
-        loadComponent: () => import('./features/monitoring/monitoring').then((m) => m.MonitoringComponent),
+        loadComponent: () =>
+          import('./features/monitoring/monitoring').then((m) => m.MonitoringComponent),
       },
       {
         path: 'info',

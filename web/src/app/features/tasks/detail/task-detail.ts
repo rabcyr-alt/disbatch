@@ -15,7 +15,14 @@ import { JsonViewerComponent } from '../../../shared/components/json-viewer';
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatIconModule, MatSlideToggleModule, MatToolbarModule, JsonViewerComponent],
+  imports: [
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatSlideToggleModule,
+    MatToolbarModule,
+    JsonViewerComponent,
+  ],
   templateUrl: './task-detail.html',
   styleUrl: './task-detail.scss',
 })

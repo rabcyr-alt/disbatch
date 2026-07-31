@@ -1,11 +1,5 @@
 <mat-sidenav-container class="shell">
-  <mat-sidenav
-    #drawer
-    mode="side"
-    opened
-    class="sidenav"
-    [class.collapsed]="!sidenavExpanded()"
-  >
+  <mat-sidenav #drawer mode="side" opened class="sidenav" [class.collapsed]="!sidenavExpanded()">
     <mat-toolbar color="primary" class="brand">
       <mat-icon>layers</mat-icon>
       @if (sidenavExpanded()) {
