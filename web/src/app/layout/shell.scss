@@ -28,6 +28,15 @@
   }
 }
 
+// Material drives mat-drawer-content's margin-left from a JS-computed
+// _contentMargins that only refreshes on drawer open/close, not when the
+// width changes while open. Force the margin to track the collapsed width
+// via !important (beats Material's inline host binding) so the content
+// reflows to follow the 64px rail.
+::ng-deep .mat-drawer-content.content-collapsed {
+  margin-left: 64px !important;
+}
+
 .brand {
   display: flex;
   align-items: center;
