@@ -3,12 +3,13 @@
 }
 
 mat-toolbar {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 h3 {
-  margin-top: 24px;
-  margin-bottom: 8px;
+  margin-top: 14px;
+  margin-bottom: 4px;
+  font-size: 15px;
 }
 
 .hint {
@@ -21,8 +22,9 @@ h3 {
   background: #fff8e1;
   border: 1px solid #ffe082;
   border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 12px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
 }
 
 .warning {
@@ -34,14 +36,14 @@ h3 {
 .balance-form {
   background: #fff;
   border-radius: 6px;
-  padding: 16px 20px;
+  padding: 10px 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .row {
@@ -71,7 +73,8 @@ h3 {
 .row.header {
   font-weight: 500;
   color: rgba(0, 0, 0, 0.6);
-  font-size: 13px;
+  font-size: 12px;
+  margin-bottom: 2px;
 
   span {
     width: 200px;
@@ -90,7 +93,7 @@ h3 {
 }
 
 .add-row {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .disable-row {
@@ -111,11 +114,12 @@ h3 {
   background: #ffebee;
   border: 1px solid #ef9a9a;
   border-radius: 6px;
-  padding: 12px 16px;
-  margin: 16px 0;
+  padding: 8px 14px;
+  margin: 10px 0;
+  font-size: 13px;
   color: #c62828;
 }
 
 .actions {
-  margin-top: 20px;
+  margin-top: 12px;
 }
