@@ -27,7 +27,7 @@
     </mat-nav-list>
   </mat-sidenav>
 
-  <mat-sidenav-content class="content">
+  <mat-sidenav-content class="content" [class.content-collapsed]="!sidenavExpanded()">
     <mat-toolbar color="primary" class="toolbar">
       <button mat-icon-button (click)="toggleSidenav()" matTooltip="Toggle sidebar">
         <mat-icon>menu</mat-icon>
