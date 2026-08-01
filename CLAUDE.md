@@ -86,17 +86,17 @@ Plugins must implement `new({workerthread => $disbatch_obj, task => $task_doc})`
 
 ## Configuration
 
-Config is JSON at `/etc/disbatch/config.json` (dev: `etc/disbatch/config.json-example`). Mandatory keys: `mongohost` (MongoDB URI), `database`. Optional: `auth`, `attributes.ssl`, `plugins`, `task_runner`, `gfs`, `web_root`, `views_dir`, `log4perl`, `activequeues`/`ignorequeues`, `node_increase`/`queue_increase` (throttling), `pre_hook`, `web_extensions`, `monitoring`, `balance`.
+Config is JSON at `/etc/disbatch/config.json` (dev: `etc/disbatch/config.json-example`). Mandatory keys: `mongohost` (MongoDB URI), `database`. Optional: `auth`, `attributes.ssl`, `plugins`, `task_runner`, `gfs`, `web_root`, `log4perl`, `activequeues`/`ignorequeues`, `node_increase`/`queue_increase` (throttling), `pre_hook`, `web_extensions`, `monitoring`, `balance`, `dashboard`.
 
 ## Key Dependencies
 
-- Perl 5.32.1+, MongoDB 2.2.2, BSON::OID, Cpanel::JSON::XS, Log::Log4perl, Limper 0.015+, Limper::Engine::PSGI, Starwoman, Try::Tiny::Retry, Template::Plugin::SimpleJson
+- Perl 5.32.1+, MongoDB 2.2.2, BSON::OID, Cpanel::JSON::XS, Log::Log4perl, Limper 0.015+, Limper::Engine::PSGI, Starwoman, Try::Tiny::Retry, Template
 
 ## Conventions
 
 - Uses `BSON::OID` (not the older `MongoDB::OID`) for ObjectId handling.
 - Uses `count_documents()` and `insert_one()` (modern MongoDB driver API, not deprecated `count()`/`insert()`).
 - Config JSON uses relaxed parsing (comments allowed via Cpanel::JSON::XS `relaxed` mode).
-- Web templates use Template Toolkit 2 format in `etc/disbatch/views/`.
-- Web static files in `etc/disbatch/htdocs/` (jQuery, EditableGrid).
+- The Angular SPA is built into `etc/disbatch/htdocs/` (run `web/scripts/build.sh`); the committed bundle is served by the static catch-all route in `Disbatch::Web::Files`.
+- Template Toolkit 2 is still used only for `web_extensions` via the exported `template()` helper, with templates in `etc/disbatch/views/`.
 - RPM packaging defined in `dist.spec`; dependencies must be mirrored between `dist.ini` and `dist.spec`.

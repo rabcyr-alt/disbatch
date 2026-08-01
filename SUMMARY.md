@@ -15,8 +15,9 @@ backend.
 - **`GET /tasks/:id`** and **`GET /balance`** → always return JSON. The dead
   `want_json()` / `template` HTML branches were removed.
 - POD updated to document the new always-JSON behavior.
-- `views/layouts/main.tt`, the `Template` instance, and
-  `Template::Plugin::SimpleJson` are retained for `web_extensions`.
+- `views/layouts/main.tt` and the `Template` instance are retained for
+  `web_extensions` (`template()` is still exported); `Template::Plugin::SimpleJson`
+  is no longer a dependency (it was removed from both `dist.ini` and `dist.spec`).
 
 ## Frontend removed — §8
 
