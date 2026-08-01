@@ -81,10 +81,6 @@ export class Shell implements OnInit {
     this.sidenavExpanded.set(next);
     writeSidenavPref(next);
   }
-
-  refresh(): void {
-    this.refreshService.refresh();
-  }
 }
 
 function readSidenavPref(): boolean {
