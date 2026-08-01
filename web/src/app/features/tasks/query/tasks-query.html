@@ -20,7 +20,12 @@
   </p>
 }
 
-<form [formGroup]="fieldForm" (ngSubmit)="submit()" class="query-form">
+@if (schemaError()) {
+  <div class="error-box">
+    <strong>Could not load query schema.</strong> Refresh the page to retry.
+  </div>
+} @if (indexFields().length) {
+  <form [formGroup]="fieldForm" (ngSubmit)="submit()" class="query-form">
   <div class="fields">
     @for (field of indexFields(); track field) {
       <div class="field-group">
@@ -75,6 +80,7 @@
     <button mat-flat-button color="primary" type="submit">Submit</button>
   </div>
 </form>
+}
 
 @if (error()) {
   <div class="error-box">
@@ -101,17 +107,20 @@
         <pre class="json">{{ pretty(task) }}</pre>
       </div>
     }
+  </div>
+} @else if (hasQueried() && !loading() && !error()) {
+  <div class="empty">No results on this page.</div>
+}
+
+@if (hasQueried() && (skip() > 0 || hasMore())) {
+  <div class="actions">
+    @if (skip() > 0) {
+      <button mat-stroked-button type="button" (click)="prev()">Previous {{ limit() }}</button>
+    }
     @if (hasMore()) {
-      <div class="actions">
-        @if (skip() > 0) {
-          <button mat-stroked-button type="button" (click)="prev()">Previous {{ limit() }}</button>
-        }
-        <button mat-stroked-button type="button" (click)="next()">
-          Next {{ limit() }} results
-        </button>
-      </div>
+      <button mat-stroked-button type="button" (click)="next()">
+        Next {{ limit() }} results
+      </button>
     }
   </div>
-} @else if (!loading() && !error() && indexFields().length) {
-  <div class="empty">No results.</div>
 }
