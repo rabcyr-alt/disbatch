@@ -98,6 +98,10 @@ sub want_json {
 # is the single backend routing change required; all other paths are either JSON
 # API calls or static assets served by the catch-all in Disbatch::Web::Files.
 sub serve_spa {
+    # index.html references un-hashed JS bundles (outputHashing: "none"), so it
+    # must not be cached across RPM upgrades or the browser will fetch stale
+    # bundle names after a deploy.
+    headers 'Cache-Control' => 'no-cache';
     send_file '/index.html';
 }
 
