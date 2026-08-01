@@ -79,16 +79,6 @@ sub parse_params {
     wantarray ? ($params, $options) : $params;
 }
 
-sub parse_accept {
-    +{ map { @_ = split(/;q=/, $_); $_[0] => $_[1] // 1 } split /,\s*/, request->{headers}{accept} // '' };
-}
-
-sub want_json {
-    my $accept = parse_accept;
-    # prefer 'text/html' over 'application/json' if equal, but default to 'application/json'
-    ($accept->{'text/html'} // 0) >= ($accept->{'application/json'} // 1) ? 0 : 1;
-}
-
 ################
 #### NEW API ###
 ################
@@ -912,22 +902,6 @@ Used to enable the following options when returning JSON: C<allow_blessed>, C<ca
 Returns a C<list> of key/value pairs of options to pass to C<send_json>.
 
 NOTE: this sub is automatically exported, so any package using L<Disbatch::Web> can call it.
-
-=item parse_accept
-
-Parameters: none
-
-Parses C<Accept> header.
-
-Returns a C<HASH> where keys are types and values are q-factor weights.
-
-=item want_json
-
-Parameters: none
-
-Returns true if C<Accept> header has C<application/json> with a higher q-factor weight than C<text/html>.
-
-Note: if not specified, C<text/html> has an assumed q-factor weight of C<0> and C<application/json> has an assumed q-factor weight of C<1>.
 
 =item get_nodes
 
