@@ -69,6 +69,14 @@ export class Shell implements OnInit {
       .subscribe((info) => {
         this.database.set(info.database);
         this.getRoutes.set((info.routes?.['GET'] ?? []).filter((r) => r.startsWith('/')));
+        // Honor the server-advertised refresh interval (dashboard.refresh_ms)
+        // when present; otherwise fall back to the service's 60s default.
+        const refreshMs = info.dashboard?.refresh_ms;
+        if (refreshMs && refreshMs > 0) {
+          const seconds = Math.round(refreshMs / 1000);
+          this.refreshService.setInterval(seconds);
+          this.intervalSeconds.set(seconds);
+        }
       });
     this.intervalSeconds.set(this.refreshService.intervalSeconds());
   }
