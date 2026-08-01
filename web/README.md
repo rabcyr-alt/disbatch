@@ -1,59 +1,62 @@
-# Web
+# Disbatch Web (Angular SPA)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.0.9.
+The Disbatch Command Interface frontend — an Angular 22 + TypeScript
+single-page application. The Perl backend serves the built bundle from
+`etc/disbatch/htdocs/` (the `web_root`), so this directory holds only the
+SPA **source**; the built artifacts are committed elsewhere (see below).
+
+## Prerequisites
+
+Node.js + npm are required only on the developer machine. RPM builds use the
+committed `etc/disbatch/htdocs/` directly and do not run npm.
 
 ## Development server
 
-To start a local development server, run:
-
 ```bash
-ng serve
+npx ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Starts the Angular dev server on `http://localhost:4200/`. API paths are
+proxied to the Perl dev server at `http://localhost:8080` (see
+`proxy.conf.json`), so run that too:
 
 ```bash
-ng generate component component-name
+perl -Ilib dev/disbatch-web
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
+The app reloads automatically on source changes.
 
 ## Building
 
-To build the project run:
-
 ```bash
-ng build
+./scripts/build.sh
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Runs `npm ci`, `ng build --configuration production`, and syncs the output
+into `../etc/disbatch/htdocs/` (the Disbatch `web_root`) so the existing
+catch-all static route serves it. The built `3rdpartylicenses.txt` is copied
+alongside the browser assets.
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
+For development only (no htdocs sync):
 
 ```bash
-ng e2e
+npx ng build --configuration production
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Unit tests
 
-## Additional Resources
+```bash
+npx ng test
+```
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Runs the Vitest suite via the `@angular/build:unit-test` runner (jsdom
+environment). There is no e2e configuration.
+
+## Committed bundle / RPM tradeoff
+
+The production bundle under `etc/disbatch/htdocs/` **is** committed to the
+repository (the old static assets were too), so an RPM built from the tree
+serves a working UI without Node at build time. Consequence: after changing
+SPA source, re-run `scripts/build.sh` and commit the regenerated `htdocs/`
+before cutting a release. Frontend source commits intentionally do **not**
+rebuild `htdocs/` (to keep diffs reviewable); the release process must do it.
