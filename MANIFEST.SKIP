@@ -1,0 +1,17 @@
+# Belt-and-suspenders for @Basic's ManifestSkip, mirroring the [Git::GatherDir]
+# exclude_match rules in dist.ini. The Angular SPA *source* (web/) is not
+# shipped; its built output under etc/disbatch/htdocs/ is. Working/review notes
+# are repo-internal and not end-user docs.
+^web/
+^opus5-evaluation-.*\.md$
+^opus5-meta-review\.md$
+^PLAN\.md$
+^PLAN-improvements\.md$
+^SUMMARY\.md$
+^CLAUDE\.md$
+
+# Editor/agent backup files.
+.*~$
+
+# VS Code workspace state (not the shared settings tracked in web/.vscode).
+\.vscode/
