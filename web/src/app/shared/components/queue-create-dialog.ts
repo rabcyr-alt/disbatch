@@ -41,6 +41,12 @@ export class QueueCreateDialog {
 
   setPlugins(plugins: string[]): void {
     this.plugins.set(plugins);
+    // Default the type to the first available plugin (matches the legacy
+    // behavior) when none is selected yet, so Create is enabled as soon as a
+    // name is typed.
+    if (!this.form.controls.plugin.value && plugins.length) {
+      this.form.controls.plugin.setValue(plugins[0]);
+    }
   }
 
   submit(): void {
