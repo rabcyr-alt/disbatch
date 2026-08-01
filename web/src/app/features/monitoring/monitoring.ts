@@ -43,10 +43,12 @@ export class Monitoring implements OnInit {
       });
   }
 
-  nodeEntries(check: MonitoringCheck): { host: string; age: number }[] {
-    const out: { host: string; age: number }[] = [];
-    for (const [host, age] of Object.entries(check.nodes?.fresh ?? {})) out.push({ host, age });
-    for (const [host, age] of Object.entries(check.nodes?.stale ?? {})) out.push({ host, age });
+  nodeEntries(check: MonitoringCheck): { host: string; age: number; fresh: boolean }[] {
+    const out: { host: string; age: number; fresh: boolean }[] = [];
+    for (const [host, age] of Object.entries(check.nodes?.fresh ?? {}))
+      out.push({ host, age, fresh: true });
+    for (const [host, age] of Object.entries(check.nodes?.stale ?? {}))
+      out.push({ host, age, fresh: false });
     return out;
   }
 }

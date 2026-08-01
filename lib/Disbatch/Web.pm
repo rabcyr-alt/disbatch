@@ -129,14 +129,31 @@ get '/info' => sub {
     send_json $info, send_json_options;
 };
 
+# Node-liveness window in seconds, sourced from config (dashboard.live_window_ms,
+# default 15000). The single source of truth consumed by both get_nodes() (the
+# per-node `live` flag for the dashboard) and check_disbatch() (the fresh/stale
+# buckets for /monitoring), so the dashboard and /monitoring always agree and
+# the classification uses the server's clock (not the browser's), avoiding NTP
+# drift between hosts flipping a node live/dead (M2/M4/M6).
+sub live_window_seconds {
+    my $dashboard = $disbatch->{config}{dashboard} // {};
+    ($dashboard->{live_window_ms} // 15000) / 1000;
+}
+
 # will throw errors
 sub get_nodes {
     my ($filter) = @_;
     $filter //= {};
     my @nodes = $disbatch->nodes->find($filter)->sort({node => 1})->all;
+    my $window = live_window_seconds();
+    my $now = time;
     for my $node (@nodes) {
         $node->{id} = "$node->{_id}";
         $node->{timestamp} = int($node->{timestamp}->epoch*1000) if ref $node->{timestamp} eq 'BSON::Time';
+        # Classify liveness against the server's clock so browser-clock skew
+        # can't misclassify a node. The dashboard filters on this flag instead
+        # of doing client-side Date.now() math (M4).
+        $node->{live} = (int($node->{timestamp} / 1000) + $window >= $now) ? true : false;
     }
     \@nodes;
 }
@@ -646,7 +663,9 @@ post '/balance' => sub {
 # NOTE: this *is* disbatch (web). but we now check if any nodes are running, instead of if the web server is running on a list of hosts (as old disbatch was monolithic)
 sub check_disbatch {
     try {
-        # $nodes is an ARRAY of nodes, each HASH has a 'timestamp' field (in ms) so you can tell if it's running, as well as 'node' and 'id'
+        # $nodes is an ARRAY of nodes, each HASH has a 'timestamp' field (in ms) and
+        # a 'live' flag (computed in get_nodes against the server clock) so you can
+        # tell if it's running, as well as 'node' and 'id'
         my $nodes = get_nodes;
         if (!@$nodes) {
             return { status => 'WARNING', message => 'No Disbatch nodes found' };
@@ -654,12 +673,11 @@ sub check_disbatch {
         my $status = {};
         my $now = time;
         for my $node (@$nodes) {
-            my $timestamp = int($node->{timestamp} / 1000);
-            if ($timestamp + 60 < $now) {
-                # old
-                $status->{stale}{$node->{node}} = $now - $timestamp;
+            my $age = $now - int($node->{timestamp} / 1000);
+            if ($node->{live}) {
+                $status->{fresh}{$node->{node}} = $age;
             } else {
-                $status->{fresh}{$node->{node}} = $now - $timestamp;
+                $status->{stale}{$node->{node}} = $age;
             }
         }
         if (keys %{$status->{fresh}}) {
@@ -915,7 +933,7 @@ Note: if not specified, C<text/html> has an assumed q-factor weight of C<0> and 
 
 Parameters: none
 
-Returns an array of node objects defined, with C<timestamp> stringified and C<id> the stringified C<_id>.
+Returns an array of node objects defined, with C<timestamp> stringified, C<id> the stringified C<_id>, and C<live> a boolean computed against the server's clock and the configured liveness window (C<dashboard.live_window_ms>, default 15000 ms).
 
 =item get_plugins
 
@@ -978,7 +996,7 @@ Returns C<< { status => 'success: queuebalance modified' } >> on success, or C<<
 
 Parameters: none
 
-Checks if Disbatch nodes exist and determines if any have been running within the last 60 seconds.
+Checks if Disbatch nodes exist and determines if any are live (reported within the configured liveness window, C<dashboard.live_window_ms>, default 15 seconds).
 
 Returns C<< { status => 'WARNING', message => 'No Disbatch nodes found' } >> if no nodes,
 C<< { status => 'OK', message => 'Disbatch is running on one or more nodes', nodes => $status } >> if at least one node recently running,
@@ -1085,7 +1103,7 @@ Note: new in Disbatch 4.2
 
 Parameters: none.
 
-Returns an Array of node Objects defined (with C<id> the stringified C<_id>) on success, C<< { "error": "Could not get current nodes: $_" } >> on error.
+Returns an Array of node Objects defined (with C<id> the stringified C<_id> and C<live> a boolean computed against the server's clock) on success, C<< { "error": "Could not get current nodes: $_" } >> on error.
 
 Sets HTTP status to C<400> on error.
 
