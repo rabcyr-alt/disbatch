@@ -51,16 +51,8 @@ export class Dashboard implements OnInit {
 
   readonly liveWindowMs = signal(DEFAULT_LIVE_WINDOW_MS);
 
-  readonly liveNodes = computed(() => {
-    const now = Date.now();
-    const window = this.liveWindowMs();
-    return this.nodes().filter((n) => n.timestamp + window >= now);
-  });
-  readonly deadNodes = computed(() => {
-    const now = Date.now();
-    const window = this.liveWindowMs();
-    return this.nodes().filter((n) => n.timestamp + window < now);
-  });
+  readonly liveNodes = computed(() => this.nodes().filter((n) => n.live));
+  readonly deadNodes = computed(() => this.nodes().filter((n) => !n.live));
 
   readonly liveWindowLabel = computed(() => formatDuration(this.liveWindowMs()));
 
@@ -73,7 +65,10 @@ export class Dashboard implements OnInit {
       .subscribe((plugins) => this.plugins.set(plugins));
 
     // Load the liveness window from /info (if the backend provides it) before
-    // the first refresh; fall back to the default otherwise.
+    // the first refresh; used only for the "reported within the last X" label.
+    // The live/dead split itself is server-side (each node carries a `live`
+    // flag computed against the server clock), so this no longer feeds the
+    // classification.
     this.infoService
       .get()
       .pipe(takeUntilDestroyed(this.destroyRef))

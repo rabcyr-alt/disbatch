@@ -5,4 +5,6 @@ export interface DenNode {
   /** Epoch milliseconds. */
   timestamp: number;
   maxthreads?: number | null;
+  /** Server-side liveness flag (reported within dashboard.live_window_ms). */
+  live?: boolean;
 }

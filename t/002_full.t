@@ -242,6 +242,8 @@ if ($webpid == 0) {
     is $content->[0]{id}, $content->[0]{_id}, 'id matches _id';
     cmp_ok $content->[0]{timestamp}, '>' , $time_in_ms, 'timestamp is in milliseconds';
     is $content->[0]{node}, hostname, 'node is hostname';
+    ok exists $content->[0]{live}, 'live flag exists';
+    ok $content->[0]{live}, 'live is true (node just reported)';
     $node = $content->[0]{node};
     $node_id = $content->[0]{id};
     my $node_hash = $content->[0];
