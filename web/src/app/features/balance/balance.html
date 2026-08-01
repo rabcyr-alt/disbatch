@@ -85,7 +85,7 @@
       </mat-select>
     </mat-form-field>
     @if (disabledUntil() !== null) {
-      <span class="hint">(disabled until {{ disabledUntil()! | date: 'medium' }})</span>
+      <span class="hint">(disabled until {{ disabledUntil()! * 1000 | date: 'medium' }})</span>
       <mat-checkbox formControlName="reenable">re-enable</mat-checkbox>
     } @else {
       <span class="hint">(currently enabled)</span>
