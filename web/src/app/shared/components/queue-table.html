@@ -23,7 +23,17 @@
 
   <ng-container matColumnDef="name">
     <th mat-header-cell *matHeaderCellDef>Name</th>
-    <td mat-cell *matCellDef="let row" (click)="startEdit(row, 'name')" class="editable">
+    <td
+      mat-cell
+      *matCellDef="let row"
+      class="editable"
+      tabindex="0"
+      role="button"
+      (click)="startEdit(row, 'name')"
+      (keydown.enter)="startEdit(row, 'name')"
+      (keydown.space)="startEdit(row, 'name'); $event.preventDefault()"
+      [attr.aria-label]="'Edit name for queue ' + row.id"
+    >
       @if (isEditing(row, 'name')) {
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
           <input
@@ -43,7 +53,17 @@
 
   <ng-container matColumnDef="threads">
     <th mat-header-cell *matHeaderCellDef>Threads</th>
-    <td mat-cell *matCellDef="let row" (click)="startEdit(row, 'threads')" class="editable">
+    <td
+      mat-cell
+      *matCellDef="let row"
+      class="editable"
+      tabindex="0"
+      role="button"
+      (click)="startEdit(row, 'threads')"
+      (keydown.enter)="startEdit(row, 'threads')"
+      (keydown.space)="startEdit(row, 'threads'); $event.preventDefault()"
+      [attr.aria-label]="'Edit threads for queue ' + row.id"
+    >
       @if (isEditing(row, 'threads')) {
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
           <input
