@@ -471,6 +471,23 @@ if ($webpid == 0) {
     is ref $content, 'HASH', 'content is HASH';
     is $content->{count}, scalar @task_ids - 1, 'count';
 
+    # Set threads to null (unlimited) via queue id (bug #3: must not 400)
+    $data = { threads => undef };
+    $res = Net::HTTP::Client->request(POST => "$uri/queues/$queueid", 'Content-Type' => 'application/json', encode_json($data));
+    is $res->status_line, '200 OK', '200 status';
+    is $res->content_type, 'application/json', 'application/json';
+    $content = decode_json($res->content);
+    is ref $content, 'HASH', 'content is HASH';
+    is $content->{'MongoDB::UpdateResult'}{matched_count}, 1, 'matched success';
+    is $content->{'MongoDB::UpdateResult'}{modified_count}, 1, 'modified success';
+
+    $res = Net::HTTP::Client->request(GET => "$uri/queues");
+    is $res->status_line, '200 OK', '200 status';
+    is $res->content_type, 'application/json', 'application/json';
+    $content = decode_json($res->content);
+    is ref $content, 'ARRAY', 'content is ARRAY';
+    is $content->[0]{threads}, undef, 'threads is null (unlimited)';
+
     # Get report for task:
     my $report = retry { $disbatch->mongo->coll('reports')->find_one() or die 'No report found' } catch { warn $_; {} };	# status done task_id
     is $report->{status}, 'SUCCESS', 'report success';
@@ -489,6 +506,14 @@ if ($webpid == 0) {
     is $content->{_id}, $task->{_id}->to_string, 'oid matches';
     is $content->{status}, $task->{status}, 'status matches';
     is $content->{stdout}, $task->{stdout}, 'stdout matches';
+
+    # GET /tasks/:id with a caller-supplied .limit must not 500 (bug #4)
+    $res = Net::HTTP::Client->request(GET => "$uri/tasks/$success_id?.limit=5");
+    is $res->status_line, '200 OK', '200 status';
+    is $res->content_type, 'application/json', 'application/json';
+    $content = decode_json($res->content);
+    is ref $content, 'HASH', 'content is HASH (not an array)';
+    is $content->{_id}, $success_id, 'oid matches';
 
     # GET /tasks/:id (now always JSON regardless of Accept header)
     $res = Net::HTTP::Client->request(GET => "$uri/tasks/$success_id", Accept => 'text/html');
