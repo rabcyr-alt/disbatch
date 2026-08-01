@@ -15,5 +15,7 @@ npx ng build --configuration production
 rm -rf ../etc/disbatch/htdocs
 mkdir -p ../etc/disbatch/htdocs
 cp -a dist/web/browser/. ../etc/disbatch/htdocs/
+# 3rdpartylicenses.txt is emitted alongside browser/, not inside it.
+[ -f dist/web/3rdpartylicenses.txt ] && cp -a dist/web/3rdpartylicenses.txt ../etc/disbatch/htdocs/
 
 echo "SPA built and synced into etc/disbatch/htdocs/"
