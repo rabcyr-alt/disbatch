@@ -190,7 +190,16 @@ if ($webpid == 0) {
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'text/html', 'text/html';
     like $res->content, qr/<app-root><\/app-root>/, 'SPA shell contains <app-root>';
-    like $res->content, qr/<script src="main-[^"]+\.js"/, 'SPA shell references a built JS bundle';
+    # index.html references an un-hashed main.js (outputHashing: none); match
+    # flexibly so attribute reordering or a future hashed name doesn't break it.
+    like $res->content, qr/main[^"]*\.js/, 'SPA shell references a main JS bundle';
+    # index.html must not be cached across RPM upgrades (A1).
+    like $res->header('Cache-Control'), qr/no-cache/, 'SPA shell served with Cache-Control: no-cache';
+
+    # A stable, hash-independent built asset (replaces the old GET /js/queues.js).
+    $res = Net::HTTP::Client->request(GET => "$uri/favicon.ico");
+    is $res->status_line, '200 OK', 'favicon 200 status';
+    ok length($res->content) > 0, 'favicon is non-empty';
 
     ### GET JSON ROUTES ####
 
@@ -206,6 +215,19 @@ if ($webpid == 0) {
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'application/json', 'application/json';
     is $res->content, "[\"$plugin\"]", 'plugin array';
+
+    # GET /info returns the database name, web extensions, routes, and the
+    # dashboard tunables (refresh_ms / live_window_ms) with their defaults.
+    $res = Net::HTTP::Client->request(GET => "$uri/info");
+    is $res->status_line, '200 OK', '200 status';
+    is $res->content_type, 'application/json', 'application/json';
+    $content = decode_json($res->content);
+    is ref $content, 'HASH', 'info is HASH';
+    is $content->{database}, $config->{database}, 'info database';
+    is ref $content->{routes}, 'HASH', 'info routes is HASH';
+    is ref $content->{dashboard}, 'HASH', 'info dashboard is HASH';
+    is $content->{dashboard}{refresh_ms}, 30000, 'dashboard.refresh_ms default';
+    is $content->{dashboard}{live_window_ms}, 15000, 'dashboard.live_window_ms default';
 
     # GET /tasks with no params and no options returns the schema and index sets (200).
     $res = Net::HTTP::Client->request(GET => "$uri/tasks");
