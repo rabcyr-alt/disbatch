@@ -30,6 +30,10 @@ describe('RefreshService', () => {
     vi.runOnlyPendingTimers();
   };
 
+  it('defaults to a 30s interval (matches the backend refresh_ms default)', () => {
+    expect(service.intervalSeconds()).toBe(30);
+  });
+
   const setHidden = (hidden: boolean): void => {
     Object.defineProperty(document, 'hidden', { value: hidden, configurable: true });
   };
