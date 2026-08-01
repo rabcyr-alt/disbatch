@@ -543,14 +543,19 @@ get '/tasks' => sub {
 
 get qr'^/tasks/(?<id>[0-9a-f]{24})$' => sub {
     my $title = "Disbatch Single Task Query";
-    my $result = query({id => $+{id}}, {'.limit' => 1}, $title, $oid_keys, $disbatch->tasks, request->{path}, 1, [['id']]);
+    my (undef, $options) = parse_params;	# .full .terse .epoch .pretty from the query string
+    my $result = query({id => $+{id}}, {'.limit' => 1, %$options}, $title, $oid_keys, $disbatch->tasks, request->{path}, 1, [['id']]);
     if (!keys %$result) {
         status 404;
         $result = { error => "no task with id $+{id}" };
     } elsif (exists $result->{error}) {
         status 400;
+    } else {
+        # Resolve GridFS-stored stdout/stderr under .full, format ctime/mtime
+        # unless .epoch, honor .terse — same as GET /tasks does via _munge_tasks.
+        _munge_tasks($result, $options);
     }
-    send_json $result, send_json_options, pretty => 1;
+    send_json $result, send_json_options, pretty => $options->{'.pretty'} // 1;
 };
 
 sub get_balance {
@@ -1197,7 +1202,10 @@ Note: new in 4.2, replaces C<POST /tasks/search>
 
 =item GET /tasks/:id
 
-Parameters: Task OID in URL
+Parameters: Task OID in URL. Query-string options: C<.full> (resolve GridFS-stored
+C<stdout>/C<stderr> to their content), C<.terse> (replace them with C<[terse mode]>),
+C<.epoch> (leave C<ctime>/C<mtime> as epoch ints instead of ISO strings), C<.pretty>
+(pretty-print the JSON; default on).
 
 Returns the task matching OID as JSON, or C<{ "error": "no task with id :id" }> and status C<404> if OID not found.
 
