@@ -11,7 +11,17 @@
 
   <ng-container matColumnDef="maxthreads">
     <th mat-header-cell *matHeaderCellDef>Max Threads</th>
-    <td mat-cell *matCellDef="let row" (click)="startEdit(row)" class="editable">
+    <td
+      mat-cell
+      *matCellDef="let row"
+      class="editable"
+      tabindex="0"
+      role="button"
+      (click)="startEdit(row)"
+      (keydown.enter)="startEdit(row)"
+      (keydown.space)="startEdit(row); $event.preventDefault()"
+      [attr.aria-label]="'Edit max threads for node ' + row.node"
+    >
       @if (isEditing(row)) {
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
           <input
