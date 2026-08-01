@@ -33,8 +33,16 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
     threads will run.
 
   * You can refresh the tables at any time by clicking on `Refresh`. They also
-    refresh automatically every 60 seconds, and after any changes via the web
-    interface.
+    refresh automatically every 30 seconds (configurable via
+    `dashboard.refresh_ms`), and after any changes via the web interface.
+
+  * The dashboard splits DENs into "Disbatch Execution Nodes" (live) and
+    "Non-Running Disbatch Execution Nodes" (dead). A node is live if it has
+    reported within the last 15 seconds by default (configurable via
+    `dashboard.live_window_ms`); DENs report every 1 second, so 15 seconds is a
+    reasonable "alive right now" threshold. The classification is made by the
+    server against its own clock, so browser clock skew can't flip a node
+    live/dead.
 
 * QueueBalance
 
