@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { describe, expect, it } from 'vitest';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { QueueCreateDialog, QueueCreateResult } from './queue-create-dialog';
 
