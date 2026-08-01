@@ -63,8 +63,14 @@ export class TasksQuery implements OnInit {
   readonly error = signal<TaskErrorResponse | null>(null);
   readonly skip = signal(0);
   readonly limit = signal(100);
+  /** True once the schema load failed; the form region shows a banner instead. */
+  readonly schemaError = signal(false);
+  /** True once the first query has run; gates the pager and empty-page note. */
+  readonly hasQueried = signal(false);
 
-  protected fieldForm!: FormGroup;
+  // Initialized eagerly so `[formGroup]="fieldForm"` never binds undefined
+  // before the schema lands (bug #1). buildFieldForm() replaces it later.
+  protected fieldForm: FormGroup = this.fb.group({});
   private lastParams: Record<string, string | string[]> = {};
 
   readonly optionsForm = this.fb.nonNullable.group({
@@ -80,13 +86,18 @@ export class TasksQuery implements OnInit {
     this.tasksService
       .schema()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((res: TasksSchemaResponse) => {
-        this.indexes.set(res.indexes);
-        const fields = this.uniqueFields(res.indexes);
-        this.indexFields.set(fields);
-        this.buildFieldForm(fields);
-        this.limit.set(res.schema.limit);
-        this.optionsForm.controls.limit.setValue(res.schema.limit);
+      .subscribe({
+        next: (res: TasksSchemaResponse) => {
+          this.indexes.set(res.indexes);
+          const fields = this.uniqueFields(res.indexes);
+          this.indexFields.set(fields);
+          this.buildFieldForm(fields);
+          this.limit.set(res.schema.limit);
+          this.optionsForm.controls.limit.setValue(res.schema.limit);
+        },
+        error: () => {
+          this.schemaError.set(true);
+        },
       });
   }
 
@@ -162,6 +173,7 @@ export class TasksQuery implements OnInit {
 
     this.loading.set(true);
     this.error.set(null);
+    this.hasQueried.set(true);
     this.tasksService
       .query(params, options)
       .pipe(takeUntilDestroyed(this.destroyRef))
