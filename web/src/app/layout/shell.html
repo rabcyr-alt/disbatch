@@ -1,5 +1,12 @@
 <mat-sidenav-container class="shell">
-  <mat-sidenav #drawer mode="side" opened class="sidenav" [class.collapsed]="!sidenavExpanded()" [style.width.px]="sidenavExpanded() ? 220 : 64">
+  <mat-sidenav
+    #drawer
+    mode="side"
+    opened
+    class="sidenav"
+    [class.collapsed]="!sidenavExpanded()"
+    [style.width.px]="sidenavExpanded() ? 220 : 64"
+  >
     <mat-toolbar color="primary" class="brand">
       <mat-icon>layers</mat-icon>
       @if (sidenavExpanded()) {
@@ -47,19 +54,6 @@
           }
         </mat-menu>
       }
-
-      <span class="interval-label">Refresh:</span>
-      <button mat-stroked-button [matMenuTriggerFor]="intervalMenu">
-        {{ intervalSeconds() === 0 ? 'Off' : intervalSeconds() + 's' }}
-        <mat-icon>arrow_drop_down</mat-icon>
-      </button>
-      <mat-menu #intervalMenu="matMenu">
-        @for (choice of intervalChoices; track choice) {
-          <button mat-menu-item (click)="setInterval(choice)">
-            {{ choice === 0 ? 'Off' : choice + 's' }}
-          </button>
-        }
-      </mat-menu>
 
       <button mat-icon-button (click)="refresh()" matTooltip="Refresh now">
         <mat-icon>refresh</mat-icon>

@@ -45,7 +45,6 @@ export class Shell implements OnInit {
   readonly database = signal<string>('');
   /** GET routes starting with '/', surfaced as clickable links (incl. web extensions). */
   readonly getRoutes = signal<string[]>([]);
-  readonly intervalSeconds = signal<number>(60);
 
   readonly links: NavLink[] = [
     { path: '/', label: 'Dashboard', icon: 'dashboard', exact: true },
@@ -54,8 +53,6 @@ export class Shell implements OnInit {
     { path: '/monitoring', label: 'Monitoring', icon: 'monitor_heart' },
     { path: '/info', label: 'Info', icon: 'info' },
   ];
-
-  readonly intervalChoices = [0, 15, 30, 60, 120, 300];
 
   /** Expanded (full labels) vs collapsed (icons only) sidenav. Persisted. */
   readonly sidenavExpanded = signal<boolean>(readSidenavPref());
@@ -69,27 +66,20 @@ export class Shell implements OnInit {
       .subscribe((info) => {
         this.database.set(info.database);
         this.getRoutes.set((info.routes?.['GET'] ?? []).filter((r) => r.startsWith('/')));
-        // Honor the server-advertised refresh interval (dashboard.refresh_ms)
-        // when present; otherwise fall back to the service's 60s default.
+        // The refresh interval is backend-configured (dashboard.refresh_ms);
+        // seed the shared RefreshService from it. Falls back to the service's
+        // default when the server omits it.
         const refreshMs = info.dashboard?.refresh_ms;
         if (refreshMs && refreshMs > 0) {
-          const seconds = Math.round(refreshMs / 1000);
-          this.refreshService.setInterval(seconds);
-          this.intervalSeconds.set(seconds);
+          this.refreshService.setInterval(Math.round(refreshMs / 1000));
         }
       });
-    this.intervalSeconds.set(this.refreshService.intervalSeconds());
   }
 
   toggleSidenav(): void {
     const next = !this.sidenavExpanded();
     this.sidenavExpanded.set(next);
     writeSidenavPref(next);
-  }
-
-  setInterval(seconds: number): void {
-    this.intervalSeconds.set(seconds);
-    this.refreshService.setInterval(seconds);
   }
 
   refresh(): void {
