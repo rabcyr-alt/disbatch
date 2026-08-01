@@ -88,8 +88,9 @@ export class TaskDetail implements OnInit {
 
   outputText(out: TaskOutput): string {
     if (out === null || out === undefined) return '(none)';
-    if (typeof out === 'string') return out;
-    // GridFS ObjectId reference (not resolved).
-    return '(stored in GridFS — toggle "full" to load)';
+    // BSON::OID::TO_JSON returns a plain 24-char hex string unless BSON_EXTJSON
+    // is set, so an unresolved GridFS ObjectId surfaces as a bare hex string.
+    if (/^[0-9a-f]{24}$/.test(out)) return '(stored in GridFS — toggle "full" to load)';
+    return out;
   }
 }

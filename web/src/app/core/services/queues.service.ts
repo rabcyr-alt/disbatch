@@ -11,10 +11,6 @@ export class QueuesService {
     return this.http.get<Queue[]>('/queues');
   }
 
-  get(queue: string): Observable<Queue> {
-    return this.http.get<Queue>(`/queues/${encodeURIComponent(queue)}`);
-  }
-
   create(
     name: string,
     plugin: string,
@@ -29,14 +25,5 @@ export class QueuesService {
 
   update(queue: string, changes: Record<string, unknown>): Observable<MongoResult> {
     return this.http.post<MongoResult>(`/queues/${encodeURIComponent(queue)}`, changes);
-  }
-
-  delete(queue: string): Observable<MongoResult> {
-    return this.http.delete<MongoResult>(`/queues/${encodeURIComponent(queue)}`);
-  }
-
-  /** Convenience: build HttpParams for queue-scoped task queries. */
-  static queueParam(queue: string): { queue: string } {
-    return { queue };
   }
 }

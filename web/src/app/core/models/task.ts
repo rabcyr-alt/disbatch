@@ -1,7 +1,10 @@
 export type TaskStatus = -6 | -2 | -1 | 0 | 1 | 2;
 
-/** stdout/stderr may be null, a plain string, or a GridFS ObjectId reference (object). */
-export type TaskOutput = string | null | { $oid?: string; [k: string]: unknown };
+/** stdout/stderr may be null, a plain string, or a 24-char GridFS ObjectId hex
+ * string (unresolved; toggle .full to load the content). BSON::OID::TO_JSON
+ * returns a plain hex string unless BSON_EXTJSON is set, so the {$oid} object
+ * shape is never produced. */
+export type TaskOutput = string | null;
 
 export interface Task {
   _id: string;

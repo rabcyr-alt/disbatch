@@ -12,10 +12,6 @@ export class NodesService {
     return this.http.get<DenNode[]>('/nodes');
   }
 
-  get(node: string): Observable<DenNode> {
-    return this.http.get<DenNode>(`/nodes/${encodeURIComponent(node)}`);
-  }
-
   updateMaxThreads(node: string, maxthreads: number | null): Observable<MongoResult> {
     return this.http.post<MongoResult>(`/nodes/${encodeURIComponent(node)}`, { maxthreads });
   }
