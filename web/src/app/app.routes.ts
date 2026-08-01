@@ -37,6 +37,12 @@ export const routes: Routes = [
         title: 'Info · Disbatch',
         loadComponent: () => import('./features/info/info').then((m) => m.Info),
       },
+      {
+        path: '**',
+        title: 'Not Found · Disbatch',
+        loadComponent: () =>
+          import('./features/not-found/not-found').then((m) => m.NotFound),
+      },
     ],
   },
 ];
