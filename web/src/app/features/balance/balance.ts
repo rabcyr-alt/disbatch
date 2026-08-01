@@ -14,13 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BalanceService } from '../../core/services/balance.service';
 import { BalanceDoc, BalanceSubmit } from '../../core/models/balance';
 import { JsonViewer } from '../../shared/components/json-viewer';
-import { validateBalance, type BalanceInput } from '../../shared/validate';
-
-interface MaxTaskRow {
-  dow: string;
-  time: string;
-  size: string;
-}
+import { validateBalance, type BalanceInput, type MaxTaskRow } from '../../shared/validate';
 
 const DOW_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: '' },
@@ -163,7 +157,7 @@ export class Balance implements OnInit {
 
   private maxTaskRowValue(row: FormGroup): MaxTaskRow {
     const v = row.value as MaxTaskRow;
-    return { dow: (v.dow ?? '').trim(), time: (v.time ?? '').trim(), size: (v.size ?? '').trim() };
+    return { dow: (v.dow ?? '').trim(), time: (v.time ?? '').trim(), size: String(v.size ?? '').trim() };
   }
 
   /** Builds the {@link BalanceInput} for the pure validator from the current form. */
@@ -184,11 +178,7 @@ export class Balance implements OnInit {
     this.invalidMaxTaskRows.set(result.invalidRows);
     // Keep the error list current so the highlight reflects live state; the
     // banner is only shown after submit (see submit()).
-    if (result.errors.length) {
-      this.errors.set(result.errors);
-    } else {
-      this.errors.set([]);
-    }
+    this.errors.set(result.errors);
   }
 
   submit(): void {
