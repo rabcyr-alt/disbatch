@@ -7,8 +7,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { QueuesService } from '../../core/services/queues.service';
 import { Queue } from '../../core/models/queue';
+import { unwrapMongoResult } from '../../core/mongo-result';
+import { messageFromBody } from '../../core/api-error';
 import { isUnchanged, normalizeEdit, parseMaxThreads } from '../edit';
 import { QueueCreateDialog, QueueCreateResult } from './queue-create-dialog';
 
@@ -32,6 +35,7 @@ type EditableField = 'name' | 'threads';
 export class QueueTable {
   private readonly queuesService = inject(QueuesService);
   private readonly dialog = inject(MatDialog);
+  private readonly snack = inject(MatSnackBar);
 
   readonly queues = input<Queue[]>([]);
   readonly plugins = input<string[]>([]);
@@ -97,7 +101,13 @@ export class QueueTable {
 
   private postUpdate(id: string, body: Record<string, unknown>): void {
     this.queuesService.update(id, body).subscribe({
-      next: () => this.changed.emit(),
+      next: (res) => {
+        const msg = messageFromBody(res);
+        if (msg) {
+          this.snack.open(msg, 'Dismiss', { duration: 5000 });
+        }
+        this.changed.emit();
+      },
       error: () => this.changed.emit(),
     });
   }
@@ -114,7 +124,16 @@ export class QueueTable {
       this.queuesService
         .create(result.name, result.plugin, result.threads ?? undefined, result.sort ?? undefined)
         .subscribe({
-          next: () => this.changed.emit(),
+          next: (res) => {
+            const unwrapped = unwrapMongoResult(res);
+            const msg = messageFromBody(res);
+            // Surface a top-level error message only when no id was inserted;
+            // a successful insert already returns the new id we want to reload.
+            if (msg && !unwrapped.id) {
+              this.snack.open(msg, 'Dismiss', { duration: 5000 });
+            }
+            this.changed.emit();
+          },
           error: () => this.changed.emit(),
         });
     });
