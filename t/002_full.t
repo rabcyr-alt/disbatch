@@ -495,23 +495,6 @@ if ($webpid == 0) {
     is ref $content, 'HASH', 'content is HASH';
     is $content->{count}, scalar @task_ids - 1, 'count';
 
-    # Set threads to null (unlimited) via queue id (bug #3: must not 400)
-    $data = { threads => undef };
-    $res = Net::HTTP::Client->request(POST => "$uri/queues/$queueid", 'Content-Type' => 'application/json', encode_json($data));
-    is $res->status_line, '200 OK', '200 status';
-    is $res->content_type, 'application/json', 'application/json';
-    $content = decode_json($res->content);
-    is ref $content, 'HASH', 'content is HASH';
-    is $content->{'MongoDB::UpdateResult'}{matched_count}, 1, 'matched success';
-    is $content->{'MongoDB::UpdateResult'}{modified_count}, 1, 'modified success';
-
-    $res = Net::HTTP::Client->request(GET => "$uri/queues");
-    is $res->status_line, '200 OK', '200 status';
-    is $res->content_type, 'application/json', 'application/json';
-    $content = decode_json($res->content);
-    is ref $content, 'ARRAY', 'content is ARRAY';
-    is $content->[0]{threads}, undef, 'threads is null (unlimited)';
-
     # Get report for task:
     my $report = retry { $disbatch->mongo->coll('reports')->find_one() or die 'No report found' } delay { return if $_[0] >= 5; sleep $_[0]; } catch { warn $_; {} };	# status done task_id
     is $report->{status}, 'SUCCESS', 'report success';

@@ -268,9 +268,9 @@ post '/queues' => sub {
         status 400;
         return send_json { error => 'Unknown plugin', plugin => $params->{plugin} }, send_json_options;
     }
-    if (exists $params->{threads} and defined $params->{threads} and $params->{threads} !~ /^\d+$/) {
+    if (exists $params->{threads} and $params->{threads} !~ /^\d+$/) {
         status 400;
-        return send_json {error => 'threads must be a non-negative integer or null'}, send_json_options;
+        return send_json {error => 'threads must be a non-negative integer'}, send_json_options;
     }
     if (exists $params->{sort} and defined $params->{sort} and ! grep { $_ eq $params->{sort} } qw/fifo lifo default/) {
         status 400;
@@ -315,9 +315,9 @@ post qr'^/queues/(?<queue>.+)$' => sub {
         status 400;
         return send_json { error => 'unknown plugin', plugin => $params->{plugin} }, send_json_options;
     }
-    if (exists $params->{threads} and defined $params->{threads} and $params->{threads} !~ /^\d+$/) {
+    if (exists $params->{threads} and $params->{threads} !~ /^\d+$/) {
         status 400;
-        return send_json {error => 'threads must be a non-negative integer or null'}, send_json_options;
+        return send_json {error => 'threads must be a non-negative integer'}, send_json_options;
     }
     if (exists $params->{name} and (ref $params->{name} or !($params->{name} // ''))){
         status 400;
@@ -1149,7 +1149,7 @@ Create a new queue.
 
 Parameters: C<< { "name": name, "plugin": plugin } >>
 
-C<name> is the desired name for the queue (must be unique), C<plugin> is the plugin name for the queue. C<threads> (a non-negative integer or null) and C<sort> are optional.
+C<name> is the desired name for the queue (must be unique), C<plugin> is the plugin name for the queue. C<threads> (a non-negative integer, default C<0>) and C<sort> are optional.
 
 Returns: C<< { ref $res: Object, "id": $inserted_id } >> on success; C<< { "error": "name and plugin required" } >>,
 C<< { "error": "Invalid param", "param": $param } >>, or C<< { "error": "Unknown plugin", "plugin": $plugin } >> on input error; or
@@ -1166,7 +1166,7 @@ URL: C<:queue> is the C<_id> if it matches C</\A[0-9a-f]{24}\z/>, or C<name> if 
 Parameters: C<< { "name": name, "plugin": plugin, "threads": threads, "sort": sort } >>
 
 C<name> is the new name for the queue (must be unique), C<plugin> is the new plugin name for the queue (must be defined in the config file), 
-C<threads> must be a non-negative integer or null, C<sort> is C<fifo>, C<lifo>, C<default>, or undef. Only one of C<name>, C<plugin>, C<threads>, and C<sort> is required, but any combination is allowed.
+C<threads> must be a non-negative integer, C<sort> is C<fifo>, C<lifo>, C<default>, or undef. Only one of C<name>, C<plugin>, C<threads>, and C<sort> is required, but any combination is allowed.
 
 Returns C<< { ref $res: Object } >> or C<< { "error": error } >>
 
