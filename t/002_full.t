@@ -513,11 +513,11 @@ if ($webpid == 0) {
     is $content->[0]{threads}, undef, 'threads is null (unlimited)';
 
     # Get report for task:
-    my $report = retry { $disbatch->mongo->coll('reports')->find_one() or die 'No report found' } catch { warn $_; {} };	# status done task_id
+    my $report = retry { $disbatch->mongo->coll('reports')->find_one() or die 'No report found' } delay { return if $_[0] >= 5; sleep $_[0]; } catch { warn $_; {} };	# status done task_id
     is $report->{status}, 'SUCCESS', 'report success';
 
     # Get task of report:
-    my $task = retry { $disbatch->tasks->find_one({_id => $report->{task_id}, status => {'$ne' => 0}}) or die 'status still 0' } delay_exp { 5, 5e5 } catch { warn $_; $disbatch->tasks->find_one({_id => $report->{task_id}}) };
+    my $task = retry { $disbatch->tasks->find_one({_id => $report->{task_id}, status => {'$ne' => 0}}) or die 'status still 0' } delay { return if $_[0] >= 5; sleep $_[0]; } catch { warn $_; $disbatch->tasks->find_one({_id => $report->{task_id}}) };
     is $task->{status}, 1, 'task success';
 
     # GET /tasks/:id
