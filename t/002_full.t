@@ -514,13 +514,14 @@ if ($webpid == 0) {
     is $content->{status}, $task->{status}, 'status matches';
     is $content->{stdout}, $task->{stdout}, 'stdout matches';
 
-    # GET /tasks/:id with a caller-supplied .limit must not 500 (bug #4)
+    # GET /tasks/:id with invalid option
     $res = Net::HTTP::Client->request(GET => "$uri/tasks/$success_id?.limit=5");
-    is $res->status_line, '200 OK', '200 status';
+    is $res->status_line, '400 Bad Request', '400 status';
     is $res->content_type, 'application/json', 'application/json';
     $content = decode_json($res->content);
-    is ref $content, 'HASH', 'content is HASH (not an array)';
-    is $content->{_id}, $success_id, 'oid matches';
+    is ref $content, 'HASH', 'content is HASH';
+    is $content->{error}, 'Invalid option', 'error message';
+    is $content->{option}, '.limit', 'invalid option';
 
     # GET /tasks/:id (now always JSON regardless of Accept header)
     $res = Net::HTTP::Client->request(GET => "$uri/tasks/$success_id", Accept => 'text/html');

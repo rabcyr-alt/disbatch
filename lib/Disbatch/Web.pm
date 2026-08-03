@@ -555,16 +555,14 @@ get '/tasks' => sub {
 get qr'^/tasks/(?<id>[0-9a-f]{24})$' => sub {
     my $title = "Disbatch Single Task Query";
     my (undef, $options) = parse_params;	# .full .terse .epoch .pretty from the query string
-    # Whitelist the documented options. .limit/.skip/.fields/.count are not
-    # honored here (this route is single-document by construction); a
-    # caller-supplied .limit would make query() return an arrayref and the
-    # later `keys %$result` would die "Not a HASH reference" (bug #4).
-    my %allowed;
-    $allowed{'.full'}   = $options->{'.full'}   if exists $options->{'.full'};
-    $allowed{'.terse'}  = $options->{'.terse'}  if exists $options->{'.terse'};
-    $allowed{'.epoch'}  = $options->{'.epoch'}  if exists $options->{'.epoch'};
-    $allowed{'.pretty'} = $options->{'.pretty'} if exists $options->{'.pretty'};
-    my $result = query({id => $+{id}}, {'.limit' => 1, %allowed}, $title, $oid_keys, $disbatch->tasks, request->{path}, 1, [['id']]);
+    my @valid_options = qw/.full .terse .epoch .pretty/;
+    for my $option (keys %$options) {
+        unless (grep $_ eq $option, @valid_options) {
+            status 400;
+            return send_json { error => 'Invalid option', option => $option}, send_json_options;
+        }
+    }
+    my $result = query({id => $+{id}}, {'.limit' => 1, %$options}, $title, $oid_keys, $disbatch->tasks, request->{path}, 1, [['id']]);
     if (!keys %$result) {
         status 404;
         $result = { error => "no task with id $+{id}" };
