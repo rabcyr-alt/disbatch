@@ -2,27 +2,6 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
-    - Node liveness: the dashboard's live/dead split and /monitoring's
-      fresh/stale classification are now made server-side against the server's
-      clock, using a single window (dashboard.live_window_ms, default 15000 ms
-      = 15 s). The legacy threshold was 15 minutes (dashboard) / 60 seconds
-      (/monitoring); both are now 15 s by default. GET /nodes returns a per-node
-      `live` boolean. (M2/M3/M4/M6)
-    - POST /queues and POST /queues/:id now accept `threads: null` (the UI's
-      "unlimited" value) instead of 400ing. (bug #3)
-    - GET /tasks/:id no longer 500s when a caller supplies ?.limit (or other
-      non-whitelisted dot-options); only .full/.terse/.epoch/.pretty are honored.
-      (bug #4)
-    - GET / is now served with Cache-Control: no-cache (index.html references
-      un-hashed JS bundles). (A1)
-    - Roboto and Material Icons are now vendored locally (via @fontsource) and
-      bundled into htdocs/, instead of fetched from fonts.googleapis.com on
-      every pageload. The UI no longer beacons Google and renders correctly on
-      air-gapped/egress-filtered networks. (#6)
-    - Subpath mounting behind an x-prepend header is no longer supported; the
-      real deployment is a root proxy. main.tt was reduced to a minimal wrapper.
-      (B2/#7)
-
 4.390     2026-01-02 19:02:18-05:00 EST5EDT
 
 4.201     2024-07-19 13:50:30-04:00 EST5EDT
