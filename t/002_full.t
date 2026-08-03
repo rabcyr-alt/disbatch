@@ -196,7 +196,7 @@ if ($webpid == 0) {
     # index.html must not be cached across RPM upgrades (A1).
     like $res->header('Cache-Control'), qr/no-cache/, 'SPA shell served with Cache-Control: no-cache';
 
-    # A stable, hash-independent built asset (replaces the old GET /js/queues.js).
+    # favicon.ico test
     $res = Net::HTTP::Client->request(GET => "$uri/favicon.ico");
     is $res->status_line, '200 OK', 'favicon 200 status';
     ok length($res->content) > 0, 'favicon is non-empty';
