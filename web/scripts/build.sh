@@ -11,11 +11,13 @@ cd "$(dirname "$0")/.."
 npm ci
 npx ng build --configuration production
 
+TARGET=../etc/disbatch/htdocs
+# keep legacy css/, images/, and javascripts/ in ../etc/disbatch/htdocs/
+find $TARGET/ ! -path $TARGET/ ! -path $TARGET/css ! -path $TARGET/css/\* ! -path $TARGET/images ! -path $TARGET/images/\* \
+ ! -path $TARGET/javascripts ! -path $TARGET/javascripts/\* -delete
 # The @angular/build:application builder emits browser assets under dist/<app>/browser/.
-rm -rf ../etc/disbatch/htdocs
-mkdir -p ../etc/disbatch/htdocs
-cp -a dist/web/browser/. ../etc/disbatch/htdocs/
+cp -a dist/web/browser/. $TARGET/
 # 3rdpartylicenses.txt is emitted alongside browser/, not inside it.
-[ -f dist/web/3rdpartylicenses.txt ] && cp -a dist/web/3rdpartylicenses.txt ../etc/disbatch/htdocs/
+[ -f dist/web/3rdpartylicenses.txt ] && cp -a dist/web/3rdpartylicenses.txt $TARGET/
 
 echo "SPA built and synced into etc/disbatch/htdocs/"

@@ -23,6 +23,9 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 - updated code for perl v5.32.1 (really 5.24 and later), but should still work on v5.16.2 and possibly back to 5.12.0)
   - `keys` can no longer take a scalar expression
 
+- FIXME: TODO: a whole bunch of LLM and UI changes. this section is horribly incomplete.
+  - breaking change when extending with additional web routes if they use `Template`: I think you only need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+
 ### Differences in Disbatch 4.2 compared to Disbatch 4.0
 
 - added QueueBalance: automatically maintain a maximum number of threads across

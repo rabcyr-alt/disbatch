@@ -4,7 +4,11 @@ use 5.12.0;
 use warnings;
 
 use lib 'lib';
-use Disbatch::Web;
 
-Disbatch::Web::init(config_file => 'etc/disbatch/config.json');
-Disbatch::Web::limp({workers => 10}, LocalPort => 8080);
+my $module = (eval { require Template; 1 }) ? 'Disbatch::Web::TT' : 'Disbatch::Web';
+(my $path = $module) =~ s{::}{/}g;
+require "$path.pm";
+
+no strict 'refs';
+${"${module}::"}{init}->(config_file => 'etc/disbatch/config.json');
+${"${module}::"}{limp}->({workers => 10}, LocalPort => 8080);	# add `LocalAddr => '0.0.0.0'` if testing on a dev VM without nginx exposing it
