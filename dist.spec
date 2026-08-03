@@ -14,6 +14,8 @@ BuildRequires: perl >= 0:5.032001
 
 Requires: perl(Limper::Engine::PSGI) perl(Starwoman)
 
+Suggests: perl(Template)
+
 %description
 <% $zilla->abstract %>
 

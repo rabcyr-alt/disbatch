@@ -24,3 +24,29 @@ Angular build and shipped in this directory as `3rdpartylicenses.txt`.)
 Previously this directory shipped jQuery, jQuery serializeObject, EditableGrid,
 and the expander library; those have been removed with the migration to the
 Angular SPA.
+
+Additionally, for backwards compatibility with any WebExtensions, the following remain:
+
+etc/disbatch/htdocs/javascripts/jquery.js
+ * jQuery JavaScript Library v1.4.2
+ * http://jquery.com/
+ *
+ * Copyright 2010, John Resig
+ * Dual licensed under the MIT or GPL Version 2 licenses.
+ * http://jquery.org/license
+ *
+ * Includes Sizzle.js
+ * http://sizzlejs.com/
+ * Copyright 2010, The Dojo Foundation
+ * Released under the MIT, BSD, and GPL Licenses.
+
+share/etc/disbatch/htdocs/javascripts/expander.js
+share/etc/disbatch/htdocs/images/expand.gif
+share/etc/disbatch/htdocs/images/collapse.gif
+  by Jessica Brown, no copyright nor license stated
+  http://www.raebear.net/jwinblad/webprogramming/expander/expander.php
+
+share/etc/disbatch/htdocs/css/style.css
+  This software is copyright (c) 2010 by Alexis Sukrieh.
+  This is free software; you can redistribute it and/or modify it under the same terms as the Perl 5 programming language system itself.
+  https://metacpan.org/pod/distribution/Dancer/bin/dancer#COPYRIGHT-AND-LICENSE

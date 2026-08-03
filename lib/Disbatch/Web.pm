@@ -17,32 +17,17 @@ use Limper::SendJSON;
 use Limper 0.015;
 use Safe::Isa;
 use Scalar::Util qw/ looks_like_number /;
-use Template;
 use Time::Moment;
 use Try::Tiny::Retry;
 use URL::Encode qw/url_params_mixed/;
 
-our @EXPORT = qw/ parse_params send_json_options template /;
+our @EXPORT = qw/ parse_params send_json_options query /;
 
 my $oid_keys = [ qw/ queue / ];	# NOTE: in addition to _id
 
 sub send_json_options { allow_blessed => 1, canonical => 1, convert_blessed => 1 }
 
-my $tt;
-
-# this should be compatible with Dancer's template(), except we do not support the optional settings (third value), and it was unused by RemoteControl
-sub template {
-    my ($template, $params) = @_;
-    my $output = '';
-    $params->{perl_version} = $];
-    $params->{limper_version} = $Limper::VERSION;
-    $params->{request} = request;
-    $tt->process($template, $params, \$output) || die $tt->error();
-    headers 'Content-Type' => 'text/html';
-    $output;
-}
-
-my $disbatch;
+our $disbatch;
 
 sub init {
     my $args = { @_ };
@@ -61,8 +46,6 @@ sub init {
         }
     }
     require Disbatch::Web::Files;	# this has a catch-all to send any matching file in the public root directory, so must be loaded last.
-    # the following options should be compatible with previous Dancer usage:
-    $tt = Template->new(ANYCASE => 1, ABSOLUTE => 1, ENCODING => 'utf8', INCLUDE_PATH => $disbatch->{config}{views_dir} // '/etc/disbatch/views/', START_TAG => '\[%', END_TAG => '%\]', WRAPPER => 'layouts/main.tt');
 }
 
 sub parse_params {
@@ -847,7 +830,7 @@ C<etc/disbatch/app.psgi>; for development use C<dev/disbatch-web>.
 
 =head1 EXPORTED
 
-parse_params, send_json_options, template
+parse_params, send_json_options, query
 
 =head1 SUBROUTINES
 
@@ -860,18 +843,6 @@ Parameters: path to the Disbatch config file. Default is C</etc/disbatch/config.
 Initializes the settings for the web server, including loading any custom routes via C<config.web_extensions> (see L<CUSTOM ROUTES> below).
 
 Returns nothing.
-
-=item template($template, $params)
-
-Parameters: template (C<.tt>) file name in the C<config.views_dir> directory, C<HASH> of parameters for the template.
-
-Creates a web page based on the passed data.
-
-Sets C<Content-Type> to C<text/html>.
-
-Returns the generated html document.
-
-NOTE: this sub is automatically exported, so any package using L<Disbatch::Web> can call it.
 
 =item parse_params
 
@@ -1052,6 +1023,8 @@ Raw and indexes key are optional -- raw defaults to 0, and indexes are queried i
 Returns the result of the query as a C<HASH> or C<ARRAY>, or an error C<HASH>.
 
 NOTE: I hate this code. Read it to determine the formats it might return.
+
+NOTE: this sub is automatically exported, so any package using L<Disbatch::Web> can call it.
 
 =back
 

@@ -13,6 +13,12 @@ using v2.2.2.
 No changes were made to how data is stored, nor to config files. No new
 features were added, but features deprecated in 4.2 and 4.0 were removed.
 
+### Upgrading from Disbatch 4.2 to Disbatch 4.4
+
+FIXME: TODO: a whole bunch of LLM and UI changes. this section is horribly incomplete.
+
+- breaking change when extending with additional web routes if they use `Template`: I think you only need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+
 ### Upgrading from Disbatch 4.0 to Disbatch 4.2
 
 #### Configure

@@ -4,6 +4,7 @@ Copyright (c) 2019 by Ashley Willis.
 
 You can now add custom routes to the web interface using [Limper](https://metacpan.org/pod/Limper),
 both as JSON API routes and as web interface routes using [Template::Toolkit](https://metacpan.org/pod/Template::Toolkit).
+Template::Toolkit is deprecated as of Disbatch 4.4, and support is likely to be removed in 4.6.
 
 #### Update the config file
 
@@ -32,7 +33,7 @@ Disbatch (by being passed the `Disbatch::Web` object).
     use 5.12.0;
     use warnings;
 
-    use Disbatch::Web;      # exports: parse_params send_json_options template
+    use Disbatch::Web;      # exports: parse_params send_json_options query
     use Limper::SendJSON;
     use Limper;
 
@@ -43,8 +44,11 @@ Disbatch (by being passed the `Disbatch::Web` object).
         # do whatever you may need to do with $args
     }
 
-For a simple example not using `init()`, see `Disbatch::Web::Files` (which is automatically loaded at the end of `init()`, after any custom routes).
+For a simple example not using `init()`, see `Disbatch::Web::Files` (which is automatically loaded at the end of `init()` in `Disbatch::Web`, after any custom routes).
+If using `init()`, see `Disbatch::Plugin::Demo::TTExtension`.
 
-To see how `template` is used, see `Disbatch::Web` itself. Templates all get inserted as the `[% content %]` part of `views/layouts/main.tt`.
-
+If using `Template', replace `use Disbatch::Web` with `use Disbatch::Web::TT` in your extenstion. This will also export `template` and `want_json`.
+Make sure to install TT via `cpanm Template`, `dnf install perl-Template`, or however you manage packages.
+There is automatic loading of `Disbatch::Web::TT` in `etc/disbatch/app.psgi` and `./dev/disbatch-web` if `Template` is installed.
+To see how `template` is used, see `Disbatch::Plugin::Demo::TTExtension`. Templates all get inserted as the `[% content %]` part of `views/layouts/main.tt`.
 The views directory defaults to `/etc/disbatch/views/`, but can be set via `config.views_dir`.
