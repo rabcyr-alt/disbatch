@@ -7,6 +7,8 @@ disbatch3-*.tar.gz
 disbatch3-*/
 etc/disbatch/config.json
 .build/
+# ignore all untracked md files in the root directory (generally agent and personal dev notes)
+/*.md
 
 # Angular SPA — node_modules and dist are not tracked.
 # Built artifacts ARE committed to etc/disbatch/htdocs/ (see PLAN.md §6.3).
