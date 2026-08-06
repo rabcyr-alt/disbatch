@@ -19,6 +19,13 @@ For an in-depth description of the design, see
 [Design](docs/Design.md).
 
 
+## NOTE
+
+This branch is for historical purposes. The branch likely to be merged into master is
+[`angular-glm52` branch](https://github.com/rabcyr-alt/disbatch/tree/angular-glm52).
+This branch diverged from master and shows the full development process, while `angular-glm52`
+has commits manually cleaned up and others removed.
+
 #### Installing
 
 * From CPAN (not yet published):
