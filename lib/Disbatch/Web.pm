@@ -509,7 +509,6 @@ sub _munge_tasks {
     }
 }
 
-# IDEA: in query.tt at least toggleGroup() should run at $(document).ready() when returning a form because of invalid params, instead of only showing the limit (bug is there, not at all here) (note from 2019-03-25, it's now 2025)
 get '/tasks' => sub {
     undef $disbatch->{mongo};	# NOTE: why is this added? (note from 2019-03-29, it's now 2025)
     my ($params, $options) = parse_params;	# NOTE: $options may contain: .limit .skip .count .pretty .terse .epoch .full

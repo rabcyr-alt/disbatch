@@ -743,7 +743,7 @@ if ($webpid == 0) {
     }
 
     # BALANCE TESTS:
-    # * get '/balance'		send_json get_balance(), send_json_options, pretty => 1;	template 'balance.tt', get_balance();
+    # * get '/balance'		send_json get_balance(), send_json_options, pretty => 1;
     # * post '/balance'		send_json post_balance(), send_json_options;
 
     # create some queues (and assume they succeed)
