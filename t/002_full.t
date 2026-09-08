@@ -724,6 +724,7 @@ if ($webpid == 0) {
     } else {
         $monitoring = { disbatch => { status => 'OK', message => 'monitoring disabled' }, queuebalance => { status => 'OK', message => 'monitoring disabled' } };
     };
+    $disbatch->update_node_status;
     $res = Net::HTTP::Client->request(GET => "$uri/monitoring");
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'application/json', 'application/json';
