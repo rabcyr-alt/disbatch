@@ -103,7 +103,7 @@ my @mongo_args = (
     '--dbpath' => "/tmp/$config->{database}/",
     '--pidfilepath' => "/tmp/$config->{database}/mongod.pid",
     '--port' => $mongoport,
-    #'--noprealloc',	# not on 8.2 nor 4.4
+    #'--noprealloc',	# not on 8.2 nor 6.0
     #'--nojournal',	# not on 8.2 but is on 6.0
     '--fork'		# NOTE: fork did not work on whatever 8.2 version I used at work on Rocky 9, but it does on 8.2.4 on my personal Rocky 9
 );
