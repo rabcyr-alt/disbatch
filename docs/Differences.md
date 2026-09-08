@@ -2,29 +2,38 @@
 
 Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
+This version updates for modern systems (Rocky 9, MongoDB v8.2.4, Perl v5.32.1) but should still work on older ones and ships a new web
+UI, while removing deprecated code.
+
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3)
   - file `lib/Disbatch/Web/Tasks.pm` (Disbatch::Web::Tasks)
   - `search` command and `post_search()` in `bin/disbatch`
   - file `bin/disbatch.pl`
-
 - updated code to use perl MongoDB v2.2.2 (maybe earlier v2 could but this is the EOL version from over 5 years ago) instead of v1.8.0 (maybe v1.0.4 still worked)
   - `use MongoDB 2.2.2` instead of 1.0.4
   - `BSON::OID` instead of `MongoDB::OID`, which has quite a different format
   - `BSON::Time` instead of `DateTime`
   - `count_documents()` instead of `count()`
   - `insert_one()` instead of `insert()`
-
-- updated t/002_full.t for MongoDB changes from v3.6.8 (i think it worked with v4) to v6.0.26 (i think it may work with v5)
+- updated t/002_full.t for MongoDB changes from v3.6.8 (i think it worked with v4) to v6.0.26 and 8.2.4
   - `--noprealloc` is no longer a `mongod` option
-  - NOTE: `--nojournal` is no longer a `mongod` option in v8.2. i did not upgrade to that as the `--fork` option is broken, breaking current testing
+  - `--nojournal` is no longer a `mongod` option
   - SSL options changed
-
 - updated code for perl v5.32.1 (really 5.24 and later), but should still work on v5.16.2 and possibly back to 5.12.0)
   - `keys` can no longer take a scalar expression
-
-- FIXME: TODO: a whole bunch of LLM and UI changes. this section is horribly incomplete.
-  - breaking change when extending with additional web routes if they use `Template`: I think you only need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+- completely new web UI (same backend JSON API)
+  - rewritten in Angular 22 and Typescript, instead of various things hacked together
+  - added `dashboard.refresh_ms` and `dashboard.live_window_ms` settings
+- Disbatch::Web changes
+  - all `Template` related code removed
+  - `query` now exported (and `template` removed)
+  - `GET /info` now includes `dashboard.refresh_ms` and `dashboard.live_window_ms`
+  - `GET /nodes` and `GET /nodes/:node` now include a boolean `live` value (`true` if node timestamp is within `dashboard.live_window_ms`)
+  - `GET /tasks/:id` now handles options `.full`, `.terse`, `.epoch`, and `.pretty`, and returns 400 if other options passed
+- added `Disbatch::Web::TT` which extends `Disbatch::Web` so `Template` can still be used in web extensions
+  - web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+- added `Disbatch::Plugin::Demo::Extension` and `Disbatch::Plugin::Demo::TTExtension` as example extensions
 
 ### Differences in Disbatch 4.2 compared to Disbatch 4.0
 

@@ -15,9 +15,16 @@ features were added, but features deprecated in 4.2 and 4.0 were removed.
 
 ### Upgrading from Disbatch 4.2 to Disbatch 4.4
 
-FIXME: TODO: a whole bunch of LLM and UI changes. this section is horribly incomplete.
+This release enables running on newer systems (Perl 5.32, MongoDB 8.2) while hopefully not breaking
+running on older systems, and has an entirely new web UI. Code deprecated in 4.0 and 4.2 has been
+removed.
 
-- breaking change when extending with additional web routes if they use `Template`: I think you only need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+- Breaking change: web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`, and that should be it.
+- removed code deprecated in 4.200 and 4.000:
+  - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3) : deprecated v3 routes: *-json, not tested
+  - file `lib/Disbatch/Web/Tasks.pm` (Disbatch::Web::Tasks) : deprecated v4 routes: POST /tasks/search, POST /tasks/:queue, POST /tasks/:queue/:collection
+  - `search` command and `post_search()` in `bin/disbatch` : used `Disbatch::Web::Tasks`
+  - file `bin/disbatch.pl` : used `Disbatch::Web::V3`
 
 ### Upgrading from Disbatch 4.0 to Disbatch 4.2
 
