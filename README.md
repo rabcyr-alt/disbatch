@@ -19,12 +19,6 @@ For an in-depth description of the design, see
 [Design](docs/Design.md).
 
 
-## NOTE
-
-The web UI is being rewritten in Angular 22/TypeScript on the [`angular-glm52` branch](https://github.com/rabcyr-alt/disbatch/tree/angular-glm52), developed with GLM 5.2 and the Pi Coding Agent.
-
-There is also the [`angular` branch](https://github.com/rabcyr-alt/disbatch/tree/angular), developed with Claude Code, but that branch is no longer pursued.
-
 #### Installing
 
 * From CPAN (not yet published):
