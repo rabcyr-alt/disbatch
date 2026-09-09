@@ -57,22 +57,20 @@ $logger->info("params for $task_id: ", $json->encode($doc->{params}));
 
 my $plugin = ($disbatch->queues->find_one({_id => $doc->{queue}}) // {})->{plugin};
 
-my $result;
+my $error;
 if (!defined $plugin) {
-    my $error = "No plugin defined for task $task_id in queue $doc->{queue}";
-    $logger->error($error);
-    $result = { status => 2, stdout => 'Unable to start', stderr => $error };
+    $error = "No plugin defined for task $task_id in queue $doc->{queue}";
 } elsif ($plugin !~ /^[\w:]+$/) {
-    my $error = "plugin value '$plugin' must be a valid perl package name, matching /^[\\w:]+\$/";
-    $logger->error($error);
-    $result = { status => 2, stdout => 'Unable to start', stderr => $error };
+    $error = "plugin value '$plugin' for task $task_id must be a valid perl package name, matching /^[\\w:]+\$/";
 } elsif (!eval "use $plugin; 1") {
-    my $error = "$plugin not found for task $task_id";
-    $logger->error($error);
-    $result = { status => 2, stdout => 'Unable to start', stderr => $error };
+    $error = "$plugin not found for task $task_id";
 }
 
-if (!defined $result) {
+my $result;
+if (defined $error) {
+    $logger->error($error);
+    $result = { status => 2, stdout => 'Unable to start', stderr => $error };
+} else {
     try {
         my $workerthread = Disbatch->new(class => $plugin, config_file => $config_file);
         $workerthread->load_config;
