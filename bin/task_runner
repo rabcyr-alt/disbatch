@@ -53,7 +53,7 @@ my $doc = retry {
 };
 
 $logger->logdie("No task found for $task_id") unless defined $doc;
-$logger->info("params for $task_id: ", $json->encode($doc->{params} // $doc->{parameters}));
+$logger->info("params for $task_id: ", $json->encode($doc->{params}));
 
 my $plugin = ($disbatch->queues->find_one({_id => $doc->{queue}}) // {})->{plugin};
 
