@@ -80,59 +80,6 @@ if (!defined $plugin) {
     $error = "$plugin is misconfigured in config.plugins for $task_id";
 }
 
-# note: $plugin output to STDOUT and STDERR should always be a complete line
-sub run_command {
-    my ($plugin, @args) = @_;
-    try {
-        my $pid = open3(my $in, my $out, my $err = gensym, $plugin, @args);	# can die
-        close $in;
-        binmode($_, ':unix') for $out, $err;	# keep readline unbuffered so can_read sees what's really pending (adds 4-5 seconds to output 5m bytes on my old laptop in a vm)
-        my ($out_fd, $err_fd) = (fileno($out), fileno($err));
-        my $sel = IO::Select->new($out, $err);
-        while ($sel->count) {
-            $! = 0;
-            my @ready = $sel->can_read;
-            if (!@ready) { next if $!{EINTR}; last }
-            # note: line buffering (`$| = 1;` in perl) in the $plugin is ideal, but binmode above helps
-            for my $fh (@ready) {
-                my $line = <$fh>;
-                if (!defined $line) {
-                    $sel->remove($fh);
-                    close $fh;
-                    next;
-                }
-                if (fileno($fh) == $out_fd) {
-                    print $line;
-                } elsif (fileno($fh) == $err_fd) {
-                    print STDERR $line;
-                }
-            }
-        }
-        waitpid($pid, 0);
-        my $status = $?;
-        return $status;
-    } catch {
-        { died => $_ };
-    };
-}
-
-# `0` on success, hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
-sub parse_status {
-    my ($status) = @_;
-    if (ref $status) {
-        chomp $status->{died};
-        { exit => undef, error => "died with: $status->{died}" };
-    } elsif ($status == -1) {
-        { exit => undef, error => "could not reap child: $!" };
-    } elsif (my $sig = $status & 127) {
-        { exit => 128 + $sig, error => sprintf("killed by signal %d%s", $sig, ($status & 128) ? " (core dumped)" : "") };
-    } else {
-        my $exit = $status >> 8;
-        return 0 unless $exit;
-        { exit => $exit };
-    }
-}
-
 my $run_status = 0;
 my $result;
 if (defined $error) {
@@ -331,6 +278,59 @@ on_retry {
     $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {complete => Cpanel::JSON::XS::false}});
     $logger->logdie("Could not update task $task_id stdout/stderr after completion: $_")
 };
+
+# note: $plugin output to STDOUT and STDERR should always be a complete line
+sub run_command {
+    my ($plugin, @args) = @_;
+    try {
+        my $pid = open3(my $in, my $out, my $err = gensym, $plugin, @args);	# can die
+        close $in;
+        binmode($_, ':unix') for $out, $err;	# keep readline unbuffered so can_read sees what's really pending (adds 4-5 seconds to output 5m bytes on my old laptop in a vm)
+        my ($out_fd, $err_fd) = (fileno($out), fileno($err));
+        my $sel = IO::Select->new($out, $err);
+        while ($sel->count) {
+            $! = 0;
+            my @ready = $sel->can_read;
+            if (!@ready) { next if $!{EINTR}; last }
+            # note: line buffering (`$| = 1;` in perl) in the $plugin is ideal, but binmode above helps
+            for my $fh (@ready) {
+                my $line = <$fh>;
+                if (!defined $line) {
+                    $sel->remove($fh);
+                    close $fh;
+                    next;
+                }
+                if (fileno($fh) == $out_fd) {
+                    print $line;
+                } elsif (fileno($fh) == $err_fd) {
+                    print STDERR $line;
+                }
+            }
+        }
+        waitpid($pid, 0);
+        my $status = $?;
+        return $status;
+    } catch {
+        { died => $_ };
+    };
+}
+
+# `0` on success, hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
+sub parse_status {
+    my ($status) = @_;
+    if (ref $status) {
+        chomp $status->{died};
+        { exit => undef, error => "died with: $status->{died}" };
+    } elsif ($status == -1) {
+        { exit => undef, error => "could not reap child: $!" };
+    } elsif (my $sig = $status & 127) {
+        { exit => 128 + $sig, error => sprintf("killed by signal %d%s", $sig, ($status & 128) ? " (core dumped)" : "") };
+    } else {
+        my $exit = $status >> 8;
+        return 0 unless $exit;
+        { exit => $exit };
+    }
+}
 
 __END__
 
