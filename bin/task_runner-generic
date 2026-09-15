@@ -14,36 +14,31 @@ use IPC::Open3;
 use Try::Tiny::Retry;
 use Safe::Isa;
 use Symbol 'gensym';
+use Sys::Hostname;
 
 $| = 1;
 
-my ($task_id, $gfs, $config_file, $quiet, $testing);
+my ($task_id, $gfs, $config_file, $quiet);
 
 GetOptions(
     'task=s'     => \$task_id,
     'gfs:s'      => \$gfs,
     'config=s'   => \$config_file,
     'quiet'      => \$quiet,
-    'testing'    => \$testing,
 );
 
 $quiet //= 0;
-$testing //= 0;
 $gfs //= 0;		# default is disabled
 $gfs = 1 if $gfs eq '';	# '--gfs' was passed with no value
 
-if ($testing) {
-    require lib;
-    lib->import('lib');
-}
-require Disbatch;
+my $loggers_configured = 0;
 
 my $json = Cpanel::JSON::XS->new->utf8->convert_blessed;
 
-my $disbatch = Disbatch->new(class => 'task_runner', config_file => $config_file);
-$disbatch->load_config;
-
-my $logger = $disbatch->logger;
+my $config = $json->decode(scalar read_file $config_file);
+my $node = hostname;
+my $mongo = mongo($config, 'task_runner');
+my $logger = logger('task_runner');
 
 $logger->info("Starting task $task_id");
 
@@ -53,7 +48,7 @@ $logger->logdie('No --task') unless defined $task_id;
 
 my $oid = try { BSON::OID->new(oid => pack 'H*', $task_id) } catch { $logger->logdie($_) };
 my $doc = retry {
-    $disbatch->tasks->find_one_and_update({_id => $oid, status => -1, node => $disbatch->{node}}, {'$set' => {status => 0}});
+    $mongo->coll('tasks')->find_one_and_update({_id => $oid, status => -1, node => $node}, {'$set' => {status => 0}});
 } catch {
     $logger->logdie("Could not find and set task $task_id to status 0: $_");
 };
@@ -61,10 +56,10 @@ my $doc = retry {
 $logger->logdie("No task found for $task_id") unless defined $doc;
 $logger->info("params for $task_id: ", $json->encode($doc->{params}));
 
-my $plugin = ($disbatch->queues->find_one({_id => $doc->{queue}}) // {})->{plugin};
+my $plugin = ($mongo->coll('queues')->find_one({_id => $doc->{queue}}) // {})->{plugin};
 
 my $error;
-my $args = $disbatch->{config}{plugins}{$plugin} // 0;
+my $args = $config->{plugins}{$plugin} // 0;
 if (!defined $plugin) {
     $error = "No plugin defined for task $task_id in queue $doc->{queue}";
 } elsif (ref $args eq 'HASH') {
@@ -112,7 +107,7 @@ if (defined $error) {
                 push @args, '--quiet' if $quiet;
             } elsif ($args->{type} eq 'mongo') {
                 retry {
-                    $disbatch->mongo->coll('results')->delete_one({_id => $oid});
+                    $mongo->coll('results')->delete_one({_id => $oid});
                 } catch {
                     $logger->error("Error trying to delete any pre-existing result for $task_id in 'results' collection: $_");
                     $result = { status => 2, stderr => "Error trying to delete any pre-existing result for $task_id in 'results' collection: $_" };
@@ -127,7 +122,7 @@ if (defined $error) {
 
         if ($args->{type} eq 'handoff') {
             my $task = retry {
-                $disbatch->tasks->find_one({_id => $oid, node => $disbatch->{node}});
+                $mongo->coll('tasks')->find_one({_id => $oid, node => $node});
             } catch {
                 # this really should not happen. log it and $run_status
                 $logger->error("Could not find handoff task $task_id to check status: $_");
@@ -139,7 +134,7 @@ if (defined $error) {
                 { status => 2 };	# will lead to exit below
             };
             if (!defined $task) {
-                $logger->error("Handoff task $task_id on node $disbatch->{node} no longer exists!");
+                $logger->error("Handoff task $task_id on node $node no longer exists!");
                 exit 1;
             } elsif ($task->{status} == 0) {
                 my $error = "Task $task_id handoff did not update status";
@@ -159,14 +154,14 @@ if (defined $error) {
                 my $stdout = $json->encode($run_status);
                 $result = { status => 2, stdout => $stdout, stderr => 'Handoff plugin recorded status:1 for task but did not exit cleanly. See stdout for any stdout or stderr it may have set'};
                 # need to set status back to 0 for later code to work:
-                retry { $disbatch->tasks->update_one({_id => $oid, status => 1, node => $disbatch->{node}}, {'$set' => {status => 0}}) }
+                retry { $mongo->coll('tasks')->update_one({_id => $oid, status => 1, node => $node}, {'$set' => {status => 0}}) }
                 catch { $logger->error("Could not update task $task_id status to 0 after non-clean exit: $_"); exit 1; };
             } else {
                 exit;
             }
         } elsif ($args->{type} eq 'mongo') {
             $result = retry {
-                $disbatch->mongo->coll('results')->find_one_and_delete({_id => $oid});
+                $mongo->coll('results')->find_one_and_delete({_id => $oid});
             } catch {
                 $logger->error("Error trying to get result for $task_id in 'results' collection: $_");
                 { status => 2, stderr => "Error trying to get result for $task_id in 'results' collection: $_" };
@@ -239,7 +234,7 @@ if (!$quiet) {
 }
 
 # set status first:
-retry { $disbatch->tasks->update_one({_id => $oid, status => 0, node => $disbatch->{node}}, {'$set' => {status => $result->{status}}}) }
+retry { $mongo->coll('tasks')->update_one({_id => $oid, status => 0, node => $node}, {'$set' => {status => $result->{status}}}) }
 catch { $logger->logdie("Could not update task $task_id status to $result->{status} after completion: $_") };
 
 # set rest of result:
@@ -260,24 +255,65 @@ if ($gfs) {
         }
     }
     if ($stdout_gfs) {
-        my $stdout_doc = retry { $disbatch->put_gfs($result->{stdout}, 'stdout', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stdout: $_"); $result->{warning} = "$_"; undef; };
+        my $stdout_doc = retry { put_gfs($result->{stdout}, 'stdout', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stdout: $_"); $result->{warning} = "$_"; undef; };
         $result->{stdout} = $stdout_doc;
     }
     if ($stderr_gfs) {
-        my $stderr_doc = retry { $disbatch->put_gfs($result->{stderr}, 'stderr', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stderr: $_"); $result->{warning} = "$_"; undef; };
+        my $stderr_doc = retry { put_gfs($result->{stderr}, 'stderr', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stderr: $_"); $result->{warning} = "$_"; undef; };
         $result->{stderr} = $stderr_doc;
     }
 }
-retry { $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {stdout => $result->{stdout}, stderr => $result->{stderr}, complete => Cpanel::JSON::XS::true}}) }
+retry { $mongo->coll('tasks')->update_one({_id => $oid, status => $result->{status}, node => $node}, {'$set' => {stdout => $result->{stdout}, stderr => $result->{stderr}, complete => Cpanel::JSON::XS::true}}) }
 on_retry {
     $logger->warn("Update to stdout/stderr failed for task $task_id: $_");
     # MongoDB::WriteError: Resulting document after update is larger than 16777216
     # MongoDB::DocumentError: Document exceeds maximum size 16777216
     $result->{stdout} = "$_" if $_->$_isa('MongoDB::DocumentError') or $_->$_isa('MongoDB::WriteError');
 } catch {
-    $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {complete => Cpanel::JSON::XS::false}});
+    $mongo->coll('tasks')->update_one({_id => $oid, status => $result->{status}, node => $node}, {'$set' => {complete => Cpanel::JSON::XS::false}});
     $logger->logdie("Could not update task $task_id stdout/stderr after completion: $_")
 };
+
+sub mongo {
+    my ($config, $class) = @_;
+    my %attributes = %{$config->{attributes}};
+    if (keys %{$config->{auth}}) {
+        my $username = 'plugin';
+        $username = 'disbatchd' if $class eq 'disbatch';
+        $username = 'disbatch_web' if $class eq 'disbatch::web';
+        $username = 'task_runner' if $class eq 'task_runner';
+        $username = 'queuebalance' if $class eq 'disbatch::queuebalance';
+        $attributes{username} = $username;
+        $attributes{password} = $config->{auth}{$username};
+        $attributes{db_name} = $config->{database};
+    }
+    warn "Connecting ", scalar(localtime), "\n";
+    MongoDB->connect($config->{mongohost}, \%attributes)->get_database($config->{database});
+}
+
+sub logger {
+    my ($logger) = @_;
+    return Log::Log4perl->get_logger($logger) if $loggers_configured;
+    my $lg = Log::Log4perl->get_logger('');
+    $lg->level($config->{log4perl}{level});
+    my $default_layout = "[%p] %d %F{1} %L %C %c> %m %n";
+    for my $name (keys %{$config->{log4perl}{appenders}}) {
+        my $ap = Log::Log4perl::Appender->new($config->{log4perl}{appenders}{$name}{type}, name => $name, %{$config->{log4perl}{appenders}{$name}{args}});
+        $ap->layout(Log::Log4perl::Layout::PatternLayout->new($config->{log4perl}{appenders}{$name}{layout} // $default_layout));
+        $lg->add_appender($ap);
+    }
+    $loggers_configured = 1;
+    Log::Log4perl->get_logger($logger);
+}
+
+sub put_gfs {
+    my ($content, $filename, $metadata) = @_;
+    my $gfs = $mongo->gfs({bucket_name => 'tasks'});
+    my $stream = $gfs->open_upload_stream($filename, { metadata => $metadata });
+    $stream->print($content);
+    $stream->close;
+    $stream->id;
+}
 
 # note: $plugin output to STDOUT and STDERR should always be a complete line
 sub run_command {
