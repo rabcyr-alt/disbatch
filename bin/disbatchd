@@ -15,6 +15,7 @@ $SIG{QUIT} = sub { exit 131 };	# 3	ctrl-\
 #$SIG{PIPE} = 'IGNORE';		# 13
 $SIG{TERM} = sub { exit 143 };	# 15	kill
 $SIG{CHLD} = 'IGNORE';		# 20	Zombies are bad, m'kay?
+# NOTE: signal(7) says SIGCHLD is 17 on x86/ARM/most others, but 20 on Alpha/SPARC, and that on x86 20 is SIGTSTP (ctrl-z)
 
 my $config_file = '/etc/disbatch/config.json';
 
