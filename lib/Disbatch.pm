@@ -96,13 +96,13 @@ sub load_config {
         $self->{config}{attributes} //= {};
         $self->{config}{auth} //= {};
         $self->{config}{gfs} //= 'auto';
-        $self->{config}{quiet} //= false;
+        $self->{config}{quiet} //= Cpanel::JSON::XS::false;
         $self->{config}{task_runner} //= '/usr/bin/task_runner';
-        $self->{config}{testing} //= false;
+        $self->{config}{testing} //= Cpanel::JSON::XS::false;
         $self->{config}{log4perl} //= $default_log4perl;
         $self->{config}{activequeues} //= [];
         $self->{config}{ignorequeues} //= [];
-        $self->{config}{plugins} //= [];
+        $self->{config}{plugins} //= {};
         # IDEA: validate config values (note from 2016-05-06, it's now 2025)
 
         if (!defined $self->{config}{mongohost} or !defined $self->{config}{database}) {
@@ -122,6 +122,28 @@ sub load_config {
             }
         }
     }
+}
+
+# this gets called only at disbatchd startup
+sub save_strict_config {
+    my ($self) = @_;
+    try {
+        write_file "$self->{config_file}-strict", {perms => 0600}, Cpanel::JSON::XS->new->utf8->encode($self->{config});
+    } catch {
+        $self->logger->logdie("Could not save file '$self->{config_file}-strict': $_");
+    };
+    my $auth = $self->{config}{auth};
+    for my $user (qw/ task_runner plugin /) {
+        if (exists $auth->{$user}) {
+            $self->{config}{auth} = { $user => $auth->{$user} };
+            try {
+                write_file "$self->{config_file}-$user", {perms => 0600}, Cpanel::JSON::XS->new->utf8->encode($self->{config});
+            } catch {
+                $self->logger->logdie("Could not save file '$self->{config_file}-$user': $_");
+            };
+        }
+    }
+    $self->{config}{auth} = $auth;
 }
 
 # from Synacor::Disbatch::Backend
@@ -151,15 +173,34 @@ sub validate_plugins {
     my @queues = try { $self->queues->find->all } catch { $self->logger->error("Could not find queues: $_"); () };
     for my $plugin (map { $_->{plugin} } @queues) {
         next if exists $self->{plugins}{$plugin};
-        if ($plugin !~ /^[\w:]+$/) {
-            $self->logger->error("Illegal plugin value: $plugin");
-        } elsif (eval "require $plugin; $plugin->new->can('run');") {
-            $self->{plugins}{$plugin} = $plugin;
-            next if exists $self->{old_plugins}{$plugin};
-            $self->logger->info("$plugin is valid for queues");
+        my $args = $self->{config}{plugins}{$plugin} // 0;
+        if (ref $args eq 'HASH') {
+            $args->{type} //= 'default';
+            if ($plugin !~ m{^/}) {
+                $self->logger->error("Illegal plugin value: $plugin");
+            } elsif (! grep { $args->{type} eq $_ } qw/ default nomongo mongo handoff /) {
+                $self->logger->error("$plugin has unknown type '$args->{type}'");
+            } elsif (-f $plugin and -x _) {
+                $self->{plugins}{$plugin} = $plugin;
+                next if exists $self->{old_plugins}{$plugin};
+                $self->logger->info("$plugin is valid for queues");
+            } else {
+                $self->{plugins}{$plugin} = undef;
+                $self->logger->warn("Could not load $plugin, ignoring queues using it");
+            }
+        } elsif ($args == 1) {
+            if ($plugin !~ /^[\w:]+$/) {
+                $self->logger->error("Illegal plugin value: $plugin");
+            } elsif (eval "require $plugin; $plugin->new->can('run');") {
+                $self->{plugins}{$plugin} = $plugin;
+                next if exists $self->{old_plugins}{$plugin};
+                $self->logger->info("$plugin is valid for queues");
+            } else {
+                $self->{plugins}{$plugin} = undef;
+                $self->logger->warn("Could not load $plugin, ignoring queues using it");
+            }
         } else {
-            $self->{plugins}{$plugin} = undef;
-            $self->logger->warn("Could not load $plugin, ignoring queues using it");
+            $self->logger->error("$plugin is misconfigured in config.plugins");
         }
     }
 }
@@ -303,7 +344,7 @@ sub start_task {
     my ($self, $queue, $task) = @_;
     my $command = $self->{config}{task_runner};
     my @args = (
-        '--config' => $self->{config_file},
+        '--config' => "$self->{config_file}-task_runner",	# NOTE: "$self->{config_file}-strict" could also be used
         '--task'   => $task->{_id},
     );
     push @args, '--gfs', $self->{config}{gfs} if $self->{config}{gfs};

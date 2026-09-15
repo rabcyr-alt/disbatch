@@ -65,7 +65,7 @@ my $config = {
         queuebalance => 'qwerty4',	# { username => 'queuebalance', password => 'qwerty4' },
         plugin => 'qwerty5',		# { username => 'plugin', password => 'qwerty5' },
     },
-    plugins => [ 'Disbatch::Plugin::Demo' ],
+    plugins => { 'Disbatch::Plugin::Demo' => 1 },
     web_extensions => {
     },
     web_root => 'etc/disbatch/htdocs/',
@@ -135,6 +135,7 @@ for my $username (qw/ foo bar /) {
 # Ensure indexes:
 my $disbatch = Disbatch->new(class => 'Disbatch', config_file => $config_file);
 $disbatch->load_config;
+$disbatch->save_strict_config;
 $disbatch->ensure_indexes;
 
 
@@ -178,7 +179,7 @@ if ($webpid == 0) {
     my $terse;	# boolean
 
     $name = 'test_queue';
-    $plugin = $config->{plugins}[0];
+    $plugin = (keys %{$config->{plugins}})[0];
 
     # make sure web server is running:
     retry { Net::HTTP::Client->request(GET => "$uri/") } catch { die $_ };
@@ -214,7 +215,7 @@ if ($webpid == 0) {
     $res = Net::HTTP::Client->request(GET => "$uri/plugins");
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'application/json', 'application/json';
-    is $res->content, "[\"$plugin\"]", 'plugin array';
+    is $res->content, "{\"$plugin\":1}", 'plugin hash';
 
     # GET /info returns the database name, web extensions, routes, and the
     # dashboard tunables (refresh_ms / live_window_ms) with their defaults.

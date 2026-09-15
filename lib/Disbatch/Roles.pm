@@ -46,6 +46,7 @@ sub new {
                 { resource => { db => $self->{db}{name}, collection => 'tasks' },  actions => [ 'update' ] },
                 { resource => { db => $self->{db}{name}, collection => 'tasks.chunks' },  actions => [ 'insert' ] },
                 { resource => { db => $self->{db}{name}, collection => 'tasks.files' },  actions => [ 'insert' ] },
+                { resource => { db => $self->{db}{name}, collection => 'results' },  actions => [ 'remove' ] },
             ],
         },
         queuebalance => {

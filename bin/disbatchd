@@ -23,6 +23,7 @@ GetOptions('config=s' => \$config_file);
 
 my $disbatch = Disbatch->new(class => 'Disbatch', config_file => $config_file);
 $disbatch->load_config;
+$disbatch->save_strict_config;
 my $logger = $disbatch->logger('DEN');
 $logger->info('Starting Disbatch Execution Node');
 

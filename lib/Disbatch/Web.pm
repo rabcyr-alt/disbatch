@@ -228,9 +228,8 @@ get qr'^/queues/(?<queue>.+)$' => sub {
     send_json $queue, send_json_options;
 };
 
-sub map_plugins {
-    my %plugins = map { $_ => 1 } @{$disbatch->{config}{plugins}};
-    \%plugins;
+sub plugin_configured {
+    exists $disbatch->{config}{plugins}{$_[0]} and $disbatch->{config}{plugins}{$_[0]};
 }
 
 post '/queues' => sub {
@@ -247,7 +246,7 @@ post '/queues' => sub {
             return send_json { error => 'Invalid param', param => $param}, send_json_options;
         }
     }
-    unless (map_plugins->{$params->{plugin}}) {
+    unless (plugin_configured($params->{plugin})) {
         status 400;
         return send_json { error => 'Unknown plugin', plugin => $params->{plugin} }, send_json_options;
     }
@@ -294,7 +293,7 @@ post qr'^/queues/(?<queue>.+)$' => sub {
             return send_json { error => 'unknown param', param => $param}, send_json_options;
         }
     }
-    if (exists $params->{plugin} and !map_plugins()->{$params->{plugin}}) {
+    if (exists $params->{plugin} and !plugin_configured($params->{plugin})) {
         status 400;
         return send_json { error => 'unknown plugin', plugin => $params->{plugin} }, send_json_options;
     }

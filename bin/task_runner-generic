@@ -93,7 +93,9 @@ if (defined $error) {
         # * handoff: reads task from mongo via $task_id, saves result in "tasks" collection and this exits
         #            writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
         my @args;
-        push @args, '--config', "$config_file-pure" unless $args->{type} eq 'nomongo';
+        my $cf = $config_file;
+        $cf =~ s/\.json(-(strict|task_runner))?$/.json-plugin/;
+        push @args, '--config', $cf unless $args->{type} eq 'nomongo';
         my $json_task;
         if ($args->{type} eq 'default' or $args->{type} eq 'nomongo') {
             $json_task = $json->encode($doc);

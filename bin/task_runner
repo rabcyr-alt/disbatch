@@ -64,6 +64,8 @@ if (!defined $plugin) {
     $error = "plugin value '$plugin' for task $task_id must be a valid perl package name, matching /^[\\w:]+\$/";
 } elsif (!eval "use $plugin; 1") {
     $error = "$plugin not found for task $task_id";
+} elsif (($disbatch->{config}{plugins}{$plugin} // 0) != 1) {
+    $error = "$plugin is misconfigured in config.plugins for task $task_id (value should be 1)";
 }
 
 my $result;
@@ -72,7 +74,9 @@ if (defined $error) {
     $result = { status => 2, stdout => 'Unable to start', stderr => $error };
 } else {
     try {
-        my $workerthread = Disbatch->new(class => $plugin, config_file => $config_file);
+        my $cf = $config_file;
+        $cf =~ s/\.json(-(strict|task_runner))?$/.json-plugin/;
+        my $workerthread = Disbatch->new(class => $plugin, config_file => $cf);
         $workerthread->load_config;
         my $task = $plugin->new(workerthread => $workerthread, task => $doc);
         $result = $task->run;
