@@ -112,7 +112,7 @@ if (defined $error) {
                 push @args, '--quiet' if $quiet;
             } elsif ($args->{type} eq 'mongo') {
                 retry {
-                    $disbatch->coll('results')->delete_one({_id => $oid});
+                    $disbatch->mongo->coll('results')->delete_one({_id => $oid});
                 } catch {
                     $logger->error("Error trying to delete any pre-existing result for $task_id in 'results' collection: $_");
                     $result = { status => 2, stderr => "Error trying to delete any pre-existing result for $task_id in 'results' collection: $_" };
@@ -166,7 +166,7 @@ if (defined $error) {
             }
         } elsif ($args->{type} eq 'mongo') {
             $result = retry {
-                $disbatch->coll('results')->find_one_and_delete({_id => $oid});
+                $disbatch->mongo->coll('results')->find_one_and_delete({_id => $oid});
             } catch {
                 $logger->error("Error trying to get result for $task_id in 'results' collection: $_");
                 { status => 2, stderr => "Error trying to get result for $task_id in 'results' collection: $_" };
