@@ -157,11 +157,6 @@ sub validate_plugins {
             $self->{plugins}{$plugin} = $plugin;
             next if exists $self->{old_plugins}{$plugin};
             $self->logger->info("$plugin is valid for queues");
-        } elsif (eval "require ${plugin}::Task; ${plugin}::Task->new->can('run');") {
-            $self->{plugins}{$plugin} = $plugin . '::Task';
-            next if exists $self->{old_plugins}{$plugin};
-            $self->logger->info("${plugin}::Task is valid for queues");
-            $self->logger->warn("Having a plugin format with a subpackage *::Task is deprecated");
         } else {
             $self->{plugins}{$plugin} = undef;
             $self->logger->warn("Could not load $plugin, ignoring queues using it");
