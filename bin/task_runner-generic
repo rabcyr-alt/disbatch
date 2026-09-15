@@ -7,9 +7,15 @@ use BSON::OID;
 use Cpanel::JSON::XS;
 use Data::Dumper;
 use Encode;
+use File::Slurp;
 use Getopt::Long;
+use IO::Select;
+use IPC::Open3;
 use Try::Tiny::Retry;
 use Safe::Isa;
+use Symbol 'gensym';
+
+$| = 1;
 
 my ($task_id, $gfs, $config_file, $quiet, $testing);
 
@@ -58,24 +64,198 @@ $logger->info("params for $task_id: ", $json->encode($doc->{params}));
 my $plugin = ($disbatch->queues->find_one({_id => $doc->{queue}}) // {})->{plugin};
 
 my $error;
+my $args;
 if (!defined $plugin) {
     $error = "No plugin defined for task $task_id in queue $doc->{queue}";
-} elsif ($plugin !~ /^[\w:]+$/) {
-    $error = "plugin value '$plugin' for task $task_id must be a valid perl package name, matching /^[\\w:]+\$/";
-} elsif (!eval "use $plugin; 1") {
-    $error = "$plugin not found for task $task_id";
+} else {
+    $args = $disbatch->{config}{plugins}{$plugin};
+    $args //= 0;
+    if (ref $args eq 'HASH') {
+        $args->{type} //= 'default';
+        if ($plugin !~ m{^/}) {
+            $error = "plugin value '$plugin' for task $task_id must be a full path";
+        } elsif (! -f $plugin or ! -x _) {
+            $error = "$plugin not found or not executable for task $task_id";
+        } elsif (! grep { $args->{type} eq $_ } qw/ default nomongo mongo handoff /) {
+            $error = "$plugin has unknown type '$args->{type}' for task $task_id";
+        }
+    } elsif ($args == 1) {
+        if ($plugin !~ /^[\w:]+$/) {
+            $error = "plugin value '$plugin' for task $task_id must be a valid perl package name, matching /^[\\w:]+\$/";
+        } elsif (!eval "use $plugin; 1") {
+            $error = "$plugin not found for task $task_id";
+        }
+    } else {
+        $error = "$plugin is misconfigured in config.plugins for $task_id";
+    }
 }
 
+# note: $plugin output to STDOUT and STDERR should always be a complete line
+sub run_command {
+    my ($plugin, @args) = @_;
+    try {
+        my $pid = open3(my $in, my $out, my $err = gensym, $plugin, @args);	# can die
+        close $in;
+        binmode($_, ':unix') for $out, $err;	# keep readline unbuffered so can_read sees what's really pending (adds 4-5 seconds to output 5m bytes on my old laptop in a vm)
+        my ($out_fd, $err_fd) = (fileno($out), fileno($err));
+        my $sel = IO::Select->new($out, $err);
+        while ($sel->count) {
+            $! = 0;
+            my @ready = $sel->can_read;
+            if (!@ready) { next if $!{EINTR}; last }
+            # note: line buffering (`$| = 1;` in perl) in the $plugin is ideal, but binmode above helps
+            for my $fh (@ready) {
+                my $line = <$fh>;
+                if (!defined $line) {
+                    $sel->remove($fh);
+                    close $fh;
+                    next;
+                }
+                if (fileno($fh) == $out_fd) {
+                    print $line;
+                } elsif (fileno($fh) == $err_fd) {
+                    print STDERR $line;
+                }
+            }
+        }
+        waitpid($pid, 0);
+        my $status = $?;
+        return $status;
+    } catch {
+        { died => $_ };
+    };
+}
+
+# `0` on success, hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
+sub parse_status {
+    my ($status) = @_;
+    if (ref $status) {
+        chomp $status->{died};
+        { exit => undef, error => "died with: $status->{died}" };
+    } elsif ($status == -1) {
+        { exit => undef, error => "could not reap child: $!" };
+    } elsif (my $sig = $status & 127) {
+        { exit => 128 + $sig, error => sprintf("killed by signal %d%s", $sig, ($status & 128) ? " (core dumped)" : "") };
+    } else {
+        my $exit = $status >> 8;
+        return 0 unless $exit;
+        { exit => $exit };
+    }
+}
+
+my $run_status = 0;
 my $result;
 if (defined $error) {
     $logger->error($error);
     $result = { status => 2, stdout => 'Unable to start', stderr => $error };
 } else {
     try {
-        my $workerthread = Disbatch->new(class => $plugin, config_file => $config_file);
-        $workerthread->load_config;
-        my $task = $plugin->new(workerthread => $workerthread, task => $doc);
-        $result = $task->run;
+        # NOTE: nothing in this block should die *deliberately*, and if execution should stop on an error use `exit 1`. the try block at the end is in case something does slip through.
+        if (ref $args eq 'HASH') {
+            # types: default nomongo mongo handoff
+            # * nomongo: no mongo access, passes task and result via /tmp/$task_id.json
+            #            uses local filesystem, don't have to worry about result size
+            # * default: optional mongo access, passes task and result via /tmp/$task_id.json
+            #            uses local filesystem, don't have to worry about result size
+            # * mongo:   reads task from mongo via $task_id, saves result in "results" collection and this copies to "tasks" collection
+            #            uses an additional collection creating extra load on mongo, have to worry about result size if it can exceed ~16MB, but no temp files
+            # * handoff: reads task from mongo via $task_id, saves result in "tasks" collection and this exits
+            #            writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
+            my @args;
+            push @args, '--config', "$config_file-pure" unless $args->{type} eq 'nomongo';
+            my $json_task;
+            if ($args->{type} eq 'default' or $args->{type} eq 'nomongo') {
+                $json_task = $json->encode($doc);
+                unlink "/tmp/$task_id.json", "/tmp/$task_id-response.json";	# these shouldn't exist, but in case they do
+                write_file "/tmp/$task_id.json", {perms => 0600}, $json_task;
+                push @args, '--task', "/tmp/$task_id.json";
+            } else {
+                push @args, '--task', $task_id;
+                if ($args->{type} eq 'handoff') {
+                    push @args, '--gfs', $gfs;
+                    push @args, '--quiet' if $quiet;
+                } elsif ($args->{type} eq 'mongo') {
+                    retry {
+                        $disbatch->coll('results')->delete_one({_id => $oid});
+                    } catch {
+                        $logger->error("Error trying to delete any pre-existing result for $task_id in 'results' collection: $_");
+                        $result = { status => 2, stderr => "Error trying to delete any pre-existing result for $task_id in 'results' collection: $_" };
+                    };
+                    return if defined $result;	# NOTE: this is desired to exit the huge try block and fail the task
+                }
+            }
+
+            my $status = run_command($plugin, @args);
+            # `0` on success, hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
+            $run_status = parse_status($status);
+
+            if ($args->{type} eq 'handoff') {
+                my $task = retry {
+                    $disbatch->tasks->find_one({_id => $oid, node => $disbatch->{node}});
+                } catch {
+                    # this really should not happen. log it and $run_status
+                    $logger->error("Could not find handoff task $task_id to check status: $_");
+                    if ($run_status) {
+                        $logger->error("Handoff plugin '$plugin' for task $task_id did not exit cleanly: " . $json->encode($run_status));
+                    } else {
+                        $logger->error("Handoff plugin '$plugin' for task $task_id exited cleanly");
+                    }
+                    { status => 2 };	# will lead to exit below
+                };
+                if (!defined $task) {
+                    $logger->error("Handoff task $task_id on node $disbatch->{node} no longer exists!");
+                    exit 1;
+                } elsif ($task->{status} == 0) {
+                    my $error = "Task $task_id handoff did not update status";
+                    if (!$run_status) {
+                        # wtf, returned success
+                        $error .= " yet returned success";
+                        $run_status = { exit => 0, error => $error };
+                    }
+                    $logger->error($error);
+                    $run_status->{$_} = $task->{$_} for qw/ stdout stderr /;
+                    my $stdout = $json->encode($run_status);
+                    $result = { status => 2, stdout => $stdout, stderr => 'Task handoff did not update status. See stdout for any stdout or stderr it may have set'};
+                } elsif ($task->{status} == 1 and $run_status) {
+                    # bad for task status to be 1 but $plugin exit code to be non-0, make it a failure
+                    $logger->error("Handoff plugin '$plugin' recorded status:1 for task $task_id but did not exit cleanly: " . $json->encode($run_status));
+                    $run_status->{$_} = $task->{$_} for qw/ stdout stderr /;
+                    my $stdout = $json->encode($run_status);
+                    $result = { status => 2, stdout => $stdout, stderr => 'Handoff plugin recorded status:1 for task but did not exit cleanly. See stdout for any stdout or stderr it may have set'};
+                    # need to set status back to 0 for later code to work:
+                    retry { $disbatch->tasks->update_one({_id => $oid, status => 1, node => $disbatch->{node}}, {'$set' => {status => 0}}) }
+                    catch { $logger->error("Could not update task $task_id status to 0 after non-clean exit: $_"); exit 1; };
+                } else {
+                    exit;
+                }
+            } elsif ($args->{type} eq 'mongo') {
+                $result = retry {
+                    $disbatch->coll('results')->find_one_and_delete({_id => $oid});
+                } catch {
+                    $logger->error("Error trying to get result for $task_id in 'results' collection: $_");
+                    { status => 2, stderr => "Error trying to get result for $task_id in 'results' collection: $_" };
+                };
+                if (!defined $result) {
+                    $logger->error("Task plugin '$plugin' did not create a document in 'results' for task $task_id");
+                    $result = { status => 2, stderr => "Task plugin did not create a document in 'results' for task"};
+                }
+            } elsif ($args->{type} eq 'default' or $args->{type} eq 'nomongo') {
+                my $text = try { scalar read_file "/tmp/$task_id-response.json" } catch { $_ };
+                $result = try { $json->decode($text) } catch { $text };
+                unlink "/tmp/$task_id.json", "/tmp/$task_id-response.json";
+                if (!ref $result) {
+                    # $result may be string
+                    $logger->error("Task plugin '$plugin' saved non-json in file /tmp/$task_id-response.json");
+                    my $stdout = $result;
+                    $result = { status => 2, stdout => $stdout, stderr => "Task plugin saved non-json in file /tmp/$task_id-response.json. See stdout for any content it may have set"};
+                }
+            }
+        } else {
+            my $workerthread = Disbatch->new(class => $plugin, config_file => $config_file);
+            $workerthread->load_config;
+            my $task = $plugin->new(workerthread => $workerthread, task => $doc);
+            $result = $task->run;
+        }
     } catch {
         $logger->error("Thread has uncaught exception: $_");
         $result = {status => 2, stdout => 'Unable to complete', stderr => "Thread has uncaught exception: $_"};
@@ -97,6 +277,25 @@ if ($result->{status} !~ /^[1-9]\d*$/) {
     $result->{status} = 2;
 }
 $result->{status} += 0;		# force integer-as-string to integer
+
+# hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
+if ($run_status and $args->{type} ne 'handoff') {
+    # already handled $run_status for 'handoff'
+    if ($result->{status} == 1) {
+        # bad for result status to be 1 but $plugin exit code to be non-0, make it a failure
+        $logger->error("Plugin '$plugin' recorded status:1 for task $task_id but did not exit cleanly" . $json->encode($run_status));
+        $run_status->{$_} = $result->{$_} for qw/ stdout stderr /;
+        $result = { status => 2, stdout => $json->encode($run_status), stderr => 'Plugin recorded status:1 for task but did not exit cleanly. See stdout for any stdout or stderr it may have set' };
+    } elsif (!defined $run_status->{exit}) {
+        # critical failure, should log it
+        $logger->error("Plugin '$plugin' for task $task_id had critical failure: $run_status->{error}");
+    } elsif (exists $run_status->{error}) {
+        # killed by signal, should log it
+        $logger->error("Plugin '$plugin' for task $task_id $run_status->{error}");
+    } else {
+        # "normal" failure, don't care
+    }
+}
 
 my $status = $result->{status} == 1 ? 'succeeded' : 'failed';
 $logger->info("Task $task_id $status.");
