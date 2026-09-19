@@ -6,6 +6,9 @@ disbatch-*/
 disbatch3-*.tar.gz
 disbatch3-*/
 etc/disbatch/config.json
+etc/disbatch/config.json-plugin
+etc/disbatch/config.json-strict
+etc/disbatch/config.json-task_runner
 .build/
 # ignore all untracked md files in the root directory (generally agent and personal dev notes)
 /*.md
