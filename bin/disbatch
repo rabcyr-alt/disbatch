@@ -107,7 +107,7 @@ sub get_plugins {
     my $response = $ua->get("$url/plugins");
     if ($response->is_success) {
         my $plugins = $json->decode($response->decoded_content);
-        say join "\n", @$plugins;
+        say join "\n", keys %$plugins;
     } else {
         die "Error getting $url/plugins (", $response->status_line, '): ', $response->decoded_content, "\n";
     }

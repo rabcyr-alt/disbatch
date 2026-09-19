@@ -136,14 +136,14 @@ sub save_strict_config {
     for my $user (qw/ task_runner plugin /) {
         if (exists $auth->{$user}) {
             $self->{config}{auth} = { $user => $auth->{$user} };
-            try {
-                write_file "$self->{config_file}-$user", {perms => 0600}, Cpanel::JSON::XS->new->utf8->encode($self->{config});
-            } catch {
-                $self->logger->logdie("Could not save file '$self->{config_file}-$user': $_");
-            };
         }
+        try {
+            write_file "$self->{config_file}-$user", {perms => 0600}, Cpanel::JSON::XS->new->utf8->encode($self->{config});
+        } catch {
+            $self->logger->logdie("Could not save file '$self->{config_file}-$user': $_");
+        };
+        $self->{config}{auth} = $auth;
     }
-    $self->{config}{auth} = $auth;
 }
 
 # from Synacor::Disbatch::Backend

@@ -11,6 +11,8 @@ use File::Slurp;
 use Getopt::Long;
 use IO::Select;
 use IPC::Open3;
+use Log::Log4perl;
+use MongoDB;
 use Try::Tiny::Retry;
 use Safe::Isa;
 use Symbol 'gensym';
