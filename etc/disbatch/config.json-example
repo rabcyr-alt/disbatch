@@ -20,6 +20,16 @@
     # Can only load a plugin listed here
     "plugins": {					# defaults to {}, breaking change in 4.4
         "Disbatch::Plugin::Demo": 1,
+        "Disbatch::Plugin::Test": 1,
+        # for `go-task-runner`: perl and go test task programs:
+        "/root/git/disbatch/t/task-default.pl": {},
+        "/root/git/disbatch/t/task-handoff.pl": {"type": "handoff"},
+        "/root/git/disbatch/t/task-mongo.pl": {"type": "mongo"},
+        "/root/git/disbatch/t/task-nomongo.pl": {"type": "nomongo"},
+        #"/root/git/disbatch/t/task-default": {},
+        #"/root/git/disbatch/t/task-handoff": {"type": "handoff"},
+        #"/root/git/disbatch/t/task-mongo": {"type": "mongo"},
+        "/root/git/disbatch/t/task-nomongo": {"type": "nomongo"},
     },
 
     "monitoring": true,					# new in 4.2
