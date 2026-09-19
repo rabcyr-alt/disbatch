@@ -72,7 +72,7 @@ my $config = {
     views_dir => 'etc/disbatch/views/',
     task_runner => './bin/task_runner',
     testing => 1,	# for task_runner to use lib 'lib'
-    gfs => 'auto',	# default
+    gfs => 'auto',	# default, deprecated in 4.4
     log4perl => {
         level => 'TRACE',
         appenders => {
@@ -598,8 +598,8 @@ if ($webpid == 0) {
         'aE'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  0+, 15       15+
         'ea'  => { auto => ['OID','NUL'], 0 => ['STR','NUL'] }, # 15+,  0       15+
         'E'   => { auto => ['NUL','STR'], 0 => ['NUL','STR'] }, #  0,  15       15
-        'eA'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, # 15,   1       16      stdout will have error msg for document too large
-        '1E'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  1,  15       16      stdout will have error msg for document too large
+        'eA'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, # 15,   1       16
+        '1E'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  1,  15       16
         '7aC' => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  7+,  8       15+
         '7C'  => { auto => ['STR','STR'], 0 => ['STR','STR'] }, #  7,   8       15
         'Eb'  => { auto => ['OID','OID'], 0 => ['NUL','STR'] }, #  0,  15+      15+
@@ -607,12 +607,7 @@ if ($webpid == 0) {
 
     note "GFS loop start";
     $disbatch->{config}{quiet} = 1;
-    for my $gfs ('auto', 1, 0) {
-        if (exists $ENV{GFS_TESTS}) {
-            next unless $ENV{GFS_TESTS} eq "$gfs";
-            note "GFS: $gfs";
-        }
-        $disbatch->{config}{gfs} = $gfs;
+    unless (exists $ENV{GFS_TESTS} and $ENV{GFS_TESTS} eq 'none') {
         for my $key (keys  %$gfs_tests) {
             #note "GFS: $gfs $key $gfs_tests->{$key}{$gfs}[0] $gfs_tests->{$key}{$gfs}[1]";
             $data = { queue => $name, params => [ {commands => $key} ] };
@@ -651,45 +646,23 @@ if ($webpid == 0) {
             is $content->[0]{status}, 1, 'status 1';
             ok exists $content->[0]{stdout}, 'stdout exists';
             ok exists $content->[0]{stderr}, 'stderr exists';
-            if (!$gfs) {
-                if ($gfs_tests->{$key}{0}[0] eq 'NUL') {
-                    ok !defined $content->[0]{stdout}, 'stdout undefined';
-                } elsif ($gfs_tests->{$key}{0}[0] eq 'STR') {
-                    ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
-                #} elsif ($gfs_tests->{$key}{0}[0] eq 'OID') {
-                } else {
-                    die;
-                }
-                if ($gfs_tests->{$key}{0}[1] eq 'NUL') {
-                    ok !defined $content->[0]{stderr}, 'stderr undefined';
-                } elsif ($gfs_tests->{$key}{0}[1] eq 'STR') {
-                    ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
-                #} elsif ($gfs_tests->{$key}{0}[1] eq 'OID') {
-                } else {
-                    die;
-                }
-            } elsif ($gfs eq 'auto') {
-                if ($gfs_tests->{$key}{auto}[0] eq 'NUL') {
-                    ok !defined $content->[0]{stdout}, 'stdout undefined';
-                } elsif ($gfs_tests->{$key}{auto}[0] eq 'STR') {
-                    ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
-                } elsif ($gfs_tests->{$key}{auto}[0] eq 'OID') {
-                    ok defined $content->[0]{stdout}, 'stdout OID';
-                } else {
-                    die;
-                }
-                if ($gfs_tests->{$key}{auto}[1] eq 'NUL') {
-                    ok !defined $content->[0]{stderr}, 'stderr undefined';
-                } elsif ($gfs_tests->{$key}{auto}[1] eq 'STR') {
-                    ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
-                } elsif ($gfs_tests->{$key}{auto}[1] eq 'OID') {
-                    ok defined $content->[0]{stderr}, 'stderr OID';
-                } else {
-                    die;
-                }
-            } else {
+            if ($gfs_tests->{$key}{auto}[0] eq 'NUL') {
+                ok !defined $content->[0]{stdout}, 'stdout undefined';
+            } elsif ($gfs_tests->{$key}{auto}[0] eq 'STR') {
+                ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
+            } elsif ($gfs_tests->{$key}{auto}[0] eq 'OID') {
                 ok defined $content->[0]{stdout}, 'stdout OID';
+            } else {
+                die;
+            }
+            if ($gfs_tests->{$key}{auto}[1] eq 'NUL') {
+                ok !defined $content->[0]{stderr}, 'stderr undefined';
+            } elsif ($gfs_tests->{$key}{auto}[1] eq 'STR') {
+                ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
+            } elsif ($gfs_tests->{$key}{auto}[1] eq 'OID') {
                 ok defined $content->[0]{stderr}, 'stderr OID';
+            } else {
+                die;
             }
         }
     }
@@ -851,9 +824,9 @@ You can also disable MongoDB SSL and authentication via:
 
     USE_SSL=0 USE_AUTH=0 dzil test
 
-You can test only one type of GFS tests by setting C<GFS_TESTS> to C<auto>, C<1>, or C<0>. Or set to any other value to not run those tests.
+You can skip GFS tests by setting C<GFS_TESTS> to C<none>.
 
-    GFS_TESTS=none dzil test
+    GFS_TESTS=none
 
 
 =head1 AUTHORS
