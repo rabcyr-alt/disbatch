@@ -20,18 +20,15 @@ use Sys::Hostname;
 
 $| = 1;
 
-my ($task_id, $gfs, $config_file, $quiet);
+my ($task_id, $config_file, $quiet);
 
 GetOptions(
     'task=s'     => \$task_id,
-    'gfs:s'      => \$gfs,
     'config=s'   => \$config_file,
     'quiet'      => \$quiet,
 );
 
 $quiet //= 0;
-$gfs //= 0;		# default is disabled
-$gfs = 1 if $gfs eq '';	# '--gfs' was passed with no value
 
 my $loggers_configured = 0;
 
@@ -107,7 +104,6 @@ if (defined $error) {
         } else {
             push @args, '--task', $task_id;
             if ($args->{type} eq 'handoff') {
-                push @args, '--gfs', $gfs;
                 push @args, '--quiet' if $quiet;
             } elsif ($args->{type} eq 'mongo') {
                 retry {
@@ -242,31 +238,19 @@ retry { $mongo->coll('tasks')->update_one({_id => $oid, status => 0, node => $no
 catch { $logger->logdie("Could not update task $task_id status to $result->{status} after completion: $_") };
 
 # set rest of result:
-if ($gfs) {
-    my $stdout_gfs = 1;
-    my $stderr_gfs = 1;
-    if ($gfs eq 'auto') {
-        my $stdout_size = defined $result->{stdout} ? length encode_utf8($result->{stdout}) : 0;
-        my $stderr_size = defined $result->{stderr} ? length encode_utf8($result->{stderr}) : 0;
-        if ($stdout_size + $stderr_size <= 1024*1024*15) {
-            # store both in the task document
-            $stdout_gfs = 0;
-            $stderr_gfs = 0;
-        } elsif ($stderr_size <= 1024*1024*15) {
-            # store stdout in GridFS and stderr in the task document
-            $stdout_gfs = 1;
-            $stderr_gfs = 0;
-        }
-    }
-    if ($stdout_gfs) {
-        my $stdout_doc = retry { put_gfs($result->{stdout}, 'stdout', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stdout: $_"); $result->{warning} = "$_"; undef; };
-        $result->{stdout} = $stdout_doc;
-    }
-    if ($stderr_gfs) {
-        my $stderr_doc = retry { put_gfs($result->{stderr}, 'stderr', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stderr: $_"); $result->{warning} = "$_"; undef; };
-        $result->{stderr} = $stderr_doc;
+# GridFS: this prefers `stderr` as a string in the task document even when it's large, as on failures `stderr` is more likely needed to be parsed
+#         if `stderr` ends up in GridFS, so will `stdout` (unless it is empty)
+my $total = 0;
+for my $field (qw/ stderr stdout /) {
+    my $size = defined $result->{$field} ? length encode_utf8($result->{$field}) : 0;
+    $total += $size;
+    if ($size and $total > 1024*1024*15) {
+        my $id = retry { put_gfs($result->{$field}, $field, { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / }
+                catch { $logger->error("Could not create GridFS content for task $oid $field: $_"); undef; };
+        $result->{$field} = $id;
     }
 }
+
 retry { $mongo->coll('tasks')->update_one({_id => $oid, status => $result->{status}, node => $node}, {'$set' => {stdout => $result->{stdout}, stderr => $result->{stderr}, complete => Cpanel::JSON::XS::true}}) }
 on_retry {
     $logger->warn("Update to stdout/stderr failed for task $task_id: $_");
@@ -399,18 +383,6 @@ Path to the JSON Disbatch config file. Mandatory.
 =item --task <string>
 
 The task's _id. Mandatory.
-
-=item --gfs [<string>]
-
-Use the custom GridFS implementation to store task C<stderr> and C<stdout>. Default is to store them directly in the task document.
-
-While using GridFS can make analysing task output more complicated, we periodically have output that exceeds the maximum MongoDB document size.
-
-To turn this on for all tasks, add the argument C<--gfs> with no value. To turn it on for tasks with large C<stdout> and C<stderr>, use C<--gfs auto>.
-Both C<stdout> and C<stderr> will be stored in the task document if they will fit, otherwise C<stderr> will be stored in the task document if it will fit
-and C<stdout> in GridFS, and finally both will be stored in GridFS if C<stderr> will not fit.
-
-In the config file, this is disabled with C<"gfs": false>, enabled with C<"gfs": true>, and automatic with C<"gfs": "auto"> (Note that automatic is the Disbatch default).
 
 =item --quiet
 

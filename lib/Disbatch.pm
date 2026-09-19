@@ -95,7 +95,7 @@ sub load_config {
         # Ensure defaults:
         $self->{config}{attributes} //= {};
         $self->{config}{auth} //= {};
-        $self->{config}{gfs} //= 'auto';
+        $self->{config}{gfs} //= 'auto';	# deprecated in 4.4
         $self->{config}{quiet} //= Cpanel::JSON::XS::false;
         $self->{config}{task_runner} //= '/usr/bin/task_runner';
         $self->{config}{testing} //= Cpanel::JSON::XS::false;
@@ -347,7 +347,7 @@ sub start_task {
         '--config' => "$self->{config_file}-task_runner",	# NOTE: "$self->{config_file}-strict" could also be used
         '--task'   => $task->{_id},
     );
-    push @args, '--gfs', $self->{config}{gfs} if $self->{config}{gfs};
+    push @args, '--gfs', $self->{config}{gfs} if $self->{config}{gfs};	# deprecated in 4.4, existing only for legacy `task_runner`
     push @args, '--quiet' if $self->{config}{quiet};
     push @args, '--testing' if $self->{config}{testing};
     $self->logger->info(join ' ', $command, @args);

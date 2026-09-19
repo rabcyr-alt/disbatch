@@ -350,7 +350,7 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
   Set this to `false` to store `stdout` and `stderr` in the task document
   instead of using GridFS. Set this to `true` to always use GridFS. Set this to
   `"auto"` to only store `stdout` and `stderr` in GridFS if needed due to size.
-  Default is `"auto"`.
+  Default is `"auto"`. Deprecated in 4.4, existing only for legacy `task_runner`.
 
 * `web_root`
 
