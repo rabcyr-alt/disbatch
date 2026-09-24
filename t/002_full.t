@@ -55,9 +55,8 @@ my $config = {
         pretend => 0,
         enabled => 0,
     },
-    mongohost => "localhost:$mongoport",
+    mongohost => "mongodb://localhost:$mongoport",
     database => "disbatch_test$$" . int(rand(10000)),
-    attributes => { ssl => { SSL_ca_file => 't/rootCA.crt', SSL_cert_file => 't/serverCert.pem' } },
     auth => {
         disbatchd => 'qwerty1',		# { username => 'disbatchd', password => 'qwerty1' },
         disbatch_web => 'qwerty2',	# { username => 'disbatch_web', password => 'qwerty2' },
@@ -90,7 +89,7 @@ my $config = {
     },
 };
 delete $config->{auth} unless $use_auth;
-delete $config->{attributes} unless $use_ssl;
+$config->{mongohost} .= "/?tlsCAFile=t/rootCA.crt&tlsCertificateKeyFile=t/serverCert.pem" if $use_ssl;
 
 mkdir "/tmp/$config->{database}";
 my $config_file = "/tmp/$config->{database}/config.json";
@@ -114,7 +113,6 @@ say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 20
 
 # Get test database, authed as root:
 my $attributes = {};
-$attributes->{ssl} = $config->{attributes}{ssl} if $use_ssl;
 if ($use_auth) {
     my $admin = MongoDB->connect($config->{mongohost}, $attributes)->get_database('admin');
     retry { $admin->run_command([createUser => 'root', pwd => 'kjfiwey76r3gjm', roles => [ { role => 'root', db => 'admin' } ]]) } catch { die $_ };
