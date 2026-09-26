@@ -30,17 +30,17 @@ func main() {
 	logger := logger(Config{})
 	*/
 
-    taskID := flag.String("task", "", "The task's _id. Mandatory.")
-    configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
-    quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
-    testingFlag := flag.Bool("testing", false, "NOOP: backcompat")
-    gfsFlag := flag.String("gfs", "", "NOOP: backcompat")
-    flag.Parse()
-    // flag.Args() is everything else, a slice, and can be passed an index for individual values
-    if *testingFlag || *gfsFlag != "" {
+	taskID := flag.String("task", "", "The task's _id. Mandatory.")
+	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
+	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
+	testingFlag := flag.Bool("testing", false, "NOOP: backcompat")
+	gfsFlag := flag.String("gfs", "", "NOOP: backcompat")
+	flag.Parse()
+	// flag.Args() is everything else, a slice, and can be passed an index for individual values
+	if *testingFlag || *gfsFlag != "" {
 		// NOOP: might be passed but do not apply here
-    }
-    logger0 := logger(Config{})
+	}
+	logger0 := logger(Config{})
 	if *configFlag == "" {
 		logger0.Error("Config file must be passed with --config option")
 		flag.Usage()
@@ -314,7 +314,7 @@ Ran:
 
 	// verify $result is a HASH and $result->{status} is a postive integer, and if not fail task
 	// note: result has to be bson.M
-    if str, ok := result["status"].(string); ok {
+	if str, ok := result["status"].(string); ok {
 		// NOTE: do we even want to force a string to an integer?
 		// status is a string, let's see if it looks like a number
 		f, err := strconv.ParseFloat(str, 64)
@@ -322,9 +322,9 @@ Ran:
 			// yes, looks like a number
 			result["status"] = f
 		}
-    }
-    // result from mongo gives `int32`, result from json gives `float64`
-    if s, ok := result["status"].(int32); ok {
+	}
+	// result from mongo gives `int32`, result from json gives `float64`
+	if s, ok := result["status"].(int32); ok {
 		result["status"] = int(s)
 	} else {
 		s, ok := result["status"].(float64)
@@ -451,7 +451,7 @@ func mongodb(config Config) *mongo.Database {
 		}
 		opts.SetAuth(credential)
 	}
-    fmt.Fprintf(os.Stderr, "Connecting %v\n", time.Now().Format(time.ANSIC))	// warn
+	fmt.Fprintf(os.Stderr, "Connecting %v\n", time.Now().Format(time.ANSIC))	// warn
 	client, err := mongo.Connect(opts)
 	if err != nil {
 		panic(err)
@@ -469,28 +469,28 @@ func mongodb(config Config) *mongo.Database {
 
 
 type Plugin struct {
-    Type     string `json:"type"` // "default", "handoff", "mongo" or "nomongo"
-    IsModule bool   `json:"-"`    // true when the config value was 1
+	Type     string `json:"type"` // "default", "handoff", "mongo" or "nomongo"
+	IsModule bool   `json:"-"`    // true when the config value was 1
 }
 
 // claude:
 func (p *Plugin) UnmarshalJSON(data []byte) error {
-    var n float64
-    if err := json.Unmarshal(data, &n); err == nil {
-        *p = Plugin{Type: "module", IsModule: true}
-        return nil
-    }
+	var n float64
+	if err := json.Unmarshal(data, &n); err == nil {
+		*p = Plugin{Type: "module", IsModule: true}
+		return nil
+	}
 
-    type plain Plugin	// a type declared this way has the same fields as `Plugin` but none of its methods, so it doesn't satisfy `Unmarshaler`
-    var tmp plain
-    if err := json.Unmarshal(data, &tmp); err != nil {
-        return err
-    }
-    *p = Plugin(tmp)
-    if p.Type == "" {
-        p.Type = "default"
-    }
-    return nil
+	type plain Plugin	// a type declared this way has the same fields as `Plugin` but none of its methods, so it doesn't satisfy `Unmarshaler`
+	var tmp plain
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+	*p = Plugin(tmp)
+	if p.Type == "" {
+		p.Type = "default"
+	}
+	return nil
 }
 
 type Appender struct {
@@ -505,11 +505,11 @@ type Log4perl struct {
 }
 
 type Config struct {
-    MongoHost  string                 `json:"mongohost"`
-    Database   string                 `json:"database"`
-    Auth       map[string]string      `json:"auth"`
-    Log4perl   Log4perl               `json:"log4perl"`
-    Plugins    map[string]Plugin      `json:"plugins"`	// value may be `1` or a map with key `type` and value: `default` `handoff` `mongo` `nomongo`
+	MongoHost  string                 `json:"mongohost"`
+	Database   string                 `json:"database"`
+	Auth       map[string]string      `json:"auth"`
+	Log4perl   Log4perl               `json:"log4perl"`
+	Plugins    map[string]Plugin      `json:"plugins"`	// value may be `1` or a map with key `type` and value: `default` `handoff` `mongo` `nomongo`
 }
 
 func logger(config Config) *slog.Logger {
@@ -541,7 +541,7 @@ func logger(config Config) *slog.Logger {
 	logger := slog.New(slog.NewTextHandler(multi, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
-    return logger
+	return logger
 }
 
 
@@ -608,20 +608,20 @@ func parseStatus(status Status) RunStatus {
 	if status.Success {
 		runStatus.Success = true
 	} else if status.Died != "" {
-        runStatus.Error = "died with: " + strings.TrimRight(status.Died, "\n")
-    } else if status.Status == -1 {
+		runStatus.Error = "died with: " + strings.TrimRight(status.Died, "\n")
+	} else if status.Status == -1 {
 		runStatus.Error = "could not reap child: $!"	// FIXME: `$!` is a perlvar
-    } else if sig := status.Status & 127; sig != 0 {
+	} else if sig := status.Status & 127; sig != 0 {
 		runStatus.Exit = 128 + sig
 		tail := ""
 		if status.Status & 128 != 0 {
 			tail = " (core dumped)"
 		}
 		runStatus.Error = fmt.Sprintf("killed by signal %d%s", sig, tail)
-    } else {
+	} else {
 		runStatus.Exit = status.Status >> 8
-    }
-    return runStatus
+	}
+	return runStatus
 }
 
 func getStringOrNull(m bson.M, key string) string {
