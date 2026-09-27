@@ -98,6 +98,14 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
+		opts := options.UpdateOne().SetUpsert(true)
+		_, err = db.Collection("queues").UpdateOne(context.TODO(), bson.M{"_id": oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-nomongo", "threads": 0}}, opts)
+		if err != nil {
+			panic(err)
+			// probably "duplicate key error", don't care
+		}
+
 		params := bson.M{"status": 1, "stdout": "hi", "stderr": "vague warning"}
 		_, err = db.Collection("tasks").InsertOne(context.TODO(), bson.M{"_id": oid, "status": -1, "node": node, "mtime": time.Now(), "ctime": time.Now(), "queue": oid, "params": params})
 		if err != nil {
