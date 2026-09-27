@@ -82,7 +82,6 @@ func main() {
 		}
 	}()
 
-	logger.Info("Starting task " + *taskID)	// FIXME: pick one of these
 	log.Printf("Starting task %s", *taskID)
 
 	oid, err := bson.ObjectIDFromHex(*taskID)
@@ -318,7 +317,7 @@ func main() {
 
 	}
 Ran:
-	log.Printf("run_status=%#v, result=%v\n", run_status, result)
+	//log.Printf("run_status=%#v, result=%v\n", run_status, result)
 
 	// verify $result is a HASH and $result->{status} is a postive integer, and if not fail task
 	// note: result has to be bson.M
@@ -390,7 +389,7 @@ Ran:
 	// set status first:
 	filter = bson.M{"_id": oid, "status": 0, "node": node}
 	update = bson.M{"$set": bson.M{"status": result["status"]}}	// FIXME: change `result["status"]` to `result["status"].(int)`? but it seems to work as-is, and better a wrong value happen than a failure
-	mresult, err := db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
+	_, err = db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			// NOTE: i don't think mongo.ErrNoDocuments can happen via UpdateOne?
@@ -401,8 +400,7 @@ Ran:
 			os.Exit(2)	// skips any deferred functions
 		}
 	}
-	logger.Info(fmt.Sprint(mresult))
-
+	//logger.Info(fmt.Sprint(mresult))
 
 	// set rest of result:
 	// GridFS: this prefers `stderr` as a string in the task document even when it's large, as on failures `stderr` is more likely needed to be parsed
@@ -431,18 +429,18 @@ Ran:
 
 	filter = bson.M{"_id": oid, "status": result["status"], "node": node}
 	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
-	mresult, err = db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
+	_, err = db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 	// FIXME: on_retry would do this, but i don't think it's necessary with gfs being automatic: $result->{stdout} = "$_" if $_->$_isa('MongoDB::DocumentError') or $_->$_isa('MongoDB::WriteError');
 	if err != nil {
 		db.Collection("tasks").UpdateOne(context.TODO(), filter, bson.M{"complete": false})
 		logger.Error("Could not update task " + *taskID + " stdout/stderr after completion: " + err.Error())
 		os.Exit(2)	// skips any deferred functions
 	}
-	logger.Info(fmt.Sprint(mresult))
+	//logger.Info(fmt.Sprint(mresult))
 
 
-	log.Printf("run_status=%#v, result=%v\n", run_status, result)
-	logger.Info("END")
+	//log.Printf("run_status=%#v, result=%v\n", run_status, result)
+	//logger.Info("END")
 }
 
 func mongodb(config Config) *mongo.Database {
@@ -469,8 +467,8 @@ func mongodb(config Config) *mongo.Database {
 	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Decode(&res); err != nil {
 		panic(err)
 	}
-	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
-	fmt.Println(res)
+//	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
+//	fmt.Println(res)
 
 	return client.Database(config.Database)
 }
