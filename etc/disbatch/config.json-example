@@ -18,9 +18,9 @@
         "plugin": "qwerty5",
     },
     # Can only load a plugin listed here
-    "plugins": [					# defaults to []
-        "Disbatch::Plugin::Demo",
-    ],
+    "plugins": {					# defaults to {}, breaking change in 4.4
+        "Disbatch::Plugin::Demo": 1,
+    },
 
     "monitoring": true,					# new in 4.2
     "balance": {					# new in 4.2
