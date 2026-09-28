@@ -19,7 +19,7 @@
     },
     # Can only load a plugin listed here
     "plugins": {					# defaults to {}, breaking change in 4.4
-        "Disbatch::Plugin::Demo": 1,
+        "Disbatch::Plugin::Demo": 1,	# `1` implies `{"type": "handoff"}` to `go-task-runner`, will call `config.plugin_runner` with `--handoff`
         "Disbatch::Plugin::Test": 1,
         # for `go-task-runner`: perl and go test task programs:
         "/root/git/disbatch/t/task-default.pl": {},
@@ -60,7 +60,9 @@
     "queue_increase": null,	# defaults to null (no limit). per call to process_queues(), each queue will only pick up this many tasks. value must be null or integer > 0 and <= node_increase if defined.
 
     # Everthing below here is optional, and is set up for development, not production
-    "task_runner": "./bin/task_runner",			# defaults to "/usr/bin/task_runner"
+    #"task_runner": "./bin/task_runner",			# defaults to "/usr/bin/task_runner"
+    "task_runner": "./go/go-task-runner",			# go version
+    "plugin_runner": "/root/git/disbatch/bin/task_runner",	# have go version call perl version in handoff mode. full path required!
     #"gfs": false,					# defaults to "auto", DEPRECATED in 4.4 (always auto)
     "web_root": "etc/disbatch/htdocs/",			# defaults to "/etc/disbatch/htdocs/"
     "views_dir": "etc/disbatch/views/",			# defaults to "/etc/disbatch/views/"
