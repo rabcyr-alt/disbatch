@@ -6,6 +6,7 @@ use warnings;
 use Data::Dumper;
 use Disbatch;
 use Getopt::Long;
+use Time::HiRes qw/ clock_gettime CLOCK_MONOTONIC usleep /;
 use Try::Tiny::Retry;
 #use Safe::Isa;
 
@@ -31,12 +32,30 @@ $disbatch->ensure_indexes;
 $disbatch->validate_plugins;
 $disbatch->validate_hooks;
 
-do {
-    $disbatch->pre_hook;
-    $disbatch->orphaned_tasks;
-    $disbatch->process_queues;
-    $disbatch->update_node_status;
-} while sleep 1;
+my $interval = $disbatch->{config}{process_queues_interval};	# set to `100` to call `process_queues` every 0.1 seconds (100 ms)
+# NOTE: `config.dashboard.live_window_ms` default is 15000 (15 seconds), so if `config.process_queues_interval` approaches this the node will be reported as dead unless also changed
+
+if (defined $interval) {
+    $logger->logdie("config.process_queues_interval must be a positive integer (in milliseconds") unless $interval =~ /^[1-9]\d*$/;
+    do {
+        $disbatch->pre_hook;
+        $disbatch->orphaned_tasks;
+        my $until = clock_gettime(CLOCK_MONOTONIC) + 1;		# 1 second from now
+        do {
+            $disbatch->process_queues;
+            usleep $interval * 1000;
+        } while clock_gettime(CLOCK_MONOTONIC) < $until;
+        $disbatch->update_node_status;
+    } while 1;
+} else {
+    # original way, config.process_queues_interval not defined
+    do {
+        $disbatch->pre_hook;
+        $disbatch->orphaned_tasks;
+        $disbatch->process_queues;
+        $disbatch->update_node_status;
+    } while sleep 1;
+}
 
 END {
     $logger->info("Exit code $?");

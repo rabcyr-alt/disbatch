@@ -31,6 +31,7 @@
     },
     "web_extensions": {					# new in 4.2
     },
+    "process_queues_interval": 100,			# new in 4.4. controls sleep in ms between calls to `process_queues()`. default null. it should be significantly lower than `live_window_ms`
     "dashboard": {					# new in 4.4. optional web UI tunables
         "refresh_ms": 30000,				# auto-refresh interval in ms (default 30000)
         "live_window_ms": 15000,			# node-liveness window in ms (default 15000)
