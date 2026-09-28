@@ -142,7 +142,7 @@ func main() {
 		fileinfo, err := os.Stat(plugin.(string))
 		if matched, _ := regexp.Match(`^/`,[]byte(plugin.(string))); !matched {
 			errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, *taskID)
-		} else if err != nil || !fileinfo.Mode().IsRegular() {//|| fileinfo.Mode().Perm()&0111 == 0 {	// FIXME TEMP
+		} else if err != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
 			errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, *taskID)
 		} else if !slices.Contains([]string{"default", "nomongo", "mongo", "handoff"}, args.Type) {
 			errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, *taskID)
@@ -215,7 +215,7 @@ func main() {
 
 			if args.Type == "handoff" {
 				var task bson.M
-				err := db.Collection("results").FindOne(context.TODO(), bson.M{"_id": oid, "node": node}).Decode(&task)	// FIXME: in perl, wrapped in `retry/catch`
+				err := db.Collection("tasks").FindOne(context.TODO(), bson.M{"_id": oid, "node": node}).Decode(&task)	// FIXME: in perl, wrapped in `retry/catch`
 				if err != nil {
 					if errors.Is(err, mongo.ErrNoDocuments) {
 						// FIXME: log $run_status
@@ -235,7 +235,7 @@ func main() {
 					}
 					task = bson.M{"status": 2 }	// will lead to exit below	FIXME: might erase stdout and stderr
 				}
-				if task["status"] == 0 {
+				if task["status"] == int32(0) {
 					errmsg = "Task "+*taskID+" handoff did not update status"
 					if run_status.Success {
 						// wtf, returned success
@@ -253,7 +253,7 @@ func main() {
 					rs["stderr"] = task["stderr"]
 					stdout,_ := json.Marshal(rs)
 					result = bson.M{"status": 2, "stdout": stdout, "stderr": "Task handoff did not update status. See stdout for any stdout or stderr it may have set"}
-				} else if task["status"] == 1 && !run_status.Success {
+				} else if task["status"] == int32(1) && !run_status.Success {
 					// bad for task status to be 1 but $plugin exit code to be non-0, make it a failure
 					var rs = bson.M{"error": run_status.Error}
 					if run_status.Exit != 0 {
