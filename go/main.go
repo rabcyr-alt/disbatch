@@ -47,12 +47,7 @@ func main() {
 		os.Exit(2)	// skips any deferred functions
 	}
 
-	configFile, err := os.Open(*configFlag)
-	if err != nil {
-		panic(err)
-	}
-	defer configFile.Close()
-	byteValue, err := io.ReadAll(configFile)
+	byteValue, err := os.ReadFile(*configFlag)
 	if err != nil {
 		panic(err)
 	}
@@ -77,9 +72,10 @@ func main() {
 
 	db := mongodb(config)
 	defer func() {
-		if err := db.Client().Disconnect(context.TODO()); err != nil {
-			// do something maybe?
-		}
+		// we want to Disconnect() because idle sessions stay around for 30 minutes on the server
+		// so no log.Fatal, os.Exit, etc after calling mongodb()!
+		// below wrapped in `func() {...}()` as the args are otherwise evaluated immediately. fine with context.TODO() as it has no timeout but not with others.
+		db.Client().Disconnect(context.TODO())
 	}()
 
 	log.Printf("Starting task %s", *taskID)
@@ -539,7 +535,6 @@ func logger(config Config) *slog.Logger {
 	if err != nil {
 		log.Fatal(err)	// calls os.Exit, which skips any deferred functions
 	}
-	defer file.Close()
 
 	multi := io.MultiWriter(os.Stderr, file)
 
