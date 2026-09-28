@@ -33,12 +33,12 @@ func main() {
 	taskID := flag.String("task", "", "The task's _id. Mandatory.")
 	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
-	testingFlag := flag.Bool("testing", false, "NOOP: backcompat")
+	testingFlag := flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins.")
 	gfsFlag := flag.String("gfs", "", "NOOP: backcompat")
 	flag.Parse()
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
-	if *testingFlag || *gfsFlag != "" {
-		// NOOP: might be passed but do not apply here
+	if *gfsFlag != "" {
+		// NOOP: might be passed but does not apply here
 	}
 	logger0 := logger(Config{})
 	if *configFlag == "" {
@@ -138,7 +138,13 @@ func main() {
 	var args Plugin
 	if plugin == nil {
 		errmsg = fmt.Sprintf("No plugin defined for task %v in queue %v", *taskID, doc["queue"])
-	} else if args = config.Plugins[plugin.(string)]; !args.IsModule {
+	} else {
+		args = config.Plugins[plugin.(string)]
+		if args.IsModule {
+			args.Type = "handoff"	// was "module"
+			plugin = config.PluginRunner
+		}
+		// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` here when `args.IsModule`
 		fileinfo, err := os.Stat(plugin.(string))
 		if matched, _ := regexp.Match(`^/`,[]byte(plugin.(string))); !matched {
 			errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, *taskID)
@@ -147,8 +153,6 @@ func main() {
 		} else if !slices.Contains([]string{"default", "nomongo", "mongo", "handoff"}, args.Type) {
 			errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, *taskID)
 		}
-	} else {
-		errmsg = fmt.Sprintf("%v is misconfigured in config.plugins for %v", plugin, *taskID)
 	}
 
 	var run_status RunStatus				// NOTE: perl is `0` on success, hash on failure
@@ -198,6 +202,12 @@ func main() {
 				if args.Type == "handoff" {
 					if *quietFlag {
 						cargs = append(cargs, "--quiet")
+					}
+					if args.IsModule {
+						cargs = append(cargs, "--handoff")
+						if *testingFlag {
+							cargs = append(cargs, "--testing")
+						}
 					}
 				} else if args.Type == "mongo" {
 					_, err := db.Collection("results").DeleteOne(context.TODO(), bson.M{"_id": oid})	// FIXME: in perl, wrapped in `retry/catch`
@@ -516,6 +526,7 @@ type Config struct {
 	Auth       map[string]string      `json:"auth"`
 	Log4perl   Log4perl               `json:"log4perl"`
 	Plugins    map[string]Plugin      `json:"plugins"`	// value may be `1` or a map with key `type` and value: `default` `handoff` `mongo` `nomongo`
+	PluginRunner string               `json:"plugin_runner"`
 }
 
 func logger(config Config) *slog.Logger {
