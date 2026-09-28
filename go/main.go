@@ -251,8 +251,8 @@ func main() {
 					}
 					rs["stdout"] = task["stdout"]
 					rs["stderr"] = task["stderr"]
-					stdout,_ := json.Marshal(rs)
-					result = bson.M{"status": 2, "stdout": stdout, "stderr": "Task handoff did not update status. See stdout for any stdout or stderr it may have set"}
+					stdout,_ := json.Marshal(rs)	// json.Marshal returns a []byte, not a string. wrap `stdout`: `string(stdout)`
+					result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "Task handoff did not update status. See stdout for any stdout or stderr it may have set"}
 				} else if task["status"] == int32(1) && !run_status.Success {
 					// bad for task status to be 1 but $plugin exit code to be non-0, make it a failure
 					var rs = bson.M{"error": run_status.Error}
@@ -264,7 +264,7 @@ func main() {
 					rs["stdout"] = task["stdout"]
 					rs["stderr"] = task["stderr"]
 					stdout,_ := json.Marshal(rs)
-					result = bson.M{"status": 2, "stdout": stdout, "stderr": "Handoff plugin recorded status:1 for task but did not exit cleanly. See stdout for any stdout or stderr it may have set"}
+					result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "Handoff plugin recorded status:1 for task but did not exit cleanly. See stdout for any stdout or stderr it may have set"}
 					// need to set status back to 0 for later code to work:
 					_, err := db.Collection("tasks").UpdateOne(context.TODO(), bson.M{"_id": oid, "status": 1, "node": node}, bson.M{"$set": bson.M{"status": 0}})	// FIXME: in perl, wrapped in `retry/catch`
 					if err != nil {
