@@ -11,7 +11,9 @@ use Getopt::Long;
 use Try::Tiny::Retry;
 use Safe::Isa;
 
-my ($task_id, $gfs, $config_file, $quiet, $testing);
+$| = 1;
+
+my ($task_id, $gfs, $config_file, $quiet, $testing, $handoff);
 
 GetOptions(
     'task=s'     => \$task_id,
@@ -19,12 +21,12 @@ GetOptions(
     'config=s'   => \$config_file,
     'quiet'      => \$quiet,
     'testing'    => \$testing,
+    'handoff'    => \$handoff,
 );
 
+$handoff //= 0;
 $quiet //= 0;
 $testing //= 0;
-$gfs //= 0;		# default is disabled
-$gfs = 1 if $gfs eq '';	# '--gfs' was passed with no value
 
 if ($testing) {
     require lib;
@@ -39,21 +41,33 @@ $disbatch->load_config;
 
 my $logger = $disbatch->logger;
 
-$logger->info("Starting task $task_id");
+$logger->warn('--gfs used but ignored when --handoff used') if $handoff and defined $gfs;
+$gfs //= 0;		# default is disabled
+$gfs = 1 if $gfs eq '';	# '--gfs' was passed with no value
+
+$logger->info("Starting task $task_id") unless $handoff;
 
 $logger->logdie('Config file must be passed with --config option') unless defined $config_file;
 
 $logger->logdie('No --task') unless defined $task_id;
 
-my $oid = try { BSON::OID->new(oid => pack 'H*', $task_id) } catch { $logger->logdie($_) };
-my $doc = retry {
-    $disbatch->tasks->find_one_and_update({_id => $oid, status => -1, node => $disbatch->{node}}, {'$set' => {status => 0}});
-} catch {
-    $logger->logdie("Could not find and set task $task_id to status 0: $_");
-};
-
+my $oid = try { BSON::OID->new(oid => pack 'H*', $task_id) } catch { $logger->logdie("--task value invalid: $_") };
+my $doc;
+if ($handoff) {
+    $doc = retry {
+        $disbatch->tasks->find_one({_id => $oid, status => 0, node => $disbatch->{node}});
+    } catch {
+        $logger->logdie("Could not find task $task_id with status 0 on node $disbatch->{node}: $_");
+    };
+} else {
+    $doc = retry {
+        $disbatch->tasks->find_one_and_update({_id => $oid, status => -1, node => $disbatch->{node}}, {'$set' => {status => 0}});
+    } catch {
+        $logger->logdie("Could not find and set task $task_id to status 0: $_");
+    };
+}
 $logger->logdie("No task found for $task_id") unless defined $doc;
-$logger->info("params for $task_id: ", $json->encode($doc->{params}));
+$logger->info("params for $task_id: ", $json->encode($doc->{params})) unless $handoff;
 
 my $plugin = ($disbatch->queues->find_one({_id => $doc->{queue}}) // {})->{plugin};
 
@@ -118,7 +132,21 @@ retry { $disbatch->tasks->update_one({_id => $oid, status => 0, node => $disbatc
 catch { $logger->logdie("Could not update task $task_id status to $result->{status} after completion: $_") };
 
 # set rest of result:
-if ($gfs) {
+if ($handoff) {
+    # new way via --handoff
+    # GridFS: this prefers `stderr` as a string in the task document even when it's large, as on failures `stderr` is more likely needed to be parsed
+    #         if `stderr` ends up in GridFS, so will `stdout` (unless it is empty)
+    my $total = 0;
+    for my $field (qw/ stderr stdout /) {
+        my $size = defined $result->{$field} ? length encode_utf8($result->{$field}) : 0;
+        $total += $size;
+        if ($size and $total > 1024*1024*15) {
+            my $id = retry { $disbatch->put_gfs($result->{$field}, $field, { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid $field: $_"); undef; };
+            $result->{$field} = $id;
+        }
+    }
+} elsif ($gfs) {
+    # old way when ran the old way (deprecated)
     my $stdout_gfs = 1;
     my $stderr_gfs = 1;
     if ($gfs eq 'auto') {
@@ -201,6 +229,12 @@ Suppress STDOUT and STDERR output at end (mainly for testing).
 =item --testing
 
 Do C<< require lib 'lib'; lib->import('lib'); >> before C<require Disbatch;>.
+
+=item --handoff
+
+Use when called by C<go-task-runner> which has already set the task status to `0`.
+Uses GridFS automatically and prefers C<stderr> as a string over C<stdout> (C<stdout> will not be in GridFS if it is empty or null).
+Warns if C<--gfs> is used. Doesn't print the C<Starting task> nor C<params> messages as those were already handled by C<go-task-runner>.
 
 =back
 
