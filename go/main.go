@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"log/slog"
 	"math"
@@ -55,12 +54,14 @@ func run() int {
 
 	byteValue, err := os.ReadFile(*configFlag)
 	if err != nil {
-		panic(err)
+		slog.Error(err.Error())
+		return 1
 	}
 	var config Config
 	err = json.Unmarshal(byteValue, &config)
 	if err != nil {
-		panic(err)
+		slog.Error(err.Error())
+		return 1
 	}
 
 	err = logger(config)
@@ -77,10 +78,15 @@ func run() int {
 
 	node, err := os.Hostname()
 	if err != nil {
-		panic(err)
+		slog.Error(err.Error())
+		return 1
 	}
 
-	db := mongodb(config)
+	db, err := mongodb(config)
+	if err != nil {
+		slog.Error(err.Error())
+		return 1
+	}
 	defer func() {
 		// we want to Disconnect() because idle sessions stay around for 30 minutes on the server
 		// so no log.Fatal, os.Exit, etc after calling mongodb()!
@@ -101,20 +107,22 @@ func run() int {
 	if *taskID == "65170b42b99efdd0b07d42de" {
 		_, err = db.Collection("tasks").DeleteOne(context.TODO(), bson.M{"_id": oid})
 		if err != nil {
-			panic(err)
+			slog.Error(err.Error())
+			return 1
 		}
 
 		opts := options.UpdateOne().SetUpsert(true)
 		_, err = db.Collection("queues").UpdateOne(context.TODO(), bson.M{"_id": oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-nomongo", "threads": 0}}, opts)
 		if err != nil {
-			panic(err)
-			// probably "duplicate key error", don't care
+			slog.Error(err.Error())
+			return 1
 		}
 
 		params := bson.M{"status": 1, "stdout": "hi", "stderr": "vague warning"}
 		_, err = db.Collection("tasks").InsertOne(context.TODO(), bson.M{"_id": oid, "status": -1, "node": node, "mtime": time.Now(), "ctime": time.Now(), "queue": oid, "params": params})
 		if err != nil {
-			panic(err)
+			slog.Error(err.Error())
+			return 1
 		}
 	}
 
@@ -187,21 +195,28 @@ func run() int {
 			if args.Type == "default" || args.Type == "nomongo" {
 				json_task, err := json.Marshal(doc)
 				if err != nil {
-					panic(err)
+					slog.Error("Error trying to create json from task doc for "+*taskID+": " + err.Error())
+					result = bson.M{"status": 2, "stderr": "Error trying to create json from task doc for "+*taskID+": " + err.Error()}
+					goto Ran
 				}
 				err = os.Remove("/tmp/"+*taskID+".json")	// these shouldn't exist, but in case they do
 				if err != nil && !errors.Is(err, os.ErrNotExist) {
-					var pe *fs.PathError
-					if errors.As(err, &pe) {
-						log.Printf("op=%s path=%s err=%v err=%T\n", pe.Op, pe.Path, pe.Err, pe.Err)
-					}
-					panic(fmt.Sprintf("%s => %#v\n", err, err))
+					slog.Error("Error trying to remove old file /tmp/"+*taskID+".json: " + err.Error())
+					result = bson.M{"status": 2, "stderr": "Error trying to remove old file /tmp/"+*taskID+".json: " + err.Error()}
+					goto Ran
 				}
 				err = os.Remove("/tmp/"+*taskID+"-response.json")	// these shouldn't exist, but in case they do
 				if err != nil && !errors.Is(err, os.ErrNotExist) {
-					panic(fmt.Sprintf("%s => %#v\n", err, err))
+					slog.Error("Error trying to remove old file /tmp/"+*taskID+"-response.json: " + err.Error())
+					result = bson.M{"status": 2, "stderr": "Error trying to remove old file /tmp/"+*taskID+"-response.json: " + err.Error()}
+					goto Ran
 				}
 				err = os.WriteFile("/tmp/"+*taskID+".json", []byte(json_task), 0600)
+				if err != nil {
+					slog.Error("Error trying to create file /tmp/"+*taskID+".json: " + err.Error())
+					result = bson.M{"status": 2, "stderr": "Error trying to create file /tmp/"+*taskID+".json: " + err.Error()}
+					goto Ran
+				}
 				cargs = append(cargs, "--task", "/tmp/"+*taskID+".json")
 			} else {
 				cargs = append(cargs, "--task", *taskID)
@@ -319,11 +334,13 @@ func run() int {
 				// remove temp files
 				os.Remove("/tmp/"+*taskID+".json")
 				if err != nil && !errors.Is(err, os.ErrNotExist) {
-					panic(fmt.Sprintf("%s => %#v\n", err, err))
+					// don't need to fail the task, but wtf
+					slog.Error("Error trying to remove file /tmp/"+*taskID+".json (continuing): " + err.Error())
 				}
 				os.Remove("/tmp/"+*taskID+"-response.json")
 				if err != nil && !errors.Is(err, os.ErrNotExist) {
-					panic(fmt.Sprintf("%s => %#v\n", err, err))
+					// don't need to fail the task, but wtf
+					slog.Error("Error trying to remove file /tmp/"+*taskID+"-response.json (continuing): " + err.Error())
 				}
 			}
 //		} catch {
@@ -460,7 +477,7 @@ Ran:
 	return 0
 }
 
-func mongodb(config Config) *mongo.Database {
+func mongodb(config Config) (*mongo.Database, error) {
 	uri := config.MongoHost
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)	// set Stable API version to 1 (note: not necessary, but a good idea, requires MongoDB 5.0 or newer)
 	// note: for Disbatch, if the server API changes, the Perl MongoDB module will break, as it's older than 5.0
@@ -478,17 +495,17 @@ func mongodb(config Config) *mongo.Database {
 	fmt.Fprintf(os.Stderr, "Connecting %v\n", time.Now().Format(time.ANSIC))	// warn
 	client, err := mongo.Connect(opts)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	var res bson.M
 	if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{"ping", 1}}).Decode(&res); err != nil {
-		panic(err)
+		return nil, err
 	}
 //	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
 //	fmt.Println(res)
 
-	return client.Database(config.Database)
+	return client.Database(config.Database), nil
 }
 
 
