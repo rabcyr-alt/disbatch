@@ -25,6 +25,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+var testingFlag *bool
+
 func main() {
 	/* to use logger before parsing the config file:
 	logger := logger(Config{})
@@ -33,7 +35,7 @@ func main() {
 	taskID := flag.String("task", "", "The task's _id. Mandatory.")
 	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
-	testingFlag := flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins.")
+	testingFlag = flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins, defaults logfile to \"disbatchd.log\"")
 	gfsFlag := flag.String("gfs", "", "NOOP: backcompat")
 	flag.Parse()
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
@@ -529,6 +531,9 @@ func logger(config Config) *slog.Logger {
 	filename := "/var/log/disbatchd.log"
 	if fn, ok := config.Log4perl.Appenders["filelog"].Args["filename"].(string); ok {
 		filename = fn
+	} else if *testingFlag {
+		// likely being ran by a user who cannot write to "/var/log/disbatchd.log"
+		filename = "disbatchd.log"
 	}
 
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
