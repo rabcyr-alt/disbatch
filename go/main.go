@@ -455,7 +455,8 @@ func mongodb(config Config) *mongo.Database {
 	uri := config.MongoHost
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)	// set Stable API version to 1 (note: not necessary, but a good idea, requires MongoDB 5.0 or newer)
 	// note: for Disbatch, if the server API changes, the Perl MongoDB module will break, as it's older than 5.0
-	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
+	// note: SetMaxPoolSize(1) and SetServerMonitoringMode("poll") reduce the number of connections, useful when many very short tasks
+	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI).SetMaxPoolSize(1).SetServerMonitoringMode("poll")
 	if len(config.Auth) > 0 {
 		credential := options.Credential{
 			AuthMechanism: "PLAIN",
