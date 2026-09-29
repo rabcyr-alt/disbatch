@@ -28,10 +28,10 @@ import (
 var testingFlag *bool
 
 func main() {
-	/* to use logger before parsing the config file:
-	logger := logger(Config{})
-	*/
+	os.Exit(run())
+}
 
+func run() int {
 	taskID := flag.String("task", "", "The task's _id. Mandatory.")
 	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
@@ -42,11 +42,15 @@ func main() {
 	if *gfsFlag != "" {
 		// NOOP: might be passed but does not apply here
 	}
-	logger0 := logger(Config{})
+	err := logger(Config{})
+	if err != nil {
+		slog.Error(err.Error())
+		return 1
+	}
 	if *configFlag == "" {
-		logger0.Error("Config file must be passed with --config option")
+		slog.Error("Config file must be passed with --config option")
 		flag.Usage()
-		os.Exit(2)	// skips any deferred functions
+		return 1
 	}
 
 	byteValue, err := os.ReadFile(*configFlag)
@@ -59,12 +63,16 @@ func main() {
 		panic(err)
 	}
 
-	logger := logger(config)
+	err = logger(config)
+	if err != nil {
+		slog.Error(err.Error())
+		return 1
+	}
 
 	if *taskID == "" {
-		logger.Error("No --task")
+		slog.Error("No --task")
 		flag.Usage()
-		os.Exit(2)	// skips any deferred functions
+		return 1
 	}
 
 	node, err := os.Hostname()
@@ -84,9 +92,9 @@ func main() {
 
 	oid, err := bson.ObjectIDFromHex(*taskID)
 	if err != nil {
-		logger.Error(err.Error())
+		slog.Error(err.Error())
 		flag.Usage()
-		os.Exit(2)	// skips any deferred functions
+		return 1
 	}
 
 	// testing: delete and create if given the testing task id
@@ -116,11 +124,11 @@ func main() {
 	err = db.Collection("tasks").FindOneAndUpdate(context.TODO(), filter, update).Decode(&doc)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			logger.Error("Could not find and set task " + *taskID + " to status 0: " + err.Error());
-			os.Exit(2)	// skips any deferred functions
+			slog.Error("Could not find and set task " + *taskID + " to status 0: " + err.Error());
+			return 1
 		} else {
-			logger.Error("Could not find and set task " + *taskID + " to status 0: " + err.Error());
-			os.Exit(2)	// skips any deferred functions
+			slog.Error("Could not find and set task " + *taskID + " to status 0: " + err.Error());
+			return 1
 		}
 	}
 
@@ -156,7 +164,7 @@ func main() {
 	var run_status RunStatus				// NOTE: perl is `0` on success, hash on failure
 	var result bson.M						// NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
 	if errmsg != "" {
-		logger.Error(errmsg)
+		slog.Error(errmsg)
 		result = bson.M{ "status": 2, "stdout": "Unable to start", "stderr": errmsg }
 	} else {
 //		try {
@@ -210,7 +218,7 @@ func main() {
 				} else if args.Type == "mongo" {
 					_, err := db.Collection("results").DeleteOne(context.TODO(), bson.M{"_id": oid})	// FIXME: in perl, wrapped in `retry/catch`
 					if err != nil {
-						logger.Error("Error trying to delete any pre-existing result for "+*taskID+" in 'results' collection: " + err.Error())
+						slog.Error("Error trying to delete any pre-existing result for "+*taskID+" in 'results' collection: " + err.Error())
 						result = bson.M{"status": 2, "stderr": "Error trying to delete any pre-existing result for "+*taskID+" in 'results' collection: " + err.Error()}
 						goto Ran
 					}
@@ -227,19 +235,19 @@ func main() {
 				if err != nil {
 					if errors.Is(err, mongo.ErrNoDocuments) {
 						// FIXME: log $run_status
-						logger.Error("Handoff task "+*taskID+" on node "+node+" no longer exists!")
-						os.Exit(2)	// skips any deferred functions
+						slog.Error("Handoff task "+*taskID+" on node "+node+" no longer exists!")
+						return 1
 					}
 					// this really should not happen. log it and $run_status
-					logger.Error("Could not find handoff task "+*taskID+" to check status: " + err.Error())
+					slog.Error("Could not find handoff task "+*taskID+" to check status: " + err.Error())
 					if !run_status.Success {
 						var rs = bson.M{"error": run_status.Error}
 						if run_status.Exit != 0 {
 							rs["exit"] = run_status.Exit
 						}
-						logger.Error("Handoff plugin '$plugin' for task "+*taskID+" did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
+						slog.Error("Handoff plugin '$plugin' for task "+*taskID+" did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
 					} else {
-						logger.Error("Handoff plugin '$plugin' for task "+*taskID+" exited cleanly")
+						slog.Error("Handoff plugin '$plugin' for task "+*taskID+" exited cleanly")
 					}
 					task = bson.M{"status": 2 }	// will lead to exit below	FIXME: might erase stdout and stderr
 				}
@@ -252,7 +260,7 @@ func main() {
 						run_status.Exit = 0
 						run_status.Error = errmsg
 					}
-					logger.Error(errmsg)
+					slog.Error(errmsg)
 					var rs = bson.M{"error": run_status.Error}
 					if run_status.Exit != 0 {
 						rs["exit"] = run_status.Exit
@@ -268,7 +276,7 @@ func main() {
 						rs["exit"] = run_status.Exit
 					}
 					rsout,_ := json.Marshal(rs)
-					logger.Error("Handoff plugin '"+plugin.(string)+"' recorded status:1 for task "+*taskID+" but did not exit cleanly: " + string(rsout))
+					slog.Error("Handoff plugin '"+plugin.(string)+"' recorded status:1 for task "+*taskID+" but did not exit cleanly: " + string(rsout))
 					rs["stdout"] = task["stdout"]
 					rs["stderr"] = task["stderr"]
 					stdout,_ := json.Marshal(rs)
@@ -276,20 +284,20 @@ func main() {
 					// need to set status back to 0 for later code to work:
 					_, err := db.Collection("tasks").UpdateOne(context.TODO(), bson.M{"_id": oid, "status": 1, "node": node}, bson.M{"$set": bson.M{"status": 0}})	// FIXME: in perl, wrapped in `retry/catch`
 					if err != nil {
-						logger.Error("Could not update task "+*taskID+" status to 0 after non-clean exit: " + err.Error())
-						os.Exit(2)	// skips any deferred functions
+						slog.Error("Could not update task "+*taskID+" status to 0 after non-clean exit: " + err.Error())
+						return 1
 					}
 				} else {
-					os.Exit(0)	// skips any deferred functions
+					return 0
 				}
 			} else if args.Type == "mongo" {
 				err = db.Collection("results").FindOneAndDelete(context.TODO(), bson.M{"_id": oid}).Decode(&result)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 				if err != nil {
 					if err == mongo.ErrNoDocuments {
-						logger.Error("Task plugin '"+plugin.(string)+"' did not create a document in 'results' for task "+*taskID);
+						slog.Error("Task plugin '"+plugin.(string)+"' did not create a document in 'results' for task "+*taskID);
 						result = bson.M{"status": 2, "stderr": "Task plugin did not create a document in 'results' for task"}
 					} else {
-						logger.Error("Error trying to get result for "+*taskID+" in 'results' collection: " + err.Error())
+						slog.Error("Error trying to get result for "+*taskID+" in 'results' collection: " + err.Error())
 						result = bson.M{"status": 2, "stderr": "Error trying to get result for "+*taskID+" in 'results' collection: " + err.Error() }
 					}
 				}
@@ -298,13 +306,13 @@ func main() {
 				if err != nil {
 					// cannot read file
 					e := "Error reading task plugin '"+plugin.(string)+"' response file /tmp/"+*taskID+"-response.json: "+err.Error()
-					logger.Error(e)
+					slog.Error(e)
 					result = bson.M{"status": 2, "stderr": e}
 				} else {
 					err = json.Unmarshal(text, &result)
 					if err != nil {
 						// cannot parse json
-						logger.Error("Task plugin '"+plugin.(string)+"' saved non-json in file /tmp/"+*taskID+"-response.json")
+						slog.Error("Task plugin '"+plugin.(string)+"' saved non-json in file /tmp/"+*taskID+"-response.json")
 						result = bson.M{"status": 2, "stdout": text, "stderr": "Task plugin saved non-json in file /tmp/"+*taskID+"-response.json. See stdout for any content it may have set"}
 					}
 				}
@@ -319,7 +327,7 @@ func main() {
 				}
 			}
 //		} catch {
-//			logger.Error("Thread has uncaught exception: $_");
+//			slog.Error("Thread has uncaught exception: $_");
 //			$result = {status => 2, stdout => "Unable to complete", stderr => "Thread has uncaught exception: $_"};
 //		};
 
@@ -344,10 +352,10 @@ Ran:
 	} else {
 		s, ok := result["status"].(float64)
 		if !ok {
-			logger.Error("Task " + oid.String() + " returned unknown type '"+ fmt.Sprintf("%T",result["status"]) +"' as status: " + fmt.Sprintf("%#v", result["status"]))
+			slog.Error("Task " + oid.String() + " returned unknown type '"+ fmt.Sprintf("%T",result["status"]) +"' as status: " + fmt.Sprintf("%#v", result["status"]))
 			result["status"] = 2
 		} else if s != math.Trunc(s) {
-			logger.Error("Task " + oid.String() + " returned non-integer '"+ fmt.Sprintf("%T",result["status"]) +"' as status: " + fmt.Sprintf("%#v", result["status"]))
+			slog.Error("Task " + oid.String() + " returned non-integer '"+ fmt.Sprintf("%T",result["status"]) +"' as status: " + fmt.Sprintf("%#v", result["status"]))
 			result["status"] = 2
 		} else {
 			// it looks like an integer, so make it a proper int
@@ -355,7 +363,7 @@ Ran:
 		}
 	}
 	if result["status"].(int) < 1 {
-		logger.Error("Task " + oid.String() + " returned other than a positive integer as status: '"+ strconv.Itoa(result["status"].(int)) +"'")
+		slog.Error("Task " + oid.String() + " returned other than a positive integer as status: '"+ strconv.Itoa(result["status"].(int)) +"'")
 		result["status"] = 2
 	}
 	//$result->{status} += 0;		# force integer-as-string to integer	NOTE: nothing like this should be needed
@@ -370,16 +378,16 @@ Ran:
 			if run_status.Exit != 0 {
 				rs["exit"] = run_status.Exit
 			}
-			logger.Error("Plugin '$plugin' recorded status:1 for task "+*taskID+" but did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
+			slog.Error("Plugin '$plugin' recorded status:1 for task "+*taskID+" but did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
 			rs["stdout"] = result["stdout"]
 			rs["stderr"] = result["stderr"]
 			result = bson.M{"status": 2, "stdout": fmt.Sprintf("%#v\n", rs), "stderr": "Plugin recorded status:1 for task but did not exit cleanly. See stdout for any stdout or stderr it may have set"}
 		} else if run_status.Exit == 0 {
 			// critical failure, should log it
-			logger.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" had critical failure: ", "error", run_status.Error)
+			slog.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" had critical failure: ", "error", run_status.Error)
 		} else if run_status.Error != "" {
 			// killed by signal, should log it
-			logger.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" "+run_status.Error)
+			slog.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" "+run_status.Error)
 		} else {
 			// "normal" failure, don't care
 		}
@@ -389,7 +397,7 @@ Ran:
 	if result["status"] == 1 {
 		status = "succeeded"
 	}
-	logger.Info("Task "+*taskID+" " + status+".")
+	slog.Info("Task "+*taskID+" " + status+".")
 	if !*quietFlag {
 		fmt.Fprintf(os.Stderr, "STDOUT: %s\n", getStringOrNull(result, "stdout"))
 		fmt.Fprintf(os.Stderr, "STDERR: %s\n", getStringOrNull(result, "stderr"))
@@ -401,14 +409,14 @@ Ran:
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			// NOTE: i don't think mongo.ErrNoDocuments can happen via UpdateOne?
-			logger.Error("Could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion: " + err.Error());
-			os.Exit(2)	// skips any deferred functions
+			slog.Error("Could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion: " + err.Error());
+			return 1
 		} else {
-			logger.Error("Could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion: " + err.Error());
-			os.Exit(2)	// skips any deferred functions
+			slog.Error("Could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion: " + err.Error());
+			return 1
 		}
 	}
-	//logger.Info(fmt.Sprint(mresult))
+	//slog.Info(fmt.Sprint(mresult))
 
 	// set rest of result:
 	// GridFS: this prefers `stderr` as a string in the task document even when it's large, as on failures `stderr` is more likely needed to be parsed
@@ -427,7 +435,7 @@ Ran:
 			id, err := bucket.UploadFromStream(context.TODO(), field, strings.NewReader(result[field].(string)), uploadOpts)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 			// FIXME: on_retry would skip retrying if error matched /^MongoDB::DatabaseError: not authorized on /
 			if err != nil {
-				logger.Error("Could not create GridFS content for task "+oid.String()+" "+field+": " + err.Error())
+				slog.Error("Could not create GridFS content for task "+oid.String()+" "+field+": " + err.Error())
 				result[field] = nil
 			} else {
 				result[field] = id
@@ -441,14 +449,15 @@ Ran:
 	// FIXME: on_retry would do this, but i don't think it's necessary with gfs being automatic: $result->{stdout} = "$_" if $_->$_isa('MongoDB::DocumentError') or $_->$_isa('MongoDB::WriteError');
 	if err != nil {
 		db.Collection("tasks").UpdateOne(context.TODO(), filter, bson.M{"complete": false})
-		logger.Error("Could not update task " + *taskID + " stdout/stderr after completion: " + err.Error())
-		os.Exit(2)	// skips any deferred functions
+		slog.Error("Could not update task " + *taskID + " stdout/stderr after completion: " + err.Error())
+		return 1
 	}
-	//logger.Info(fmt.Sprint(mresult))
+	//slog.Info(fmt.Sprint(mresult))
 
 
 	//log.Printf("run_status=%#v, result=%v\n", run_status, result)
-	//logger.Info("END")
+	//slog.Info("END")
+	return 0
 }
 
 func mongodb(config Config) *mongo.Database {
@@ -528,7 +537,7 @@ type Config struct {
 	PluginRunner string               `json:"plugin_runner"`
 }
 
-func logger(config Config) *slog.Logger {
+func logger(config Config) error {
 	filename := "/var/log/disbatchd.log"
 	if fn, ok := config.Log4perl.Appenders["filelog"].Args["filename"].(string); ok {
 		filename = fn
@@ -539,7 +548,7 @@ func logger(config Config) *slog.Logger {
 
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatal(err)	// calls os.Exit, which skips any deferred functions
+		return err
 	}
 
 	multi := io.MultiWriter(os.Stderr, file)
@@ -559,7 +568,7 @@ func logger(config Config) *slog.Logger {
 	logger := slog.New(slog.NewTextHandler(multi, &slog.HandlerOptions{Level: level}))
 	slog.SetDefault(logger)
 
-	return logger
+	return nil
 }
 
 
