@@ -352,7 +352,7 @@ Ran:
 	// result from mongo gives `int32`, result from json gives `float64`
 	if s, ok := result["status"].(int32); ok {
 		result["status"] = int(s)
-	} else {
+	} else if _, ok := result["status"].(int); !ok {
 		s, ok := result["status"].(float64)
 		if !ok {
 			slog.Error("Task " + oid.String() + " returned unknown type '"+ fmt.Sprintf("%T",result["status"]) +"' as status: " + fmt.Sprintf("%#v", result["status"]))
