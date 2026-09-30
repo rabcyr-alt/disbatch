@@ -16,7 +16,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -169,7 +168,8 @@ func run() int {
 		}
 	}
 
-	var run_status RunStatus				// NOTE: perl is `0` on success, hash on failure
+	var exit int
+	var cerr error
 	var result bson.M						// NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
 	if errmsg != "" {
 		slog.Error(errmsg)
@@ -240,56 +240,42 @@ func run() int {
 				}
 			}
 
-			status := run_command(plugin.(string), cargs)
-			// `0` on success, hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
-			run_status = parseStatus(status)
+			exit, cerr = runCommand(plugin.(string), cargs)	// 0 on success, err != nil on failure
 
 			if args.Type == "handoff" {
 				var task bson.M
 				err := db.Collection("tasks").FindOne(context.TODO(), bson.M{"_id": oid, "node": node}).Decode(&task)	// FIXME: in perl, wrapped in `retry/catch`
 				if err != nil {
 					if errors.Is(err, mongo.ErrNoDocuments) {
-						// FIXME: log $run_status
+						// FIXME: log exit,cerr
 						slog.Error("Handoff task "+*taskID+" on node "+node+" no longer exists!")
 						return 1
 					}
-					// this really should not happen. log it and $run_status
+					// this really should not happen. log it and exit,cerr
 					slog.Error("Could not find handoff task "+*taskID+" to check status: " + err.Error())
-					if !run_status.Success {
-						var rs = bson.M{"error": run_status.Error}
-						if run_status.Exit != 0 {
-							rs["exit"] = run_status.Exit
-						}
-						slog.Error("Handoff plugin '$plugin' for task "+*taskID+" did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
+					if cerr != nil {
+						var rs = bson.M{"exit": exit, "error": cerr.Error()}
+						slog.Error("Handoff plugin '"+plugin.(string)+"' for task "+*taskID+" did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
 					} else {
-						slog.Error("Handoff plugin '$plugin' for task "+*taskID+" exited cleanly")
+						slog.Error("Handoff plugin '"+plugin.(string)+"' for task "+*taskID+" exited cleanly")
 					}
 					task = bson.M{"status": 2 }	// will lead to exit below	FIXME: might erase stdout and stderr
 				}
 				if task["status"] == int32(0) {
 					errmsg = "Task "+*taskID+" handoff did not update status"
-					if run_status.Success {
+					if cerr == nil {
 						// wtf, returned success
 						errmsg += " yet returned success"
-						run_status.Success = false
-						run_status.Exit = 0
-						run_status.Error = errmsg
 					}
 					slog.Error(errmsg)
-					var rs = bson.M{"error": run_status.Error}
-					if run_status.Exit != 0 {
-						rs["exit"] = run_status.Exit
-					}
+					var rs = bson.M{"exit": exit, "error": errmsg}	// FIXME: cerr value currently ignored
 					rs["stdout"] = task["stdout"]
 					rs["stderr"] = task["stderr"]
 					stdout,_ := json.Marshal(rs)	// json.Marshal returns a []byte, not a string. wrap `stdout`: `string(stdout)`
 					result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "Task handoff did not update status. See stdout for any stdout or stderr it may have set"}
-				} else if task["status"] == int32(1) && !run_status.Success {
-					// bad for task status to be 1 but $plugin exit code to be non-0, make it a failure
-					var rs = bson.M{"error": run_status.Error}
-					if run_status.Exit != 0 {
-						rs["exit"] = run_status.Exit
-					}
+				} else if task["status"] == int32(1) && cerr != nil {
+					// bad for task status to be 1 but plugin exit code to be non-0, make it a failure
+					var rs = bson.M{"exit": exit, "error": cerr.Error()}
 					rsout,_ := json.Marshal(rs)
 					slog.Error("Handoff plugin '"+plugin.(string)+"' recorded status:1 for task "+*taskID+" but did not exit cleanly: " + string(rsout))
 					rs["stdout"] = task["stdout"]
@@ -383,29 +369,23 @@ Ran:
 		slog.Error("Task " + oid.String() + " returned other than a positive integer as status: '"+ strconv.Itoa(result["status"].(int)) +"'")
 		result["status"] = 2
 	}
-	//$result->{status} += 0;		# force integer-as-string to integer	NOTE: nothing like this should be needed
 
-	// perl: hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
-	// RunStatus: success => Success=true, died => Error != "", killed => Error != "" and Exit != 0, plan failure => Exit != 0
-	if !run_status.Success && args.Type != "handoff" {
-		// note: already handled $run_status for 'handoff'
+	if cerr != nil && args.Type != "handoff" {
+		// note: already handled exit,cerr for "handoff"
 		if result["status"].(int) == 1 {
-			// bad for result status to be 1 but $plugin exit code to be non-0, make it a failure
-			var rs = bson.M{"error": run_status.Error}
-			if run_status.Exit != 0 {
-				rs["exit"] = run_status.Exit
-			}
-			slog.Error("Plugin '$plugin' recorded status:1 for task "+*taskID+" but did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
+			// bad for result status to be 1 but plugin exit code to be non-0, make it a failure
+			var rs = bson.M{"exit": exit, "error": cerr.Error()}
+			slog.Error("Plugin '"+plugin.(string)+"' recorded status:1 for task "+*taskID+" but did not exit cleanly: " + fmt.Sprintf("%#v\n", rs))
 			rs["stdout"] = result["stdout"]
 			rs["stderr"] = result["stderr"]
 			result = bson.M{"status": 2, "stdout": fmt.Sprintf("%#v\n", rs), "stderr": "Plugin recorded status:1 for task but did not exit cleanly. See stdout for any stdout or stderr it may have set"}
-		} else if run_status.Exit == 0 {
-			// critical failure, should log it
-			slog.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" had critical failure: ", "error", run_status.Error)
-		} else if run_status.Error != "" {
+		} else if exit < -1 {
+			// critical failure, should log it: -3 means start failed, -2 means wait failed (not sure how)
+			slog.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" had critical failure: ", "error", cerr.Error())
+		} else if exit == -1 {
 			// killed by signal, should log it
-			slog.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" "+run_status.Error)
-		} else {
+			slog.Error("Plugin '"+plugin.(string)+"' for task "+*taskID+" "+cerr.Error())
+		} else {	// exit > 0
 			// "normal" failure, don't care
 		}
 	}
@@ -588,84 +568,27 @@ func logger(config Config) error {
 	return nil
 }
 
-
-// perl: returns $status (0 on success) or { died => $_ }
-func run_command(command string, args []string) Status {
+// return value is exit code, error. exit code is 0 and error is nil on success.
+// exit code -3 means start failed, -2 means wait failed (not sure how), -1 means killed, + is whatever command exited with
+func runCommand(command string, args []string) (int, error) {
 	cmd := exec.Command(command, args...)
-	var status Status
-	// send output to STDOUT and STDERR
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err := cmd.Start()
-	if err != nil {
-		status.Died = err.Error()
-	} else {
-		fmt.Printf("Process.Pid: %v\n", cmd.Process.Pid)
-		err = cmd.Wait()
-		var ee *exec.ExitError
-		if err != nil && !errors.As(err, &ee) {
-			// something really bad happened (not just an exit code nor the process being killed)
-			bad := fmt.Errorf("%w", err)
-			fmt.Printf("something really bad happened: %s\n", bad)
-			status.Died = bad.Error()
-		} else if cmd.ProcessState.Success() {
-			status.Success = true
-		} else if cmd.ProcessState.ExitCode() == -1 {
-			status.Status = -1
-		} else {
-			ws, ok := cmd.ProcessState.Sys().(syscall.WaitStatus)
-			if ok {
-				status.Status = int(ws)	// like perl `$?`. breaks on windows, don't care
-				if ws.CoreDump() {
-					// do we care? i think `int(ws)` captures it
-				}
-			}
-		}
+	if err := cmd.Start(); err != nil {
+		return -3, err
 	}
-	return status
-}
-
-/*
-var status Status
-status.Success = true	//    0: status.Status = 0, status.Died = ""
-status.Status = 129		//  129: status.Success = false, status.Died = ""
-status.Died = err		// died: status.Status = 0, status.Success = false
-*/
-// Status 0 could also mean died, hence Success
-type Status struct {
-	Status     int
-	Success    bool
-	Died       string
-}
-
-type RunStatus struct {
-	Success    bool
-	Exit       int
-	Error      string
-}
-
-// Status: success => Success=true, died => Died != "", failed => Status != 0
-// perl: `0` on success, hash on failure: keys `exit` (integer, or undef on critical failure) and `error` (string) if critical failure or killed by signal
-// RunStatus: success => Success=true, died => Error != "", killed => Error != "" and Exit != 0, plan failure => Exit != 0
-func parseStatus(status Status) RunStatus {
-	var runStatus RunStatus
-	if status.Success {
-		runStatus.Success = true
-	} else if status.Died != "" {
-		runStatus.Error = "died with: " + strings.TrimRight(status.Died, "\n")
-	} else if status.Status == -1 {
-		runStatus.Error = "could not reap child: $!"	// FIXME: `$!` is a perlvar
-	} else if sig := status.Status & 127; sig != 0 {
-		runStatus.Exit = 128 + sig
-		tail := ""
-		if status.Status & 128 != 0 {
-			tail = " (core dumped)"
-		}
-		runStatus.Error = fmt.Sprintf("killed by signal %d%s", sig, tail)
-	} else {
-		runStatus.Exit = status.Status >> 8
+	slog.Info("started sub-process", "pid", cmd.Process.Pid)
+	err := cmd.Wait()
+	if err == nil {
+		return 0, nil
 	}
-	return runStatus
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		// "signal: terminated", "exit status 255", etc
+		return cmd.ProcessState.ExitCode(), err
+	}
+	slog.Error("something really bad happened", "err", err)
+	return -2, err
 }
 
 func getStringOrNull(m bson.M, key string) string {
