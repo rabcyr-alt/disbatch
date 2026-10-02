@@ -17,6 +17,9 @@ use Safe::Isa;
 use Symbol 'gensym';
 use Sys::Hostname;
 
+use lib '.';
+use ParamsResult;
+
 $| = 1;
 
 my ($task_file, $config_file);
@@ -38,28 +41,19 @@ my $mongo = mongo($config, 'task_runner') if defined $config;
 
 my $doc = $json->decode(scalar read_file $task_file);
 
-my $result = {};	# { status => 1, stdout => 'success', stderr => '' };
-# set status, stdout, and stderr via $doc->{params}
-for my $param (keys %{$doc->{params}}) {
-    # TEST ideas:
-    # * status of [1,"1",2,3,44,undef,0,-9,"fizz",{},[],'{"json":"true"}']
-    # * stdout and stderr of: undef,-1,'',{hash: [1,2,'hi']},[1,2,'hi',{hash:1}]	NOTE: should be strings, encode_utf8() is called on these
-    # * large_stdout and large_stderr of 1024*1024*1,1024*1024*7,1024*1024*8,1024*1024*14,1024*1024*15,1024*1024*16
-    # copy matching params to $result
-    if (grep {$_ eq $param} qw/status stdout stderr/) {
-        $result->{$param} = $doc->{params}{$param};
-    }
-    # make large stdout and stderr
-    if ($param eq 'large_stdout') {
-        # value is size in bytes. max size without gfs kicking in is 1024*1024*15 each and total
-        $result->{stdout} = 'x' x $doc->{params}{$param};
-    } elsif ($param eq 'large_stderr') {
-        # value is size in bytes. max size without gfs kicking in is 1024*1024*15 each and total
-        $result->{stderr} = 'x' x $doc->{params}{$param};
-    }
-}
+my ($result, $extra) = ParamsResult::params2result($doc->{params});
 
 write_file $out_file, $json->encode($result);
+
+for my $key (keys %$extra) {
+    if ($key eq 'kill') {
+        `kill -$extra->{$key} $$`;
+    } elsif ($key eq 'die') {
+        die $extra->{$key};
+    } elsif ($key eq 'exit') {
+        exit $extra->{$key};
+    }
+}
 
 sub mongo {
     my ($config, $class) = @_;
