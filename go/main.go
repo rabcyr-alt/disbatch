@@ -272,8 +272,8 @@ func run() int {
 				// `task` has current `node` and `mtime`; `status` from mongo is type `int32`
 				if status, ok := task["status"].(int32); !ok {
 					// bad plugin! status not int32. make it a failure
-					slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned unknown type '"+ fmt.Sprintf("%T",result["status"]) +"' for status", "status", result["status"], "exit", exit, "error", cerr)
-					var rs = bson.M{"status": fmt.Sprintf("%#v", result["status"]), "stdout": task["stdout"], "stderr": task["stderr"]}
+					slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned unknown type '"+ fmt.Sprintf("%T",task["status"]) +"' for status", "status", task["status"], "exit", exit, "error", cerr)
+					var rs = bson.M{"status": fmt.Sprintf("%#v", task["status"]), "stdout": task["stdout"], "stderr": task["stderr"]}
 					stdout,_ := json.Marshal(rs)
 					result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned unknown type for status (see stdout for status and any stdout or stderr it may have set)"}
 				} else if status == 0 {
