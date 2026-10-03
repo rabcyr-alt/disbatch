@@ -267,7 +267,7 @@ func run() int {
 					} else {
 						slog.Error("unknown issue querying for handoff task "+*taskID+" to validate status", "err", err, "exit", exit, "error", cerr)
 					}
-					return 1	// FIXME: return exit if not 0?
+					return 1
 				}
 				// `task` has current `node` and `mtime`; `status` from mongo is type `int32`
 				if status, ok := task["status"].(int32); !ok {
@@ -300,7 +300,7 @@ func run() int {
 					}
 					// log that even though the handoff plugin set a proper failure status, it did not exit cleanly (and then also don't exist cleanly)
 					slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned status>1 but did not exit cleanly", "status", status, "exit", exit, "error", cerr)
-					return 1	// FIXME: return exit if not 0?
+					return 1
 				} else {
 					// bad plugin! status < 0. make it a failure
 					slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" has negative status", "status", status, "exit", exit, "error", cerr)
@@ -393,7 +393,7 @@ Ran:
 		fmt.Fprintf(os.Stderr, "STDERR: %s\n", getStringOrNull(result, "stderr"))
 	}
 	// set status first:
-	update = bson.M{"$set": bson.M{"status": result["status"]}}	// FIXME: change `result["status"]` to `result["status"].(int)`? but it seems to work as-is, and better a wrong value happen than a failure
+	update = bson.M{"$set": bson.M{"status": result["status"]}}
 	res, err := db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 	if err != nil {
 		slog.Error("could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion", "error", err)
