@@ -249,18 +249,18 @@ func run() int {
 				// if exit > 0, then perhaps saved perhaps not (a task should not exit non-zero when the task fails–it should set status to 2)
 				slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" did not exit cleanly", "exit", exit, "error", cerr)
 
-				// put `exit` and `cerr` into the task doc
-				_, err := db.Collection("tasks").UpdateOne(context.TODO(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"exit": exit, "error": fmt.Sprintf("%#v",cerr)}})	// FIXME: in perl, wrapped in `retry/catch`
-				if err != nil {
-					if errors.Is(err, mongo.ErrNoDocuments) {
-						slog.Error(args.Type+" task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set 'exit' and 'error' after non-clean exit")
-					} else {
-						slog.Error("Unknown issue updating "+args.Type+" task "+*taskID+" to set 'exit' and 'error' after non-clean exit", "error", err)
-					}
-				}
 			} else {
 				// exit is 0, no error
 				slog.Info(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" exited cleanly")
+			}
+			// put `exit` and `cerr` into the task doc
+			_, err := db.Collection("tasks").UpdateOne(context.TODO(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"exit": exit, "error": fmt.Sprintf("%#v",cerr)}})	// FIXME: in perl, wrapped in `retry/catch`
+			if err != nil {
+				if errors.Is(err, mongo.ErrNoDocuments) {
+					slog.Error(args.Type+" task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set 'exit' and 'error' after non-clean exit")
+				} else {
+					slog.Error("Unknown issue updating "+args.Type+" task "+*taskID+" to set 'exit' and 'error' after non-clean exit", "error", err)
+				}
 			}
 
 			if args.Type == "handoff" {
