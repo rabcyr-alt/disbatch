@@ -254,13 +254,11 @@ func run() int {
 				slog.Info(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" exited cleanly")
 			}
 			// put `exit` and `cerr` into the task doc
-			_, err := db.Collection("tasks").UpdateOne(context.TODO(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"exit": exit, "error": fmt.Sprintf("%#v",cerr)}})	// FIXME: in perl, wrapped in `retry/catch`
+			res, err := db.Collection("tasks").UpdateOne(context.TODO(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"exit": exit, "error": fmt.Sprintf("%#v",cerr)}})	// FIXME: in perl, wrapped in `retry/catch`
 			if err != nil {
-				if errors.Is(err, mongo.ErrNoDocuments) {
-					slog.Error(args.Type+" task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set 'exit' and 'error' after non-clean exit")
-				} else {
-					slog.Error("Unknown issue updating "+args.Type+" task "+*taskID+" to set 'exit' and 'error' after non-clean exit", "error", err)
-				}
+				slog.Error("Unknown issue updating "+args.Type+" task "+*taskID+" to set 'exit' and 'error' after non-clean exit", "error", err)
+			} else if res.MatchedCount == 0 {
+				slog.Error(args.Type+" task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set 'exit' and 'error' after non-clean exit")
 			}
 
 			if args.Type == "handoff" {
@@ -399,16 +397,13 @@ Ran:
 	}
 	// set status first:
 	update = bson.M{"$set": bson.M{"status": result["status"]}}	// FIXME: change `result["status"]` to `result["status"].(int)`? but it seems to work as-is, and better a wrong value happen than a failure
-	_, err = db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
+	res, err := db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			// NOTE: i don't think mongo.ErrNoDocuments can happen via UpdateOne?
-			slog.Error("Could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion: " + err.Error());
-			return 1
-		} else {
-			slog.Error("Could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion: " + err.Error());
-			return 1
-		}
+		slog.Error("Could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion: " + err.Error())
+		return 1
+	} else if res.MatchedCount == 0 {
+		slog.Error(args.Type+" task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set status to "+strconv.Itoa(result["status"].(int))+" after completion")
+		return 1
 	}
 	//slog.Info(fmt.Sprint(mresult))
 
@@ -439,11 +434,14 @@ Ran:
 
 	filter = bson.M{"_id": oid, "status": result["status"], "node": node, "mtime": doc["mtime"]}
 	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
-	_, err = db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
+	res, err = db.Collection("tasks").UpdateOne(context.TODO(), filter, update)	// FIXME: in perl, wrapped in `retry/catch` (try 10 times with exponential backoff, with a random delay up to 100 milliseconds)
 	// FIXME: on_retry would do this, but i don't think it's necessary with gfs being automatic: $result->{stdout} = "$_" if $_->$_isa('MongoDB::DocumentError') or $_->$_isa('MongoDB::WriteError');
 	if err != nil {
 		db.Collection("tasks").UpdateOne(context.TODO(), filter, bson.M{"complete": false})
 		slog.Error("Could not update task " + *taskID + " stdout/stderr after completion: " + err.Error())
+		return 1
+	} else if res.MatchedCount == 0 {
+		slog.Error("Could not find task " + *taskID + " to update stdout/stderr after completion")
 		return 1
 	}
 	//slog.Info(fmt.Sprint(mresult))
