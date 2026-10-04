@@ -443,8 +443,6 @@ Ran:
 // if a string and it can be parsed into a `float64`, it will be
 // `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one, otherwise returns an error
 func mungeStatus(rstatus any) (int, error) {
-	var status int
-	var err error
 	// if rstatus is `string`, try to turn it into `float64`.  NOTE: do we even want to force a string to an integer?
 	if str, ok := rstatus.(string); ok {
 		f, err := strconv.ParseFloat(str, 64)
@@ -452,6 +450,8 @@ func mungeStatus(rstatus any) (int, error) {
 			rstatus = f
 		}
 	}
+	var status int
+	var err error
 	// result from mongo gives `int32`, result from json gives `float64`
 	if s, ok := rstatus.(int32); ok {
 		status = int(s)
