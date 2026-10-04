@@ -344,9 +344,8 @@ func run() int {
 		}
 
 		if args.Type != "handoff" {
-			result["status"], err = mungeStatus(result["status"])	// result["status"] now `int`
+			status, err := mungeStatus(result["status"])	// status is `int`
 			if err != nil {
-				// result["status"] now nil, i think
 				// err may be UnknownStatusError or NonIntegerStatusError, has `Status` of original result["status"]
 				// string value is "unknown type '%T' for status: %#v" or "non-integer '%T' for status: %#v"
 				slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned " + err.Error(), "exit", exit, "error", cerr)
@@ -358,17 +357,19 @@ func run() int {
 					stderr = "plugin returned non-integer for status (see stdout for status and any stdout or stderr it may have set)"
 				}
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": stderr}
-			} else if result["status"].(int) < 1 {
+			} else if status < 1 {
 				slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned other than a positive integer for status", "status", result["status"], "exit", exit, "error", cerr)
 				var rs = bson.M{"status": result["status"], "stdout": result["stdout"], "stderr": result["stderr"]}
 				stdout,_ := json.Marshal(rs)
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned other than a positive integer for status (see stdout for status and any stdout or stderr it may have set)"}
-			} else if result["status"] == 1 && cerr != nil {
+			} else if status == 1 && cerr != nil {
 				// bad for result status to be 1 but plugin exit code to be non-0, make it a failure
 				slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned status:1 but did not exit cleanly", "exit", exit, "error", cerr)
 				var rs = bson.M{"stdout": result["stdout"], "stderr": result["stderr"]}
 				stdout,_ := json.Marshal(rs)
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned status:1 but did not exit cleanly (see stdout for any stdout or stderr it may have set)"}
+			} else {
+				result["status"] = status
 			}
 		}
 	}
