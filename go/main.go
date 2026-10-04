@@ -122,7 +122,7 @@ func run() int {
 		}
 	}
 
-	filter := bson.M{"_id": oid, "status": -1, "node": node}		// bson.D{{"_id", oid}}
+	filter := bson.M{"_id": oid, "status": -1, "node": node}
 	update := bson.M{"$set": bson.M{"status": 0}}
 	var doc bson.M
 	err = db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&doc)
@@ -144,7 +144,6 @@ func run() int {
 	err = db.Collection("queues").FindOne(context.Background(), bson.M{"_id": doc["queue"]}).Decode(&queue)
 	// NOTE: `queue` may be `{}`
 	plugin := queue["plugin"]	// NOTE: may be `nil`
-//plugin = "/root/git/disbatch/t/task-nomongo.pl"
 
 	var errmsg string
 	var args Plugin
@@ -153,7 +152,7 @@ func run() int {
 	} else {
 		args = config.Plugins[plugin.(string)]
 		if args.IsModule {
-			args.Type = "handoff"	// was "module"
+			args.Type = "handoff"	// was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
 			plugin = config.PluginRunner
 		}
 		// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` here when `args.IsModule`
@@ -169,7 +168,7 @@ func run() int {
 
 	var exit int
 	var cerr error
-	var result bson.M						// NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
+	var result bson.M	// NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
 	if errmsg != "" {
 		slog.Error(errmsg)
 		result = bson.M{ "status": 2, "stdout": "Unable to start", "stderr": errmsg }
@@ -196,13 +195,13 @@ func run() int {
 				result = bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
 				goto Ran
 			}
-			err = os.Remove("/tmp/"+*taskID+".json")	// these shouldn't exist, but in case they do
+			err = os.Remove("/tmp/"+*taskID+".json")	// this shouldn't exist, but in case it does
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				slog.Error("could not remove old task file /tmp/"+*taskID+".json", "error", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
 				goto Ran
 			}
-			err = os.Remove("/tmp/"+*taskID+"-response.json")	// these shouldn't exist, but in case they do
+			err = os.Remove("/tmp/"+*taskID+"-response.json")	// this shouldn't exist, but in case it does
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				slog.Error("could not remove old reponse file /tmp/"+*taskID+"-response.json", "error", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old reponse file: " + err.Error()}
@@ -267,7 +266,7 @@ func run() int {
 				}
 				return 1
 			}
-			// `task` has current `node` and `mtime`; `status` from mongo is type `int32`
+			// `status` from mongo is type `int32`
 			if status, ok := task["status"].(int32); !ok {
 				// bad plugin! status not int32. make it a failure
 				slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned unknown type '"+ fmt.Sprintf("%T",task["status"]) +"' for status", "status", task["status"], "exit", exit, "error", cerr)
@@ -290,7 +289,6 @@ func run() int {
 				stdout,_ := json.Marshal(rs)
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned status:1 but did not exit cleanly (see stdout for any stdout or stderr it may have set)"}
 				filter = bson.M{"_id": oid, "status": 1, "node": node, "mtime": doc["mtime"]}	// filter for set status, need to query on status:1
-				// NOTE: we set `result`: do not return!
 			} else if status > int32(1) {
 				// good: task failed.
 				if cerr != nil {
@@ -319,13 +317,11 @@ func run() int {
 		} else {	// args.Type == "default" || args.Type == "nomongo"
 			text, err := os.ReadFile("/tmp/"+*taskID+"-response.json")
 			if err != nil {
-				// cannot read file
 				slog.Error("could not read task plugin '"+plugin.(string)+"' response file /tmp/"+*taskID+"-response.json", "err", err, "exit", exit, "error", cerr)
 				result = bson.M{"status": 2, "stderr": "could not read task plugin response file: "+err.Error()}
 			} else {
 				err = json.Unmarshal(text, &result)
 				if err != nil {
-					// cannot parse json
 					slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" saved non-json in response file /tmp/"+*taskID+"-response.json", "exit", exit, "error", cerr)
 					result = bson.M{"status": 2, "stdout": text, "stderr": "plugin saved non-json in response file (see stdout for any content it may have set)"}
 				}
@@ -394,7 +390,6 @@ Ran:
 		slog.Error("task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set status to "+strconv.Itoa(result["status"].(int))+" after completion")
 		return 1
 	}
-	//slog.Info(fmt.Sprint(mresult))
 
 	// set rest of result:
 	// GridFS: this prefers `stderr` as a string in the task document even when it's large, as on failures `stderr` is more likely needed to be parsed
@@ -433,27 +428,19 @@ Ran:
 		slog.Error("could not find task " + *taskID + " to update stdout/stderr after completion")
 		return 1
 	}
-	//slog.Info(fmt.Sprint(mresult))
 
-
-	//log.Printf("run_status=%#v, result=%v\n", run_status, result)
-	//slog.Info("END")
 	return 0
 }
 
 // if a string and it can be parsed into a `float64`, it will be
-// `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one
+// `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one, otherwise returns an error
 func mungeStatus(rstatus any) (int, error) {
 	var status int
 	var err error
-	// verify $result is a HASH and $result->{status} is a postive integer, and if not fail task
-	// note: result has to be bson.M
+	// if rstatus is `string`, try to turn it into `float64`.  NOTE: do we even want to force a string to an integer?
 	if str, ok := rstatus.(string); ok {
-		// NOTE: do we even want to force a string to an integer?
-		// rstatus is a string, let's see if it looks like a number
 		f, err := strconv.ParseFloat(str, 64)
 		if err == nil {
-			// yes, looks like a number
 			rstatus = f
 		}
 	}
@@ -516,8 +503,6 @@ func mongodb(config Config) (*mongo.Database, error) {
 	if err := client.Database("admin").RunCommand(context.Background(), bson.D{{"ping", 1}}).Decode(&res); err != nil {
 		return nil, err
 	}
-//	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
-//	fmt.Println(res)
 
 	return client.Database(config.Database), nil
 }
