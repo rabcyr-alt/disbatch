@@ -293,12 +293,11 @@ func run() int {
 				// NOTE: we set `result`: do not return!
 			} else if status > int32(1) {
 				// good: task failed.
-				if cerr == nil {
-					return 0
+				if cerr != nil {
+					// log that even though the handoff plugin set a proper failure status, it did not exit cleanly
+					slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned status>1 but did not exit cleanly", "status", status, "exit", exit, "error", cerr)
 				}
-				// log that even though the handoff plugin set a proper failure status, it did not exit cleanly (and then also don't exist cleanly)
-				slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" returned status>1 but did not exit cleanly", "status", status, "exit", exit, "error", cerr)
-				return 1
+				return 0
 			} else {
 				// bad plugin! status < 0. make it a failure
 				slog.Error(args.Type+" plugin '"+plugin.(string)+"' for task "+*taskID+" has negative status", "status", status, "exit", exit, "error", cerr)
