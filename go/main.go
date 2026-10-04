@@ -426,7 +426,7 @@ Ran:
 	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
 	res, err = db.Collection("tasks").UpdateOne(context.Background(), filter, update)
 	if err != nil {
-		db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"complete": false})
+		db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set":bson.M{"complete": false}})
 		slog.Error("could not update task " + *taskID + " stdout/stderr after completion", "error", err)
 		return 1
 	} else if res.MatchedCount == 0 {
