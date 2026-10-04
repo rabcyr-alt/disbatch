@@ -335,15 +335,11 @@ func run() int {
 				}
 			}
 			// remove temp files
-			os.Remove("/tmp/"+*taskID+".json")
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				// don't need to fail the task, but wtf
-				slog.Error("could not remove file /tmp/"+*taskID+".json (continuing)", "error", err)
+			if err = os.Remove("/tmp/"+*taskID+".json"); err != nil && !errors.Is(err, os.ErrNotExist) {
+				slog.Error("could not remove file /tmp/"+*taskID+".json (continuing)", "error", err)	// don't need to fail the task, but wtf
 			}
-			os.Remove("/tmp/"+*taskID+"-response.json")
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				// don't need to fail the task, but wtf
-				slog.Error("could not remove file /tmp/"+*taskID+"-response.json (continuing)", "error", err)
+			if err = os.Remove("/tmp/"+*taskID+"-response.json"); err != nil && !errors.Is(err, os.ErrNotExist) {
+				slog.Error("could not remove file /tmp/"+*taskID+"-response.json (continuing)", "error", err)	// don't need to fail the task, but wtf
 			}
 		}
 
