@@ -324,7 +324,7 @@ func run() int {
 
 		if args.Type != "handoff" {
 			var status int
-			if status, err = mungeStatus(result["status"]); err != nil {
+			if status, err = normalizeStatus(result["status"]); err != nil {
 				// err may be UnknownStatusError or NonIntegerStatusError, has `Status` of original result["status"]
 				// string value is "unknown type '%T' for status: %#v" or "non-integer '%T' for status: %#v"
 				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" returned " + err.Error(), "cmdExit", cmdExit, "cmdErr", cmdErr)	// `err.Error()` intentional
@@ -413,15 +413,8 @@ Ran:
 	return 0
 }
 
-// if a string and it can be parsed into a `float64`, it will be
 // `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one, otherwise returns an error
-func mungeStatus(rstatus any) (int, error) {
-	// if rstatus is `string`, try to turn it into `float64`.  NOTE: do we even want to force a string to an integer?
-	if str, ok := rstatus.(string); ok {
-		if f, err := strconv.ParseFloat(str, 64); err == nil {
-			rstatus = f
-		}
-	}
+func normalizeStatus(rstatus any) (int, error) {
 	var status int
 	var err error
 	// result from mongo gives `int32`, result from json gives `float64`
