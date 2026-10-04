@@ -360,8 +360,8 @@ Ran:
 	}
 	slog.Info("Task "+*taskID+" " + status+".")
 	if !*quietFlag {
-		fmt.Fprintf(os.Stderr, "STDOUT: %s\n", getStringOrNull(result, "stdout"))
-		fmt.Fprintf(os.Stderr, "STDERR: %s\n", getStringOrNull(result, "stderr"))
+		fmt.Fprintf(os.Stderr, "STDOUT: %v\n", result["stdout"])
+		fmt.Fprintf(os.Stderr, "STDERR: %v\n", result["stderr"])
 	}
 	// set status first:
 	update = bson.M{"$set": bson.M{"status": result["status"]}}
@@ -580,15 +580,4 @@ func runCommand(command string, args []string) (int, error) {
 	}
 	slog.Error("something really bad happened", "err", err)
 	return -2, err
-}
-
-func getStringOrNull(m bson.M, key string) string {
-	switch v := m[key].(type) {
-	case nil:
-		return "null"
-	case string:
-		return strings.TrimRight(v, "\n")
-	default:
-		return fmt.Sprint(v)	// stringify like perl
-	}
 }
