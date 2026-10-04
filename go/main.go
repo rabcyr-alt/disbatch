@@ -90,7 +90,7 @@ func run() int {
 
 	oid, err := bson.ObjectIDFromHex(*taskID)
 	if err != nil {
-		slog.Error("value for --task invalid", "taskID", *taskID, "error", err)
+		slog.Error("value for --task invalid", "taskID", *taskID, "err", err)
 		return 1
 	}
 
@@ -120,7 +120,7 @@ func run() int {
 			slog.Error("could not find task " + *taskID + " on node "+node+" to set status 0")
 			return 1
 		} else {
-			slog.Error("could not find and set task " + *taskID + " to status 0", "error", err)
+			slog.Error("could not find and set task " + *taskID + " to status 0", "err", err)
 			return 1
 		}
 	}
@@ -186,22 +186,22 @@ func run() int {
 		if args.Type == "default" || args.Type == "nomongo" {
 			var jsonTask []byte
 			if jsonTask, err = json.Marshal(doc); err != nil {
-				slog.Error("could not create json from task doc for "+*taskID, "error", err)
+				slog.Error("could not create json from task doc for "+*taskID, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
 				goto Ran
 			}
 			if err = os.Remove("/tmp/"+*taskID+".json"); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
-				slog.Error("could not remove old task file /tmp/"+*taskID+".json", "error", err)
+				slog.Error("could not remove old task file /tmp/"+*taskID+".json", "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
 				goto Ran
 			}
 			if err = os.Remove("/tmp/"+*taskID+"-response.json"); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
-				slog.Error("could not remove old reponse file /tmp/"+*taskID+"-response.json", "error", err)
+				slog.Error("could not remove old reponse file /tmp/"+*taskID+"-response.json", "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old reponse file: " + err.Error()}
 				goto Ran
 			}
 			if err = os.WriteFile("/tmp/"+*taskID+".json", jsonTask, 0600); err != nil {
-				slog.Error("could not create task file /tmp/"+*taskID+".json", "error", err)
+				slog.Error("could not create task file /tmp/"+*taskID+".json", "err", err)
 				result = bson.M{"status": 2, "stderr": "could not create task file: " + err.Error()}
 				goto Ran
 			}
@@ -220,7 +220,7 @@ func run() int {
 				}
 			} else if args.Type == "mongo" {
 				if _, err = db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": oid}); err != nil {
-					slog.Error("could not delete any pre-existing result for task "+*taskID+" in 'results' collection", "error", err)
+					slog.Error("could not delete any pre-existing result for task "+*taskID+" in 'results' collection", "err", err)
 					result = bson.M{"status": 2, "stderr": "could not delete any pre-existing result for task in 'results' collection: " + err.Error()}
 					goto Ran
 				}
@@ -240,7 +240,7 @@ func run() int {
 		// put `cmdExit` and `cmdErr` into the task doc
 		var res *mongo.UpdateResult
 		if res, err = db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%#v",cmdErr)}}); err != nil {
-			slog.Error("unknown issue updating "+args.Type+" task "+*taskID+" to set 'exit' and 'error' after non-clean exit", "error", err)
+			slog.Error("unknown issue updating "+args.Type+" task "+*taskID+" to set 'exit' and 'error' after non-clean exit", "err", err)
 		} else if res.MatchedCount == 0 {
 			slog.Error("task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set 'exit' and 'error' after non-clean exit")
 		}
@@ -315,10 +315,10 @@ func run() int {
 			}
 			// remove temp files
 			if err = os.Remove("/tmp/"+*taskID+".json"); err != nil && !errors.Is(err, os.ErrNotExist) {
-				slog.Error("could not remove file /tmp/"+*taskID+".json (continuing)", "error", err)	// don't need to fail the task, but wtf
+				slog.Error("could not remove file /tmp/"+*taskID+".json (continuing)", "err", err)	// don't need to fail the task, but wtf
 			}
 			if err = os.Remove("/tmp/"+*taskID+"-response.json"); err != nil && !errors.Is(err, os.ErrNotExist) {
-				slog.Error("could not remove file /tmp/"+*taskID+"-response.json (continuing)", "error", err)	// don't need to fail the task, but wtf
+				slog.Error("could not remove file /tmp/"+*taskID+"-response.json (continuing)", "err", err)	// don't need to fail the task, but wtf
 			}
 		}
 
@@ -367,7 +367,7 @@ Ran:
 	update = bson.M{"$set": bson.M{"status": result["status"]}}
 	var res *mongo.UpdateResult
 	if res, err = db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		slog.Error("could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion", "error", err)
+		slog.Error("could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion", "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {
 		slog.Error("task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set status to "+strconv.Itoa(result["status"].(int))+" after completion")
@@ -391,7 +391,7 @@ Ran:
 			defer cancel()
 			var id bson.ObjectID
 			if id, err = bucket.UploadFromStream(ctx, field, strings.NewReader(result[field].(string)), uploadOpts); err != nil {
-				slog.Error("could not create GridFS content for task "+*taskID+" "+field, "error", err)
+				slog.Error("could not create GridFS content for task "+*taskID+" "+field, "err", err)
 				result[field] = nil
 			} else {
 				result[field] = id
@@ -403,7 +403,7 @@ Ran:
 	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
 	if res, err = db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
 		db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set":bson.M{"complete": false}})
-		slog.Error("could not update task " + *taskID + " stdout/stderr after completion", "error", err)
+		slog.Error("could not update task " + *taskID + " stdout/stderr after completion", "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {
 		slog.Error("could not find task " + *taskID + " to update stdout/stderr after completion")
