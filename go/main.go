@@ -423,7 +423,7 @@ func normalizeStatus(rstatus any) (int, error) {
 	} else if status, ok = rstatus.(int); !ok {
 		if s, ok := rstatus.(float64); !ok {
 			err = &UnknownStatusError{Status: rstatus}
-		} else if s == math.Trunc(s) {
+		} else if s == math.Trunc(s) && s > math.MinInt32 && s < math.MaxInt32 {
 			// it looks like an integer, so make it a proper int
 			status = int(s)
 		} else {
