@@ -188,6 +188,8 @@ func run() int {
 			}
 			cargs = append(cargs, "--config", cf)
 		}
+		taskFile := "/tmp/"+*taskID+".json"
+		responseFile := "/tmp/"+*taskID+"-response.json"
 		if args.Type == "default" || args.Type == "nomongo" {
 			var jsonTask []byte
 			if jsonTask, err = json.Marshal(doc); err != nil {
@@ -195,22 +197,22 @@ func run() int {
 				result = bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
 				goto Ran
 			}
-			if err = os.Remove("/tmp/"+*taskID+".json"); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
+			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
 				slog.Error("could not remove old task file /tmp/"+*taskID+".json", "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
 				goto Ran
 			}
-			if err = os.Remove("/tmp/"+*taskID+"-response.json"); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
+			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
 				slog.Error("could not remove old reponse file /tmp/"+*taskID+"-response.json", "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old reponse file: " + err.Error()}
 				goto Ran
 			}
-			if err = os.WriteFile("/tmp/"+*taskID+".json", jsonTask, 0600); err != nil {
+			if err = os.WriteFile(taskFile, jsonTask, 0600); err != nil {
 				slog.Error("could not create task file /tmp/"+*taskID+".json", "err", err)
 				result = bson.M{"status": 2, "stderr": "could not create task file: " + err.Error()}
 				goto Ran
 			}
-			cargs = append(cargs, "--task", "/tmp/"+*taskID+".json")
+			cargs = append(cargs, "--task", taskFile)
 		} else {
 			cargs = append(cargs, "--task", *taskID)
 			if args.Type == "handoff" {
@@ -319,7 +321,7 @@ func run() int {
 			}
 		} else {	// args.Type == "default" || args.Type == "nomongo"
 			var text []byte
-			if text, err = os.ReadFile("/tmp/"+*taskID+"-response.json"); err != nil {
+			if text, err = os.ReadFile(responseFile); err != nil {
 				slog.Error("could not read task plugin '"+plugin+"' response file /tmp/"+*taskID+"-response.json", "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				result = bson.M{"status": 2, "stderr": "could not read task plugin response file: "+err.Error()}
 			} else {
@@ -336,10 +338,10 @@ func run() int {
 				}
 			}
 			// remove temp files
-			if err = os.Remove("/tmp/"+*taskID+".json"); err != nil && !errors.Is(err, os.ErrNotExist) {
+			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 				slog.Error("could not remove file /tmp/"+*taskID+".json (continuing)", "err", err)	// don't need to fail the task, but wtf
 			}
-			if err = os.Remove("/tmp/"+*taskID+"-response.json"); err != nil && !errors.Is(err, os.ErrNotExist) {
+			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 				slog.Error("could not remove file /tmp/"+*taskID+"-response.json (continuing)", "err", err)	// don't need to fail the task, but wtf
 			}
 		}
