@@ -12,7 +12,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"regexp"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -150,8 +150,8 @@ func run() int {
 				args.Type = "handoff"	// was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
 				plugin = config.PluginRunner
 			}
-			// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` here when `args.IsModule`
-			if matched, _ := regexp.Match(`^/`,[]byte(plugin)); !matched {
+			// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` value here as `plugin` when `args.IsModule` is true
+			if !filepath.IsAbs(plugin) {
 				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, *taskID)
 			} else if fileinfo, ferr := os.Stat(plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
 				errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, *taskID)
@@ -178,9 +178,14 @@ func run() int {
 		// * handoff: reads task from mongo via *taskID, saves result in "tasks" collection and this exits
 		//            writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
 		var cargs []string
-		re := regexp.MustCompile(`\.json(-(strict|task_runner))?$`)
-		cf := re.ReplaceAllString(*configFlag, ".json-plugin")
 		if args.Type != "nomongo" {
+			cf := *configFlag
+			for _, ext := range []string{".json-strict", ".json-task_runner", ".json"} {
+				if name, ok := strings.CutSuffix(*configFlag, ext); ok {
+					cf = name + ".json-plugin"
+					break
+				}
+			}
 			cargs = append(cargs, "--config", cf)
 		}
 		if args.Type == "default" || args.Type == "nomongo" {
