@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -117,12 +116,11 @@ func run() int {
 	var doc bson.M
 	if err = db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&doc); err != nil {
 		if err == mongo.ErrNoDocuments {
-			slog.Error("could not find task " + *taskID + " on node "+node+" to set status 0")
-			return 1
+			slog.Error("could not find task to set status 0", "taskID", *taskID)
 		} else {
-			slog.Error("could not find and set task " + *taskID + " to status 0", "err", err)
-			return 1
+			slog.Error("unknown issue trying to find and update task to status 0", "taskID", *taskID, "err", err)
 		}
+		return 1
 	}
 
 	log.Printf("params for %s: %s", *taskID, doc["params"])
@@ -193,22 +191,22 @@ func run() int {
 		if args.Type == "default" || args.Type == "nomongo" {
 			var jsonTask []byte
 			if jsonTask, err = json.Marshal(doc); err != nil {
-				slog.Error("could not create json from task doc for "+*taskID, "err", err)
+				slog.Error("could not create json from task doc", "taskID", *taskID, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
 				goto Ran
 			}
 			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
-				slog.Error("could not remove old task file /tmp/"+*taskID+".json", "err", err)
+				slog.Error("could not remove old task file", "file", taskFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
 				goto Ran
 			}
 			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
-				slog.Error("could not remove old reponse file /tmp/"+*taskID+"-response.json", "err", err)
+				slog.Error("could not remove old response file", "file", responseFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old reponse file: " + err.Error()}
 				goto Ran
 			}
 			if err = os.WriteFile(taskFile, jsonTask, 0600); err != nil {
-				slog.Error("could not create task file /tmp/"+*taskID+".json", "err", err)
+				slog.Error("could not create task file", "file", taskFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not create task file: " + err.Error()}
 				goto Ran
 			}
@@ -227,7 +225,7 @@ func run() int {
 				}
 			} else if args.Type == "mongo" {
 				if _, err = db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": oid}); err != nil {
-					slog.Error("could not delete any pre-existing result for task "+*taskID+" in 'results' collection", "err", err)
+					slog.Error("could not delete any pre-existing result for task in 'results' collection", "taskID", *taskID, "err", err)
 					result = bson.M{"status": 2, "stderr": "could not delete any pre-existing result for task in 'results' collection: " + err.Error()}
 					goto Ran
 				}
@@ -239,7 +237,7 @@ func run() int {
 			// if cmdExit < 0, then result likely not saved
 			// * cmdExit -3 means start failed, -2 means wait failed (not sure how), -1 means killed
 			// if cmdExit > 0, then perhaps saved perhaps not (a task should not exit non-zero when the task fails–it should set status to 2)
-			slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" did not exit cleanly", "cmdExit", cmdExit, "cmdErr", cmdErr)
+			slog.Error("plugin did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 		} else {
 			// cmdExit is 0, no error
 			slog.Info(args.Type+" plugin '"+plugin+"' for task "+*taskID+" exited cleanly")
@@ -247,9 +245,9 @@ func run() int {
 		// put `cmdExit` and `cmdErr` into the task doc
 		var res *mongo.UpdateResult
 		if res, err = db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%#v",cmdErr)}}); err != nil {
-			slog.Error("unknown issue updating "+args.Type+" task "+*taskID+" to set 'exit' and 'error' after non-clean exit", "err", err)
+			slog.Error("unknown issue updating task to set 'exit' and 'error'", "taskID", *taskID, "mtime", doc["mtime"], "err", err)
 		} else if res.MatchedCount == 0 {
-			slog.Error("task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set 'exit' and 'error' after non-clean exit")
+			slog.Error("could not find task to set 'exit' and 'error'", "taskID", *taskID, "mtime", doc["mtime"])
 		}
 
 		if args.Type == "handoff" {
@@ -257,16 +255,16 @@ func run() int {
 			opts := options.FindOne().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
 			if err = db.Collection("tasks").FindOne(context.Background(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, opts).Decode(&task); err != nil {
 				if errors.Is(err, mongo.ErrNoDocuments) {
-					slog.Error("task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("could not find handoff task to validate status", "taskID", *taskID, "mtime", doc["mtime"], "cmdExit", cmdExit, "cmdErr", cmdErr)
 				} else {
-					slog.Error("unknown issue querying for handoff task "+*taskID+" to validate status", "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("unknown issue querying for handoff task to validate status", "taskID", *taskID, "mtime", doc["mtime"], "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				}
 				return 1
 			}
 			// `status` from mongo is type `int32`
 			if status, ok := task["status"].(int32); !ok {
 				// bad plugin! status not int32. make it a failure
-				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" returned unknown type '"+ fmt.Sprintf("%T",task["status"]) +"' for status", "status", task["status"], "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned unknown type for status", "plugin", plugin, "taskID", *taskID, "status", task["status"], "type", fmt.Sprintf("%T", task["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -274,7 +272,7 @@ func run() int {
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned unknown type for status (see stdout for status and any stdout or stderr it may have set)"}
 			} else if status == 0 {
 				// plugin didn't finish. make it a failure
-				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" did not update status", "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin did not update status", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -285,7 +283,7 @@ func run() int {
 					return 0
 				}
 				// bad plugin! status == 1 but plugin exit code non-0. make it a failure
-				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" returned status:1 but did not exit cleanly", "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -296,12 +294,12 @@ func run() int {
 				// good: task failed.
 				if cmdErr != nil {
 					// log that even though the handoff plugin set a proper failure status, it did not exit cleanly
-					slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" returned status>1 but did not exit cleanly", "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				}
 				return 0
 			} else {
 				// bad plugin! status < 0. make it a failure
-				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" has negative status", "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned negative status", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -312,21 +310,21 @@ func run() int {
 			opts := options.FindOneAndDelete().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
 			if err = db.Collection("results").FindOneAndDelete(context.Background(), bson.M{"_id": oid}, opts).Decode(&result); err != nil {
 				if err == mongo.ErrNoDocuments {
-					slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" did not create a document in 'results'", "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("plugin did not create a document in 'results'", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 					result = bson.M{"status": 2, "stderr": "plugin did not create a document in 'results' for task"}
 				} else {
-					slog.Error("could not get result for "+*taskID+" in 'results' collection", "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("unknown issue querying for result for task in 'results' collection", "taskID", *taskID, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
 					result = bson.M{"status": 2, "stderr": "could not get result for task in 'results' collection: " + err.Error() }
 				}
 			}
 		} else {	// args.Type == "default" || args.Type == "nomongo"
 			var text []byte
 			if text, err = os.ReadFile(responseFile); err != nil {
-				slog.Error("could not read task plugin '"+plugin+"' response file /tmp/"+*taskID+"-response.json", "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("could not read task plugin response file", "plugin", plugin, "file", responseFile, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				result = bson.M{"status": 2, "stderr": "could not read task plugin response file: "+err.Error()}
 			} else {
 				if err = json.Unmarshal(text, &result); err != nil {
-					slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" saved non-json in response file /tmp/"+*taskID+"-response.json", "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("plugin saved non-json in response file", "plugin", plugin, "file", responseFile, "cmdExit", cmdExit, "cmdErr", cmdErr)
 					result = bson.M{"status": 2, "stdout": string(text), "stderr": "plugin saved non-json in response file (see stdout for any content it may have set)"}
 				} else {
 					// delete any noise in the json content
@@ -339,31 +337,26 @@ func run() int {
 			}
 			// remove temp files
 			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-				slog.Error("could not remove file /tmp/"+*taskID+".json (continuing)", "err", err)	// don't need to fail the task, but wtf
+				slog.Error("could not remove task file (continuing)", "file", taskFile, "err", err)
 			}
 			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-				slog.Error("could not remove file /tmp/"+*taskID+"-response.json (continuing)", "err", err)	// don't need to fail the task, but wtf
+				slog.Error("could not remove response file (continuing)", "file", responseFile, "err", err)
 			}
 		}
 
 		if args.Type != "handoff" {
 			var status int
 			if status, err = normalizeStatus(result["status"]); err != nil {
-				// err may be UnknownStatusError or NonIntegerStatusError, has `Status` of original result["status"]
-				// string value is "unknown type '%T' for status: %#v" or "non-integer '%T' for status: %#v"
-				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" returned " + err.Error(), "cmdExit", cmdExit, "cmdErr", cmdErr)	// `err.Error()` intentional
-				stderr := "plugin returned unknown type for status (see stdout for status and any stdout or stderr it may have set)"
-				var niserr *NonIntegerStatusError
-				if errors.As(err, &niserr) {
-					stderr = "plugin returned non-integer for status (see stdout for status and any stdout or stderr it may have set)"
-				}
+				// err is UnknownStatusError, has `Status` of original result["status"], string value is "unknown type '%T' for status: %#v"
+				message := "plugin returned unknown type for status"
+				slog.Error(message, "plugin", plugin, "taskID", *taskID, "status", result["status"], "type", fmt.Sprintf("%T", result["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(result, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
-				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": stderr}
+				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": message + " (see stdout for status and any stdout or stderr it may have set)"}
 			} else if status < 1 {
-				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" returned other than a positive integer for status", "status", result["status"], "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned non-positive status", "plugin", plugin, "taskID", *taskID, "status", result["status"], "type", fmt.Sprintf("%T", result["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(result, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -371,14 +364,19 @@ func run() int {
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned other than a positive integer for status (see stdout for status and any stdout or stderr it may have set)"}
 			} else if status == 1 && cmdErr != nil {
 				// bad for result status to be 1 but plugin exit code to be non-0, make it a failure
-				slog.Error(args.Type+" plugin '"+plugin+"' for task "+*taskID+" returned status:1 but did not exit cleanly", "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(result, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned status:1 but did not exit cleanly (see stdout for any stdout or stderr it may have set)"}
 			} else {
+				// good: task failed. status > 1
 				result["status"] = status
+				if cmdErr != nil {
+					// log that even though the plugin set a proper failure status, it did not exit cleanly
+					slog.Error("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+				}
 			}
 		}
 	}
@@ -397,10 +395,10 @@ Ran:
 	update = bson.M{"$set": bson.M{"status": result["status"]}}
 	var res *mongo.UpdateResult
 	if res, err = db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		slog.Error("could not update task " + *taskID + " status to "+strconv.Itoa(result["status"].(int))+" after completion", "err", err)
+		slog.Error("unknown issue updating task to set status after completion", "taskID", *taskID, "mtime", doc["mtime"], "status", result["status"], "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {
-		slog.Error("task "+*taskID+" not found with node "+node+" and mtime "+fmt.Sprintf("%v",doc["mtime"])+" to set status to "+strconv.Itoa(result["status"].(int))+" after completion")
+		slog.Error("could not find task to set status after completion", "taskID", *taskID, "mtime", doc["mtime"], "status", result["status"])
 		return 1
 	}
 
@@ -421,7 +419,7 @@ Ran:
 			defer cancel()
 			var id bson.ObjectID
 			if id, err = bucket.UploadFromStream(ctx, field, strings.NewReader(result[field].(string)), uploadOpts); err != nil {
-				slog.Error("could not create GridFS content for task "+*taskID+" "+field, "err", err)
+				slog.Error("unknown issue creating GridFS content for task field", "taskID", *taskID, "field", field, "err", err)
 				result[field] = nil
 			} else {
 				result[field] = id
@@ -433,17 +431,17 @@ Ran:
 	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
 	if res, err = db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
 		db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set":bson.M{"complete": false}})
-		slog.Error("could not update task " + *taskID + " stdout/stderr after completion", "err", err)
+		slog.Error("unknown issue updating task to set stdout/stderr after completion", "taskID", *taskID, "mtime", doc["mtime"], "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {
-		slog.Error("could not find task " + *taskID + " to update stdout/stderr after completion")
+		slog.Error("could not find task to update stdout/stderr after completion", "taskID", *taskID, "mtime", doc["mtime"])
 		return 1
 	}
 
 	return 0
 }
 
-// `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one, otherwise returns an error
+// `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one, otherwise returns error `UnknownStatusError`
 func normalizeStatus(rstatus any) (int, error) {
 	var status int
 	var err error
@@ -457,7 +455,7 @@ func normalizeStatus(rstatus any) (int, error) {
 			// it looks like an integer, so make it a proper int
 			status = int(s)
 		} else {
-			err = &NonIntegerStatusError{Status: rstatus}
+			err = &UnknownStatusError{Status: rstatus}
 		}
 	}
 	return status, err
@@ -469,14 +467,6 @@ type UnknownStatusError struct {
 
 func (e *UnknownStatusError) Error() string {
 	return fmt.Sprintf("unknown type '%T' for status: %#v", e.Status, e.Status)
-}
-
-type NonIntegerStatusError struct {
-	Status any
-}
-
-func (e *NonIntegerStatusError) Error() string {
-	return fmt.Sprintf("non-integer '%T' for status: %#v", e.Status, e.Status)
 }
 
 func mongodb(config Config) (*mongo.Database, error) {
