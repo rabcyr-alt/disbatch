@@ -33,12 +33,9 @@ func run() int {
 	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
 	testingFlag = flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins")
-	gfsFlag := flag.String("gfs", "", "NOOP: backcompat")
+	flag.String("gfs", "", "NOOP: backcompat")
 	flag.Parse()
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
-	if *gfsFlag != "" {
-		// NOOP: might be passed but does not apply here
-	}
 	if *configFlag == "" {
 		slog.Error("config file must be passed with --config")
 		return 1
@@ -81,7 +78,7 @@ func run() int {
 		db.Client().Disconnect(context.Background())
 	}()
 
-	slog.Info("Starting task " + *taskID)
+	slog.Info(fmt.Sprintf("Starting task %s", *taskID))
 
 	oid, err := bson.ObjectIDFromHex(*taskID)
 	if err != nil {
@@ -89,14 +86,15 @@ func run() int {
 		return 1
 	}
 
-	// testing: delete and create if given the testing task id
+	// testing: delete and create if given the testing task id (to be removed once this is considered finished and proper tests are created)
+	// FIXME: make this more configurable
 	if *taskID == "65170b42b99efdd0b07d42de" {
 		if _, err = db.Collection("tasks").DeleteOne(context.Background(), bson.M{"_id": oid}); err != nil {
 			slog.Error("could not delete test task", "err", err)
 			return 1
 		}
 		opts := options.UpdateOne().SetUpsert(true)
-		if _, err = db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-nomongo", "threads": 0}}, opts); err != nil {
+		if _, err = db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-nomongo.pl", "threads": 0}}, opts); err != nil {
 			slog.Error("could not upsert test queue", "err", err)
 			return 1
 		}
@@ -111,7 +109,7 @@ func run() int {
 	update := bson.M{"$set": bson.M{"status": 0}}
 	var doc bson.M
 	if err = db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&doc); err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			slog.Error("could not find task to set status 0", "taskID", *taskID)
 		} else {
 			slog.Error("unknown issue trying to find and update task to status 0", "taskID", *taskID, "err", err)
@@ -119,7 +117,7 @@ func run() int {
 		return 1
 	}
 
-	log.Printf("params for %s: %s", *taskID, doc["params"])
+	slog.Info(fmt.Sprintf("params for %s: %s", *taskID, doc["params"]))
 
 	filter = bson.M{"_id": oid, "status": 0, "node": node, "mtime": doc["mtime"]}	// filter for set status, "handoff" may change it
 
@@ -131,7 +129,7 @@ func run() int {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			errmsg = fmt.Sprintf("queue %v not found for task %v", doc["queue"], *taskID)
 		} else {
-			errmsg = fmt.Sprintf("unknown issue querying for queue %v for task %v: %#v", doc["queue"], *taskID, err)
+			errmsg = fmt.Sprintf("unknown issue querying for queue %v for task %v: %v", doc["queue"], *taskID, err)
 		}
 	} else {
 		var ok bool
@@ -239,11 +237,11 @@ func run() int {
 			slog.Error("plugin did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 		} else {
 			// cmdExit is 0, no error
-			slog.Info(args.Type+" plugin '"+plugin+"' for task "+*taskID+" exited cleanly")
+			slog.Info("plugin exited cleanly", "plugin", plugin, "taskID", *taskID)
 		}
 		// put `cmdExit` and `cmdErr` into the task doc
 		var res *mongo.UpdateResult
-		if res, err = db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%#v",cmdErr)}}); err != nil {
+		if res, err = db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%v",cmdErr)}}); err != nil {
 			slog.Error("unknown issue updating task to set 'exit' and 'error'", "taskID", *taskID, "mtime", doc["mtime"], "err", err)
 		} else if res.MatchedCount == 0 {
 			slog.Error("could not find task to set 'exit' and 'error'", "taskID", *taskID, "mtime", doc["mtime"])
@@ -308,7 +306,7 @@ func run() int {
 		} else if args.Type == "mongo" {
 			opts := options.FindOneAndDelete().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
 			if err = db.Collection("results").FindOneAndDelete(context.Background(), bson.M{"_id": oid}, opts).Decode(&result); err != nil {
-				if err == mongo.ErrNoDocuments {
+				if errors.Is(err, mongo.ErrNoDocuments) {
 					slog.Error("plugin did not create a document in 'results'", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 					result = bson.M{"status": 2, "stderr": "plugin did not create a document in 'results'"}
 				} else {
@@ -385,7 +383,7 @@ Ran:
 	if result["status"] == 1 {
 		status = "succeeded"
 	}
-	slog.Info("Task "+*taskID+" " + status+".")
+	slog.Info(fmt.Sprintf("Task %s %s.", *taskID, status))
 	if !*quietFlag {
 		fmt.Fprintf(os.Stderr, "STDOUT: %v\n", result["stdout"])
 		fmt.Fprintf(os.Stderr, "STDERR: %v\n", result["stderr"])
@@ -415,7 +413,6 @@ Ran:
 		if size != 0 && total > 1024*1024*15 {
 			uploadOpts := options.GridFSUpload().SetMetadata(bson.M{"task_id": oid})
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)	// allow 2 minutes for total upload: 16MB creates 65 chunks and 1 file document
-			defer cancel()
 			var id bson.ObjectID
 			if id, err = bucket.UploadFromStream(ctx, field, strings.NewReader(result[field].(string)), uploadOpts); err != nil {
 				slog.Error("unknown issue creating GridFS content for task field", "taskID", *taskID, "field", field, "err", err)
@@ -423,6 +420,7 @@ Ran:
 			} else {
 				result[field] = id
 			}
+			cancel()
 		}
 	}
 
@@ -570,8 +568,9 @@ func logger(config Config) error {
 	if !ok {
 		level = slog.Level(-8)
 	}
-	logger := slog.New(slog.NewTextHandler(multi, &slog.HandlerOptions{Level: level}))
-	slog.SetDefault(logger)
+	log.SetOutput(multi)
+	slog.SetLogLoggerLevel(level)
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	return nil
 }
