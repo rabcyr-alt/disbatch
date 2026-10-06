@@ -488,8 +488,7 @@ func mongodb(config Config) (*mongo.Database, error) {
 		return nil, err
 	}
 
-	var res bson.M
-	if err = client.Database("admin").RunCommand(context.Background(), bson.M{"ping": 1}).Decode(&res); err != nil {
+	if err = client.Database("admin").RunCommand(context.Background(), bson.M{"ping": 1}).Err(); err != nil {
 		return nil, err
 	}
 
