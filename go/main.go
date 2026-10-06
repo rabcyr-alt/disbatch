@@ -22,8 +22,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var testingFlag *bool
-
 func main() {
 	os.Exit(run())
 }
@@ -32,7 +30,7 @@ func run() int {
 	taskID := flag.String("task", "", "The task's _id. Mandatory.")
 	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
-	testingFlag = flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins")
+	testingFlag := flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins")
 	flag.String("gfs", "", "NOOP: backcompat")
 	flag.Parse()
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
