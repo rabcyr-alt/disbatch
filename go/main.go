@@ -304,17 +304,17 @@ func run() int {
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
-				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin has negative status (see stdout for status and any stdout or stderr it may have set)"}
+				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned negative status (see stdout for status and any stdout or stderr it may have set)"}
 			}
 		} else if args.Type == "mongo" {
 			opts := options.FindOneAndDelete().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
 			if err = db.Collection("results").FindOneAndDelete(context.Background(), bson.M{"_id": oid}, opts).Decode(&result); err != nil {
 				if err == mongo.ErrNoDocuments {
 					slog.Error("plugin did not create a document in 'results'", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
-					result = bson.M{"status": 2, "stderr": "plugin did not create a document in 'results' for task"}
+					result = bson.M{"status": 2, "stderr": "plugin did not create a document in 'results'"}
 				} else {
 					slog.Error("unknown issue querying for result for task in 'results' collection", "taskID", *taskID, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
-					result = bson.M{"status": 2, "stderr": "could not get result for task in 'results' collection: " + err.Error() }
+					result = bson.M{"status": 2, "stderr": "unknown issue querying for result for task in 'results' collection: " + err.Error() }
 				}
 			}
 		} else {	// args.Type == "default" || args.Type == "nomongo"
@@ -361,7 +361,7 @@ func run() int {
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
-				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned other than a positive integer for status (see stdout for status and any stdout or stderr it may have set)"}
+				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned non-positive status (see stdout for status and any stdout or stderr it may have set)"}
 			} else if status == 1 && cmdErr != nil {
 				// bad for result status to be 1 but plugin exit code to be non-0, make it a failure
 				slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
