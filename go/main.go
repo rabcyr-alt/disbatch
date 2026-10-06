@@ -182,8 +182,11 @@ func run() int {
 			}
 			cargs = append(cargs, "--config", cf)
 		}
-		taskFile := "/tmp/"+*taskID+".json"
-		responseFile := "/tmp/"+*taskID+"-response.json"
+		if config.TempDir == "" {
+			config.TempDir = "/tmp/disbatch"	// below will fail if this directory does not exist, but better than the root user creating in /
+		}
+		taskFile := filepath.Join(config.TempDir, *taskID+".json")
+		responseFile := filepath.Join(config.TempDir, *taskID+"-response.json")
 		if args.Type == "default" || args.Type == "nomongo" {
 			var jsonTask []byte
 			if jsonTask, err = json.Marshal(doc); err != nil {
@@ -539,6 +542,7 @@ type Config struct {
 	Log4perl   Log4perl               `json:"log4perl"`
 	Plugins    map[string]Plugin      `json:"plugins"`	// value may be `1` or a map with key `type` and value: `default` `handoff` `mongo` `nomongo`
 	PluginRunner string               `json:"plugin_runner"`
+	TempDir	   string                 `json:"temp_dir"`
 }
 
 func logger(config Config) error {

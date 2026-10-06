@@ -63,6 +63,8 @@
     #"task_runner": "./bin/task_runner",			# defaults to "/usr/bin/task_runner"
     "task_runner": "./go/go-task-runner",			# go version
     "plugin_runner": "/root/git/disbatch/bin/task_runner",	# have go version call perl version in handoff mode. full path required!
+    "temp_dir": "/tmp/disbatch",				# for go task runner task and response files. defaults to "/tmp/disbatch"
+    "temp_dir_mode": "0755",					# permissions for temp_dir. defaults to "0755"
     #"gfs": false,					# defaults to "auto", DEPRECATED in 4.4 (always auto)
     "web_root": "etc/disbatch/htdocs/",			# defaults to "/etc/disbatch/htdocs/"
     "views_dir": "etc/disbatch/views/",			# defaults to "/etc/disbatch/views/"
