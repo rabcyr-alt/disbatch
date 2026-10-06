@@ -118,7 +118,7 @@ func run() int {
 
 	slog.Info(fmt.Sprintf("params for %s: %s", r.taskID, r.doc["params"]))
 
-	filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}	// filter for set status, "handoff" may change it
+	filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, "handoff" may change it
 
 	var queue bson.M
 	var errmsg string
@@ -138,7 +138,7 @@ func run() int {
 		} else {
 			args = config.Plugins[plugin]
 			if args.IsModule {
-				args.Type = "handoff"	// was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
+				args.Type = "handoff" // was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
 				plugin = config.PluginRunner
 			}
 			// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` value here as `plugin` when `args.IsModule` is true
@@ -154,10 +154,10 @@ func run() int {
 
 	var cmdExit int
 	var cmdErr error
-	var result bson.M	// NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
+	var result bson.M // NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
 	if errmsg != "" {
 		slog.Error(errmsg)
-		result = bson.M{ "status": 2, "stdout": "Unable to start", "stderr": errmsg }
+		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": errmsg}
 	} else {
 		// types: default nomongo mongo handoff
 		// * nomongo: no mongo access, passes task and result via /tmp/r.taskID.json
@@ -180,7 +180,7 @@ func run() int {
 			cargs = append(cargs, "--config", cf)
 		}
 		if config.TempDir == "" {
-			config.TempDir = "/tmp/disbatch"	// below will fail if this directory does not exist, but better than the root user creating in /
+			config.TempDir = "/tmp/disbatch" // below will fail if this directory does not exist, but better than the root user creating in /
 		}
 		taskFile := filepath.Join(config.TempDir, r.taskID+".json")
 		responseFile := filepath.Join(config.TempDir, r.taskID+"-response.json")
@@ -191,12 +191,12 @@ func run() int {
 				result = bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
 				return r.finish(result, filter)
 			}
-			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
+			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
 				slog.Error("could not remove old task file", "file", taskFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
 				return r.finish(result, filter)
 			}
-			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
+			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
 				slog.Error("could not remove old response file", "file", responseFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old reponse file: " + err.Error()}
 				return r.finish(result, filter)
@@ -228,7 +228,7 @@ func run() int {
 			}
 		}
 
-		cmdExit, cmdErr = runCommand(plugin, cargs)	// 0 on success, err != nil on failure
+		cmdExit, cmdErr = runCommand(plugin, cargs) // 0 on success, err != nil on failure
 		if cmdErr != nil {
 			// if cmdExit < 0, then result likely not saved
 			// * cmdExit -3 means start failed, -2 means wait failed (not sure how), -1 means killed
@@ -240,7 +240,7 @@ func run() int {
 		}
 		// put `cmdExit` and `cmdErr` into the task doc
 		var res *mongo.UpdateResult
-		if res, err = r.db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%v",cmdErr)}}); err != nil {
+		if res, err = r.db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%v", cmdErr)}}); err != nil {
 			slog.Error("unknown issue updating task to set 'exit' and 'error'", "taskID", r.taskID, "mtime", r.doc["mtime"], "err", err)
 		} else if res.MatchedCount == 0 {
 			slog.Error("could not find task to set 'exit' and 'error'", "taskID", r.taskID, "mtime", r.doc["mtime"])
@@ -285,7 +285,7 @@ func run() int {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned status:1 but did not exit cleanly (see stdout for any stdout or stderr it may have set)"}
-				filter = bson.M{"_id": r.oid, "status": 1, "node": r.node, "mtime": r.doc["mtime"]}	// filter for set status, need to query on status:1
+				filter = bson.M{"_id": r.oid, "status": 1, "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, need to query on status:1
 			} else if status > int32(1) {
 				// good: task failed.
 				if cmdErr != nil {
@@ -310,14 +310,14 @@ func run() int {
 					result = bson.M{"status": 2, "stderr": "plugin did not create a document in 'results'"}
 				} else {
 					slog.Error("unknown issue querying for result for task in 'results' collection", "taskID", r.taskID, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
-					result = bson.M{"status": 2, "stderr": "unknown issue querying for result for task in 'results' collection: " + err.Error() }
+					result = bson.M{"status": 2, "stderr": "unknown issue querying for result for task in 'results' collection: " + err.Error()}
 				}
 			}
-		} else {	// args.Type == "default" || args.Type == "nomongo"
+		} else { // args.Type == "default" || args.Type == "nomongo"
 			var text []byte
 			if text, err = os.ReadFile(responseFile); err != nil {
 				slog.Error("could not read task plugin response file", "plugin", plugin, "file", responseFile, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
-				result = bson.M{"status": 2, "stderr": "could not read task plugin response file: "+err.Error()}
+				result = bson.M{"status": 2, "stderr": "could not read task plugin response file: " + err.Error()}
 			} else {
 				if err = json.Unmarshal(text, &result); err != nil {
 					slog.Error("plugin saved non-json in response file", "plugin", plugin, "file", responseFile, "cmdExit", cmdExit, "cmdErr", cmdErr)
@@ -380,14 +380,14 @@ func run() int {
 }
 
 type Runner struct {
-	db      *mongo.Database
-	taskID  string
-	oid     bson.ObjectID
-	doc     bson.M
-	node    string
-	quiet   bool
+	db         *mongo.Database
+	taskID     string
+	oid        bson.ObjectID
+	doc        bson.M
+	node       string
+	quiet      bool
 	configFile string
-	testing bool
+	testing    bool
 }
 
 func (r *Runner) finish(result bson.M, filter bson.M) int {
@@ -423,7 +423,7 @@ func (r *Runner) finish(result bson.M, filter bson.M) int {
 		total += size
 		if size != 0 && total > 1024*1024*15 {
 			uploadOpts := options.GridFSUpload().SetMetadata(bson.M{"task_id": r.oid})
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)	// allow 2 minutes for total upload: 16MB creates 65 chunks and 1 file document
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute) // allow 2 minutes for total upload: 16MB creates 65 chunks and 1 file document
 			if id, err := bucket.UploadFromStream(ctx, field, strings.NewReader(result[field].(string)), uploadOpts); err != nil {
 				slog.Error("unknown issue creating GridFS content for task field", "taskID", r.taskID, "field", field, "err", err)
 				result[field] = nil
@@ -437,7 +437,7 @@ func (r *Runner) finish(result bson.M, filter bson.M) int {
 	filter = bson.M{"_id": r.oid, "status": result["status"], "node": r.node, "mtime": r.doc["mtime"]}
 	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
 	if res, err := r.db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		r.db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set":bson.M{"complete": false}})
+		r.db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set": bson.M{"complete": false}})
 		slog.Error("unknown issue updating task to set stdout/stderr after completion", "taskID", r.taskID, "mtime", r.doc["mtime"], "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {
@@ -478,11 +478,11 @@ func (e *UnknownStatusError) Error() string {
 
 func mongodb(config Config) (*mongo.Database, error) {
 	uri := config.MongoHost
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)	// set Stable API version to 1 (note: not necessary, but a good idea, requires MongoDB 5.0 or newer)
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1) // set Stable API version to 1 (note: not necessary, but a good idea, requires MongoDB 5.0 or newer)
 	// note: for Disbatch, if the server API changes, the Perl MongoDB module will break, as it's older than 5.0
 	// note: SetMaxPoolSize(1) and SetServerMonitoringMode("poll") reduce the number of connections, useful when many very short tasks
 	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI).SetMaxPoolSize(1).SetServerMonitoringMode("poll")
-	opts.SetTimeout(30 * time.Second)	// every operation will retry as needed for up to 30 seconds
+	opts.SetTimeout(30 * time.Second) // every operation will retry as needed for up to 30 seconds
 	if len(config.Auth) > 0 {
 		credential := options.Credential{
 			AuthMechanism: "PLAIN",
@@ -492,7 +492,7 @@ func mongodb(config Config) (*mongo.Database, error) {
 		}
 		opts.SetAuth(credential)
 	}
-	fmt.Fprintf(os.Stderr, "Connecting %v\n", time.Now().Format(time.ANSIC))	// warn
+	fmt.Fprintf(os.Stderr, "Connecting %v\n", time.Now().Format(time.ANSIC)) // warn
 	client, err := mongo.Connect(opts)
 	if err != nil {
 		return nil, err
@@ -504,7 +504,6 @@ func mongodb(config Config) (*mongo.Database, error) {
 
 	return client.Database(config.Database), nil
 }
-
 
 type Plugin struct {
 	Type     string `json:"type"` // "default", "handoff", "mongo" or "nomongo"
@@ -519,7 +518,7 @@ func (p *Plugin) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	type plain Plugin	// a type declared this way has the same fields as `Plugin` but none of its methods, so it doesn't satisfy `Unmarshaler`
+	type plain Plugin // a type declared this way has the same fields as `Plugin` but none of its methods, so it doesn't satisfy `Unmarshaler`
 	var tmp plain
 	if err := json.Unmarshal(data, &tmp); err != nil {
 		return err
@@ -532,24 +531,24 @@ func (p *Plugin) UnmarshalJSON(data []byte) error {
 }
 
 type Appender struct {
-	Args       map[string]interface{} `json:"args"`		// [filename:disbatchd.log], [color:map[WARN:cyan]]
-	Layout     string                 `json:"layout"`
-	Type       string                 `json:"type"`
+	Args   map[string]interface{} `json:"args"` // [filename:disbatchd.log], [color:map[WARN:cyan]]
+	Layout string                 `json:"layout"`
+	Type   string                 `json:"type"`
 }
 
 type Log4perl struct {
-	Level      string                 `json:"level"`
-	Appenders  map[string]Appender    `json:"appenders"`
+	Level     string              `json:"level"`
+	Appenders map[string]Appender `json:"appenders"`
 }
 
 type Config struct {
-	MongoHost  string                 `json:"mongohost"`
-	Database   string                 `json:"database"`
-	Auth       map[string]string      `json:"auth"`
-	Log4perl   Log4perl               `json:"log4perl"`
-	Plugins    map[string]Plugin      `json:"plugins"`	// value may be `1` or a map with key `type` and value: `default` `handoff` `mongo` `nomongo`
-	PluginRunner string               `json:"plugin_runner"`
-	TempDir	   string                 `json:"temp_dir"`
+	MongoHost    string            `json:"mongohost"`
+	Database     string            `json:"database"`
+	Auth         map[string]string `json:"auth"`
+	Log4perl     Log4perl          `json:"log4perl"`
+	Plugins      map[string]Plugin `json:"plugins"` // value may be `1` or a map with key `type` and value: `default` `handoff` `mongo` `nomongo`
+	PluginRunner string            `json:"plugin_runner"`
+	TempDir      string            `json:"temp_dir"`
 }
 
 func logger(config Config) error {
@@ -566,12 +565,12 @@ func logger(config Config) error {
 	multi := io.MultiWriter(os.Stderr, file)
 
 	levels := map[string]slog.Level{
-		"TRACE":  slog.Level(-8),
-		"DEBUG":  slog.LevelDebug,
-		"INFO":   slog.LevelInfo,
-		"WARN":   slog.LevelWarn,
-		"ERROR":  slog.LevelError,
-		"FATAL":  slog.Level(12),
+		"TRACE": slog.Level(-8),
+		"DEBUG": slog.LevelDebug,
+		"INFO":  slog.LevelInfo,
+		"WARN":  slog.LevelWarn,
+		"ERROR": slog.LevelError,
+		"FATAL": slog.Level(12),
 	}
 	level, ok := levels[config.Log4perl.Level]
 	if !ok {
