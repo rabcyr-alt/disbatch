@@ -16,7 +16,8 @@ use Safe::Isa;
 use Symbol 'gensym';
 use Sys::Hostname;
 
-use lib '.';
+use FindBin;
+use lib $FindBin::RealBin;
 use ParamsResult;
 
 $| = 1;
