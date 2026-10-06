@@ -294,7 +294,7 @@ func run() int {
 				// good: task failed.
 				if cmdErr != nil {
 					// log that even though the handoff plugin set a proper failure status, it did not exit cleanly
-					slog.Error("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Warn("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				}
 				return 0
 			} else {
@@ -375,7 +375,7 @@ func run() int {
 				result["status"] = status
 				if cmdErr != nil {
 					// log that even though the plugin set a proper failure status, it did not exit cleanly
-					slog.Error("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Warn("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				}
 			}
 		}
