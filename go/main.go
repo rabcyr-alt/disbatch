@@ -32,16 +32,12 @@ func run() int {
 	taskID := flag.String("task", "", "The task's _id. Mandatory.")
 	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
-	testingFlag = flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins, defaults logfile to \"disbatchd.log\"")
+	testingFlag = flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins")
 	gfsFlag := flag.String("gfs", "", "NOOP: backcompat")
 	flag.Parse()
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
 	if *gfsFlag != "" {
 		// NOOP: might be passed but does not apply here
-	}
-	if err := logger(Config{}); err != nil {
-		slog.Error("could not not set up logger", "err", err)
-		return 1
 	}
 	if *configFlag == "" {
 		slog.Error("config file must be passed with --config")
@@ -58,7 +54,7 @@ func run() int {
 	}
 
 	if err := logger(config); err != nil {
-		slog.Error("could not not set up logger", "err", err)
+		slog.Error("could not set up logger", "err", err)
 		return 1
 	}
 
@@ -549,9 +545,6 @@ func logger(config Config) error {
 	filename := "/var/log/disbatchd.log"
 	if fn, ok := config.Log4perl.Appenders["filelog"].Args["filename"].(string); ok {
 		filename = fn
-	} else if *testingFlag {
-		// likely being ran by a user who cannot write to "/var/log/disbatchd.log"
-		filename = "disbatchd.log"
 	}
 
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
