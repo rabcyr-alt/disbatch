@@ -8,6 +8,7 @@ use Cpanel::JSON::XS;
 use Digest::MD5;
 use Data::Dumper;
 use Encode;
+use File::Path 'make_path';
 use File::Slurp;
 use Log::Log4perl;
 use MongoDB 2.2.2;
@@ -103,6 +104,8 @@ sub load_config {
         $self->{config}{activequeues} //= [];
         $self->{config}{ignorequeues} //= [];
         $self->{config}{plugins} //= {};
+        $self->{config}{temp_dir} //= '/tmp/disbatch';
+        $self->{config}{temp_dir_mode} //= '0755';
         # IDEA: validate config values (note from 2016-05-06, it's now 2025)
 
         if (!defined $self->{config}{mongohost} or !defined $self->{config}{database}) {
@@ -144,6 +147,30 @@ sub save_strict_config {
         };
         $self->{config}{auth} = $auth;
     }
+    # also create config.temp_dir with permissions config.temp_dir_mode
+    try {
+        make_dir($self->{config}{temp_dir}, oct($self->{config}{temp_dir_mode}));
+    } catch {
+        $self->logger->logdie("Could not create temp directory '$self->{config}{temp_dir}' with mode $self->{config}{temp_dir_mode}: $_");
+    };
+}
+
+sub make_dir {
+    my ($dir, $chmod) = @_;
+    $chmod //= 0755;
+
+    make_path($dir, { chmod => $chmod, error => \my $err });
+    if ($err && @$err) {
+        my ($path, $message) = %{ $err->[0] };
+        die "$message\n";
+    }
+    die "symlink\n" if -l $dir;
+    die "not a directory\n" unless -d $dir;
+    my @st = stat $dir or die "cannot stat: $!\n";
+    die "not owned\n" unless $st[4] == $>;
+    chmod $chmod, $dir or die "cannot chmod: $!\n";
+    @st = stat $dir or die "cannot stat: $!\n";
+    die "invalid mode\n" unless ($st[2] & 07777) == $chmod;
 }
 
 # from Synacor::Disbatch::Backend
