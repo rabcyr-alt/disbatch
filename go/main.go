@@ -27,9 +27,10 @@ func main() {
 }
 
 func run() int {
-	taskID := flag.String("task", "", "The task's _id. Mandatory.")
+	var r Runner
+	r.taskID = flag.String("task", "", "The task's _id. Mandatory.")
 	configFlag := flag.String("config", "", "Path to the JSON Disbatch config file. Mandatory.")
-	quietFlag := flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
+	r.quiet = flag.Bool("quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
 	testingFlag := flag.Bool("testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins")
 	flag.String("gfs", "", "NOOP: backcompat")
 	flag.Parse()
@@ -53,18 +54,19 @@ func run() int {
 		return 1
 	}
 
-	if *taskID == "" {
+	if *r.taskID == "" {
 		slog.Error("task ID must be passed with --task")
 		return 1
 	}
 
-	node, err := os.Hostname()
+	var err error
+	r.node, err = os.Hostname()
 	if err != nil {
 		slog.Error("could not get hostname", "err", err)
 		return 1
 	}
 
-	db, err := mongodb(config)
+	r.db, err = mongodb(config)
 	if err != nil {
 		slog.Error("could not connect to MongoDB", "err", err)
 		return 1
@@ -73,67 +75,66 @@ func run() int {
 		// we want to Disconnect() because idle sessions stay around for 30 minutes on the server
 		// so no log.Fatal, os.Exit, etc after calling mongodb()!
 		// below wrapped in `func() {...}()` as the args are otherwise evaluated immediately. fine with context.TODO/Background as it has no timeout but not with others.
-		db.Client().Disconnect(context.Background())
+		r.db.Client().Disconnect(context.Background())
 	}()
 
-	slog.Info(fmt.Sprintf("Starting task %s", *taskID))
+	slog.Info(fmt.Sprintf("Starting task %s", *r.taskID))
 
-	oid, err := bson.ObjectIDFromHex(*taskID)
+	r.oid, err = bson.ObjectIDFromHex(*r.taskID)
 	if err != nil {
-		slog.Error("value for --task invalid", "taskID", *taskID, "err", err)
+		slog.Error("value for --task invalid", "taskID", *r.taskID, "err", err)
 		return 1
 	}
 
 	// testing: delete and create if given the testing task id (to be removed once this is considered finished and proper tests are created)
 	// FIXME: make this more configurable
-	if *taskID == "65170b42b99efdd0b07d42de" {
-		if _, err = db.Collection("tasks").DeleteOne(context.Background(), bson.M{"_id": oid}); err != nil {
+	if *r.taskID == "65170b42b99efdd0b07d42de" {
+		if _, err = r.db.Collection("tasks").DeleteOne(context.Background(), bson.M{"_id": r.oid}); err != nil {
 			slog.Error("could not delete test task", "err", err)
 			return 1
 		}
 		opts := options.UpdateOne().SetUpsert(true)
-		if _, err = db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-nomongo.pl", "threads": 0}}, opts); err != nil {
+		if _, err = r.db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": r.oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-nomongo.pl", "threads": 0}}, opts); err != nil {
 			slog.Error("could not upsert test queue", "err", err)
 			return 1
 		}
 		params := bson.M{"status": 1, "stdout": "hi", "stderr": "vague warning"}
-		if _, err = db.Collection("tasks").InsertOne(context.Background(), bson.M{"_id": oid, "status": -1, "node": node, "mtime": time.Now(), "ctime": time.Now(), "queue": oid, "params": params}); err != nil {
+		if _, err = r.db.Collection("tasks").InsertOne(context.Background(), bson.M{"_id": r.oid, "status": -1, "node": r.node, "mtime": time.Now(), "ctime": time.Now(), "queue": r.oid, "params": params}); err != nil {
 			slog.Error("could not insert test task", "err", err)
 			return 1
 		}
 	}
 
-	filter := bson.M{"_id": oid, "status": -1, "node": node}
+	filter := bson.M{"_id": r.oid, "status": -1, "node": r.node}
 	update := bson.M{"$set": bson.M{"status": 0}}
-	var doc bson.M
-	if err = db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&doc); err != nil {
+	if err = r.db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&r.doc); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			slog.Error("could not find task to set status 0", "taskID", *taskID)
+			slog.Error("could not find task to set status 0", "taskID", *r.taskID)
 		} else {
-			slog.Error("unknown issue trying to find and update task to status 0", "taskID", *taskID, "err", err)
+			slog.Error("unknown issue trying to find and update task to status 0", "taskID", *r.taskID, "err", err)
 		}
 		return 1
 	}
 
-	slog.Info(fmt.Sprintf("params for %s: %s", *taskID, doc["params"]))
+	slog.Info(fmt.Sprintf("params for %s: %s", *r.taskID, r.doc["params"]))
 
-	filter = bson.M{"_id": oid, "status": 0, "node": node, "mtime": doc["mtime"]}	// filter for set status, "handoff" may change it
+	filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}	// filter for set status, "handoff" may change it
 
 	var queue bson.M
 	var errmsg string
 	var args Plugin
 	var plugin string
-	if err = db.Collection("queues").FindOne(context.Background(), bson.M{"_id": doc["queue"]}).Decode(&queue); err != nil {
+	if err = r.db.Collection("queues").FindOne(context.Background(), bson.M{"_id": r.doc["queue"]}).Decode(&queue); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			errmsg = fmt.Sprintf("queue %v not found for task %v", doc["queue"], *taskID)
+			errmsg = fmt.Sprintf("queue %v not found for task %v", r.doc["queue"], *r.taskID)
 		} else {
-			errmsg = fmt.Sprintf("unknown issue querying for queue %v for task %v: %v", doc["queue"], *taskID, err)
+			errmsg = fmt.Sprintf("unknown issue querying for queue %v for task %v: %v", r.doc["queue"], *r.taskID, err)
 		}
 	} else {
 		var ok bool
 		plugin, ok = queue["plugin"].(string)
 		if !ok {
-			errmsg = fmt.Sprintf("no plugin defined for task %v in queue %v", *taskID, doc["queue"])
+			errmsg = fmt.Sprintf("no plugin defined for task %v in queue %v", *r.taskID, r.doc["queue"])
 		} else {
 			args = config.Plugins[plugin]
 			if args.IsModule {
@@ -142,11 +143,11 @@ func run() int {
 			}
 			// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` value here as `plugin` when `args.IsModule` is true
 			if !filepath.IsAbs(plugin) {
-				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, *taskID)
+				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, *r.taskID)
 			} else if fileinfo, ferr := os.Stat(plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
-				errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, *taskID)
+				errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, *r.taskID)
 			} else if !slices.Contains([]string{"default", "nomongo", "mongo", "handoff"}, args.Type) {
-				errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, *taskID)
+				errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, *r.taskID)
 			}
 		}
 	}
@@ -159,13 +160,13 @@ func run() int {
 		result = bson.M{ "status": 2, "stdout": "Unable to start", "stderr": errmsg }
 	} else {
 		// types: default nomongo mongo handoff
-		// * nomongo: no mongo access, passes task and result via /tmp/*taskID.json
+		// * nomongo: no mongo access, passes task and result via /tmp/*r.taskID.json
 		//            uses local filesystem, don't have to worry about result size
-		// * default: optional mongo access, passes task and result via /tmp/*taskID.json
+		// * default: optional mongo access, passes task and result via /tmp/*r.taskID.json
 		//            uses local filesystem, don't have to worry about result size
-		// * mongo:   reads task from mongo via *taskID, saves result in "results" collection and this copies to "tasks" collection
+		// * mongo:   reads task from mongo via *r.taskID, saves result in "results" collection and this copies to "tasks" collection
 		//            uses an additional collection creating extra load on mongo, have to worry about result size if it can exceed ~16MB, but no temp files
-		// * handoff: reads task from mongo via *taskID, saves result in "tasks" collection and this exits
+		// * handoff: reads task from mongo via *r.taskID, saves result in "tasks" collection and this exits
 		//            writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
 		var cargs []string
 		if args.Type != "nomongo" {
@@ -181,35 +182,35 @@ func run() int {
 		if config.TempDir == "" {
 			config.TempDir = "/tmp/disbatch"	// below will fail if this directory does not exist, but better than the root user creating in /
 		}
-		taskFile := filepath.Join(config.TempDir, *taskID+".json")
-		responseFile := filepath.Join(config.TempDir, *taskID+"-response.json")
+		taskFile := filepath.Join(config.TempDir, *r.taskID+".json")
+		responseFile := filepath.Join(config.TempDir, *r.taskID+"-response.json")
 		if args.Type == "default" || args.Type == "nomongo" {
 			var jsonTask []byte
-			if jsonTask, err = json.Marshal(doc); err != nil {
-				slog.Error("could not create json from task doc", "taskID", *taskID, "err", err)
+			if jsonTask, err = json.Marshal(r.doc); err != nil {
+				slog.Error("could not create json from task doc", "taskID", *r.taskID, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
-				goto Ran
+				return r.finish(result, filter)
 			}
 			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
 				slog.Error("could not remove old task file", "file", taskFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
-				goto Ran
+				return r.finish(result, filter)
 			}
 			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) {	// this shouldn't exist, but in case it does
 				slog.Error("could not remove old response file", "file", responseFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not remove old reponse file: " + err.Error()}
-				goto Ran
+				return r.finish(result, filter)
 			}
 			if err = os.WriteFile(taskFile, jsonTask, 0600); err != nil {
 				slog.Error("could not create task file", "file", taskFile, "err", err)
 				result = bson.M{"status": 2, "stderr": "could not create task file: " + err.Error()}
-				goto Ran
+				return r.finish(result, filter)
 			}
 			cargs = append(cargs, "--task", taskFile)
 		} else {
-			cargs = append(cargs, "--task", *taskID)
+			cargs = append(cargs, "--task", *r.taskID)
 			if args.Type == "handoff" {
-				if *quietFlag {
+				if *r.quiet {
 					cargs = append(cargs, "--quiet")
 				}
 				if args.IsModule {
@@ -219,10 +220,10 @@ func run() int {
 					}
 				}
 			} else if args.Type == "mongo" {
-				if _, err = db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": oid}); err != nil {
-					slog.Error("could not delete any pre-existing result for task in 'results' collection", "taskID", *taskID, "err", err)
+				if _, err = r.db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": r.oid}); err != nil {
+					slog.Error("could not delete any pre-existing result for task in 'results' collection", "taskID", *r.taskID, "err", err)
 					result = bson.M{"status": 2, "stderr": "could not delete any pre-existing result for task in 'results' collection: " + err.Error()}
-					goto Ran
+					return r.finish(result, filter)
 				}
 			}
 		}
@@ -232,34 +233,34 @@ func run() int {
 			// if cmdExit < 0, then result likely not saved
 			// * cmdExit -3 means start failed, -2 means wait failed (not sure how), -1 means killed
 			// if cmdExit > 0, then perhaps saved perhaps not (a task should not exit non-zero when the task fails–it should set status to 2)
-			slog.Error("plugin did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
+			slog.Error("plugin did not exit cleanly", "plugin", plugin, "taskID", *r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 		} else {
 			// cmdExit is 0, no error
-			slog.Info("plugin exited cleanly", "plugin", plugin, "taskID", *taskID)
+			slog.Info("plugin exited cleanly", "plugin", plugin, "taskID", *r.taskID)
 		}
 		// put `cmdExit` and `cmdErr` into the task doc
 		var res *mongo.UpdateResult
-		if res, err = db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%v",cmdErr)}}); err != nil {
-			slog.Error("unknown issue updating task to set 'exit' and 'error'", "taskID", *taskID, "mtime", doc["mtime"], "err", err)
+		if res, err = r.db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%v",cmdErr)}}); err != nil {
+			slog.Error("unknown issue updating task to set 'exit' and 'error'", "taskID", *r.taskID, "mtime", r.doc["mtime"], "err", err)
 		} else if res.MatchedCount == 0 {
-			slog.Error("could not find task to set 'exit' and 'error'", "taskID", *taskID, "mtime", doc["mtime"])
+			slog.Error("could not find task to set 'exit' and 'error'", "taskID", *r.taskID, "mtime", r.doc["mtime"])
 		}
 
 		if args.Type == "handoff" {
 			var task bson.M
 			opts := options.FindOne().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
-			if err = db.Collection("tasks").FindOne(context.Background(), bson.M{"_id": oid, "node": node, "mtime": doc["mtime"]}, opts).Decode(&task); err != nil {
+			if err = r.db.Collection("tasks").FindOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, opts).Decode(&task); err != nil {
 				if errors.Is(err, mongo.ErrNoDocuments) {
-					slog.Error("could not find handoff task to validate status", "taskID", *taskID, "mtime", doc["mtime"], "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("could not find handoff task to validate status", "taskID", *r.taskID, "mtime", r.doc["mtime"], "cmdExit", cmdExit, "cmdErr", cmdErr)
 				} else {
-					slog.Error("unknown issue querying for handoff task to validate status", "taskID", *taskID, "mtime", doc["mtime"], "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("unknown issue querying for handoff task to validate status", "taskID", *r.taskID, "mtime", r.doc["mtime"], "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				}
 				return 1
 			}
 			// `status` from mongo is type `int32`
 			if status, ok := task["status"].(int32); !ok {
 				// bad plugin! status not int32. make it a failure
-				slog.Error("plugin returned unknown type for status", "plugin", plugin, "taskID", *taskID, "status", task["status"], "type", fmt.Sprintf("%T", task["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned unknown type for status", "plugin", plugin, "taskID", *r.taskID, "status", task["status"], "type", fmt.Sprintf("%T", task["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -267,7 +268,7 @@ func run() int {
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned unknown type for status (see stdout for status and any stdout or stderr it may have set)"}
 			} else if status == 0 {
 				// plugin didn't finish. make it a failure
-				slog.Error("plugin did not update status", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin did not update status", "plugin", plugin, "taskID", *r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -278,23 +279,23 @@ func run() int {
 					return 0
 				}
 				// bad plugin! status == 1 but plugin exit code non-0. make it a failure
-				slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", plugin, "taskID", *r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned status:1 but did not exit cleanly (see stdout for any stdout or stderr it may have set)"}
-				filter = bson.M{"_id": oid, "status": 1, "node": node, "mtime": doc["mtime"]}	// filter for set status, need to query on status:1
+				filter = bson.M{"_id": r.oid, "status": 1, "node": r.node, "mtime": r.doc["mtime"]}	// filter for set status, need to query on status:1
 			} else if status > int32(1) {
 				// good: task failed.
 				if cmdErr != nil {
 					// log that even though the handoff plugin set a proper failure status, it did not exit cleanly
-					slog.Warn("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Warn("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *r.taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				}
 				return 0
 			} else {
 				// bad plugin! status < 0. make it a failure
-				slog.Error("plugin returned negative status", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned negative status", "plugin", plugin, "taskID", *r.taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(task, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -303,12 +304,12 @@ func run() int {
 			}
 		} else if args.Type == "mongo" {
 			opts := options.FindOneAndDelete().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
-			if err = db.Collection("results").FindOneAndDelete(context.Background(), bson.M{"_id": oid}, opts).Decode(&result); err != nil {
+			if err = r.db.Collection("results").FindOneAndDelete(context.Background(), bson.M{"_id": r.oid}, opts).Decode(&result); err != nil {
 				if errors.Is(err, mongo.ErrNoDocuments) {
-					slog.Error("plugin did not create a document in 'results'", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("plugin did not create a document in 'results'", "plugin", plugin, "taskID", *r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 					result = bson.M{"status": 2, "stderr": "plugin did not create a document in 'results'"}
 				} else {
-					slog.Error("unknown issue querying for result for task in 'results' collection", "taskID", *taskID, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Error("unknown issue querying for result for task in 'results' collection", "taskID", *r.taskID, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
 					result = bson.M{"status": 2, "stderr": "unknown issue querying for result for task in 'results' collection: " + err.Error() }
 				}
 			}
@@ -344,14 +345,14 @@ func run() int {
 			if status, err = normalizeStatus(result["status"]); err != nil {
 				// err is UnknownStatusError, has `Status` of original result["status"], string value is "unknown type '%T' for status: %#v"
 				message := "plugin returned unknown type for status"
-				slog.Error(message, "plugin", plugin, "taskID", *taskID, "status", result["status"], "type", fmt.Sprintf("%T", result["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error(message, "plugin", plugin, "taskID", *r.taskID, "status", result["status"], "type", fmt.Sprintf("%T", result["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(result, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": message + " (see stdout for status and any stdout or stderr it may have set)"}
 			} else if status < 1 {
-				slog.Error("plugin returned non-positive status", "plugin", plugin, "taskID", *taskID, "status", result["status"], "type", fmt.Sprintf("%T", result["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned non-positive status", "plugin", plugin, "taskID", *r.taskID, "status", result["status"], "type", fmt.Sprintf("%T", result["status"]), "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(result, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -359,7 +360,7 @@ func run() int {
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned non-positive status (see stdout for status and any stdout or stderr it may have set)"}
 			} else if status == 1 && cmdErr != nil {
 				// bad for result status to be 1 but plugin exit code to be non-0, make it a failure
-				slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
+				slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", plugin, "taskID", *r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				stdout, merr := bson.MarshalExtJSON(result, false, false)
 				if merr != nil {
 					slog.Error("could not marshal plugin result", "err", merr)
@@ -370,30 +371,40 @@ func run() int {
 				result["status"] = status
 				if cmdErr != nil {
 					// log that even though the plugin set a proper failure status, it did not exit cleanly
-					slog.Warn("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
+					slog.Warn("plugin returned status>1 but did not exit cleanly", "plugin", plugin, "taskID", *r.taskID, "status", status, "cmdExit", cmdExit, "cmdErr", cmdErr)
 				}
 			}
 		}
 	}
-Ran:
+	return r.finish(result, filter)
+}
 
+type Runner struct {
+	db      *mongo.Database
+	taskID  *string
+	oid     bson.ObjectID
+	doc     bson.M
+	node    string
+	quiet   *bool
+}
+
+func (r *Runner) finish(result bson.M, filter bson.M) int {
 	status := "failed"
 	if result["status"] == 1 {
 		status = "succeeded"
 	}
-	slog.Info(fmt.Sprintf("Task %s %s.", *taskID, status))
-	if !*quietFlag {
+	slog.Info(fmt.Sprintf("Task %s %s.", *r.taskID, status))
+	if !*r.quiet {
 		fmt.Fprintf(os.Stderr, "STDOUT: %v\n", result["stdout"])
 		fmt.Fprintf(os.Stderr, "STDERR: %v\n", result["stderr"])
 	}
 	// set status first:
-	update = bson.M{"$set": bson.M{"status": result["status"]}}
-	var res *mongo.UpdateResult
-	if res, err = db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		slog.Error("unknown issue updating task to set status after completion", "taskID", *taskID, "mtime", doc["mtime"], "status", result["status"], "err", err)
+	update := bson.M{"$set": bson.M{"status": result["status"]}}
+	if res, err := r.db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
+		slog.Error("unknown issue updating task to set status after completion", "taskID", *r.taskID, "mtime", r.doc["mtime"], "status", result["status"], "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {
-		slog.Error("could not find task to set status after completion", "taskID", *taskID, "mtime", doc["mtime"], "status", result["status"])
+		slog.Error("could not find task to set status after completion", "taskID", *r.taskID, "mtime", r.doc["mtime"], "status", result["status"])
 		return 1
 	}
 
@@ -401,7 +412,7 @@ Ran:
 	// GridFS: this prefers `stderr` as a string in the task document even when it's large, as on failures `stderr` is more likely needed to be parsed
 	//         if `stderr` ends up in GridFS, so will `stdout` (unless it is empty)
 	total := 0
-	bucket := db.GridFSBucket(options.GridFSBucket().SetName("tasks"))
+	bucket := r.db.GridFSBucket(options.GridFSBucket().SetName("tasks"))
 	for _, field := range []string{"stderr", "stdout"} {
 		size := 0
 		if s, ok := result[field].(string); ok {
@@ -409,11 +420,10 @@ Ran:
 		}
 		total += size
 		if size != 0 && total > 1024*1024*15 {
-			uploadOpts := options.GridFSUpload().SetMetadata(bson.M{"task_id": oid})
+			uploadOpts := options.GridFSUpload().SetMetadata(bson.M{"task_id": r.oid})
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)	// allow 2 minutes for total upload: 16MB creates 65 chunks and 1 file document
-			var id bson.ObjectID
-			if id, err = bucket.UploadFromStream(ctx, field, strings.NewReader(result[field].(string)), uploadOpts); err != nil {
-				slog.Error("unknown issue creating GridFS content for task field", "taskID", *taskID, "field", field, "err", err)
+			if id, err := bucket.UploadFromStream(ctx, field, strings.NewReader(result[field].(string)), uploadOpts); err != nil {
+				slog.Error("unknown issue creating GridFS content for task field", "taskID", *r.taskID, "field", field, "err", err)
 				result[field] = nil
 			} else {
 				result[field] = id
@@ -422,14 +432,14 @@ Ran:
 		}
 	}
 
-	filter = bson.M{"_id": oid, "status": result["status"], "node": node, "mtime": doc["mtime"]}
+	filter = bson.M{"_id": r.oid, "status": result["status"], "node": r.node, "mtime": r.doc["mtime"]}
 	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
-	if res, err = db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set":bson.M{"complete": false}})
-		slog.Error("unknown issue updating task to set stdout/stderr after completion", "taskID", *taskID, "mtime", doc["mtime"], "err", err)
+	if res, err := r.db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
+		r.db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set":bson.M{"complete": false}})
+		slog.Error("unknown issue updating task to set stdout/stderr after completion", "taskID", *r.taskID, "mtime", r.doc["mtime"], "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {
-		slog.Error("could not find task to update stdout/stderr after completion", "taskID", *taskID, "mtime", doc["mtime"])
+		slog.Error("could not find task to update stdout/stderr after completion", "taskID", *r.taskID, "mtime", r.doc["mtime"])
 		return 1
 	}
 
