@@ -120,6 +120,7 @@ sub load_config {
         $self->{config}{auth} //= {};
         $self->{config}{gfs} //= 'auto';	# deprecated in 4.4
         $self->{config}{quiet} //= Cpanel::JSON::XS::false;
+        my $task_runner_was_given = defined $self->{config}{task_runner};
         $self->{config}{task_runner} //= '/usr/bin/go-task-runner';
         $self->{config}{plugin_runner} //= '/usr/bin/task_runner';	# for go-task-runner to run Perl module plugins (`plugins` value of 1) via `--handoff`
         $self->{config}{testing} //= Cpanel::JSON::XS::false;
@@ -129,6 +130,11 @@ sub load_config {
         $self->{config}{plugins} //= {};
         $self->{config}{temp_dir} //= '/tmp/disbatch';
         $self->{config}{temp_dir_mode} //= '0755';
+        # `go-task-runner` is the default task runner, but it is not installed if Go was not installed when installing Disbatch (such as via cpanm). The Perl `task_runner` can only run Perl module plugins.
+        if (!$task_runner_was_given and !-x $self->{config}{task_runner}) {
+            $self->logger->warn("Default task_runner '$self->{config}{task_runner}' not found or not executable, so using the Perl '/usr/bin/task_runner', which can only run Perl module plugins. Install go-task-runner, or set task_runner in the config file.");
+            $self->{config}{task_runner} = '/usr/bin/task_runner';
+        }
         # IDEA: validate config values (note from 2016-05-06, it's now 2025)
 
         if (!defined $self->{config}{mongohost} or !defined $self->{config}{database}) {
