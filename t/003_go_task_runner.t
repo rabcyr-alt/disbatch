@@ -46,18 +46,7 @@ my $plugin_perms = {
     'tasks.chunks' => [ 'find', 'insert', 'listIndexes' ],
 };
 
-# NOTE: before the first upload to an empty GridFS bucket, the Go driver calls `listIndexes` on its collections and
-# creates the indexes it wants (`filename_1_uploadDate_1` on `tasks.files`, which `Disbatch::ensure_indexes` does not),
-# but `Disbatch::Roles` grants `task_runner` neither action. So GridFS uploads by `go-task-runner` fail with "not
-# authorized" (and stdout/stderr are lost) unless they are granted here.
-my $additional_perms = {
-    task_runner => {
-        'tasks.files'  => [ 'listIndexes', 'createIndex' ],
-        'tasks.chunks' => [ 'listIndexes', 'createIndex' ],
-    },
-};
-
-my $tm = TestMongo->new(plugin_perms => $plugin_perms, additional_perms => $additional_perms);
+my $tm = TestMongo->new(plugin_perms => $plugin_perms);
 my $config = $tm->config;
 
 my $temp_dir = "$tm->{dir}/temp";
@@ -107,6 +96,15 @@ sub new_queue {
     my $queue = { name => 'queue' . ++$queue_count, threads => 0 };
     $queue->{plugin} = $plugin if defined $plugin;
     $db->coll('queues')->insert_one($queue)->inserted_id;
+}
+
+# Returns an `_id` that does not exist in the collection. As documents are inserted with no `_id` so the server makes it, we
+# insert one and delete it.
+sub unused_id {
+    my ($collection) = @_;
+    my $id = $db->coll($collection)->insert_one({ name => 'unused' . ++$queue_count })->inserted_id;
+    $db->coll($collection)->delete_one({ _id => $id });
+    $id;
 }
 
 # Returns `_id` of new task, which can be claimed by the runner unless overridden by `%override`
@@ -338,14 +336,14 @@ for my $case (
 # a non-existent task is not claimed either
 {
     my $ok = subtest 'cannot claim task that does not exist' => sub {
-        is run_task(BSON::OID->new), 1, 'runner exit code';
+        is run_task(unused_id('tasks')), 1, 'runner exit code';
     };
     diag $last_output unless $ok;
 }
 
 # tasks that can't be started get status 2 and "Unable to start"
 {
-    my $missing_queue = BSON::OID->new;
+    my $missing_queue = unused_id('queues');
     check_unable_to_start 'queue not found', $plugin_file{default}, qr/^queue ObjectID\("\Q$missing_queue\E"\) not found for task /, queue => $missing_queue;
 }
 check_unable_to_start 'queue has no plugin', undef, qr/^no plugin defined for task /;
