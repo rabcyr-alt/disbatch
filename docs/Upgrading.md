@@ -25,7 +25,7 @@ removed.
   - `plugin_runner` is the full path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
   - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
   - `disbatchd` and the task runner must run as the same user
-  - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as `task_runner` now needs `listIndexes` and `createIndex` for `tasks.files` and `tasks.chunks`
+  - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`. Restart `disbatchd`, which now creates the `filename_1_uploadDate_1` index on `tasks.files` that the MongoDB drivers want
   - the RPM is no longer `noarch`: it builds and installs `/usr/bin/go-task-runner`, so building it needs Go (see `go/go.mod` for the version)
   - see [Plugins](Plugins.md)
 - removed code deprecated in 4.200 and 4.000:

@@ -300,11 +300,12 @@ A task document cannot be more than 16MB, so large output is put in GridFS (see
   and `t/task-handoff.pl`. The files are in the bucket `tasks`, are named
   `stdout` or `stderr`, and have `metadata: { task_id: TASK_ID }`.
 
-* The runner needs `listIndexes` and `createIndex`, as well as `insert`, for
-  `tasks.files` and `tasks.chunks`: `disbatch-create-users` does this. Plugins
-  writing to GridFS need `insert` there, and `find`, `listIndexes`, and
-  `createIndex` as well for the first file in an empty bucket, added in
-  `plugin-permissions.json`.
+* The runner needs `listIndexes`, as well as `insert`, for `tasks.files` and
+  `tasks.chunks`: `disbatch-create-users` does this. Plugins writing to GridFS
+  need `insert` there, and `find` and `listIndexes` as well for the first file
+  in an empty bucket, added in `plugin-permissions.json`. Neither needs
+  `createIndex`, as `disbatchd` creates the indexes the MongoDB drivers want
+  when it starts.
 
 ##### When the result is invalid or the plugin fails
 
