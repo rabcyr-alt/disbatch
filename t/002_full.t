@@ -11,8 +11,6 @@ use warnings;
 
 use Cpanel::JSON::XS;
 use Data::Dumper;
-use File::Path qw/remove_tree/;
-use File::Slurp;
 use MongoDB 2.2.2;
 use Net::HTTP::Client;
 use POSIX qw(setsid);
@@ -20,9 +18,10 @@ use Sys::Hostname;
 use Try::Tiny::Retry ':all';
 
 use lib 'lib';
+use lib 't';
 use Disbatch;
-use Disbatch::Roles;
 use Disbatch::Web;
+use TestMongo;
 
 my $use_ssl = $ENV{USE_SSL} // 1;
 my $use_auth = $ENV{USE_AUTH} // 1;
@@ -32,98 +31,36 @@ if (!$ENV{AUTHOR_TESTING} or $ENV{SKIP_FULL_TESTS}) {
     exit;
 }
 
-sub get_free_port {
-    my ($port, $sock);
-    do {
-        $port = int rand()*32767+32768;
-        $sock = IO::Socket::INET->new(Listen => 1, ReuseAddr => 1, LocalAddr => 'localhost', LocalPort => $port, Proto => 'tcp')
-                or warn "\n# cannot bind to port $port: $!";
-    } while (!defined $sock);
-    $sock->shutdown(2);
-    $sock->close();
-    $port;
-}
+my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
 
-my $mongoport = get_free_port;
-
-# define config and make up a database name:
-my $config = {
-    monitoring => 1,
-    balance => {
-        log => 1,
-        verbose => 0,
-        pretend => 0,
-        enabled => 0,
+my $tm = TestMongo->new(
+    use_ssl => $use_ssl,
+    use_auth => $use_auth,
+    plugin_perms => $plugin_perms,
+    config => {
+        monitoring => 1,
+        balance => {
+            log => 1,
+            verbose => 0,
+            pretend => 0,
+            enabled => 0,
+        },
+        plugins => { 'Disbatch::Plugin::Demo' => 1 },
+        web_extensions => {
+        },
+        web_root => 'etc/disbatch/htdocs/',
+        views_dir => 'etc/disbatch/views/',
+        task_runner => './bin/task_runner',
+        testing => 1,	# for task_runner to use lib 'lib'
     },
-    mongohost => "mongodb://localhost:$mongoport",
-    database => "disbatch_test$$" . int(rand(10000)),
-    auth => {
-        disbatchd => 'qwerty1',		# { username => 'disbatchd', password => 'qwerty1' },
-        disbatch_web => 'qwerty2',	# { username => 'disbatch_web', password => 'qwerty2' },
-        task_runner => 'qwerty3',	# { username => 'task_runner', password => 'qwerty3' },
-        queuebalance => 'qwerty4',	# { username => 'queuebalance', password => 'qwerty4' },
-        plugin => 'qwerty5',		# { username => 'plugin', password => 'qwerty5' },
-    },
-    plugins => { 'Disbatch::Plugin::Demo' => 1 },
-    web_extensions => {
-    },
-    web_root => 'etc/disbatch/htdocs/',
-    views_dir => 'etc/disbatch/views/',
-    task_runner => './bin/task_runner',
-    testing => 1,	# for task_runner to use lib 'lib'
-    gfs => 'auto',	# default, deprecated in 4.4
-    log4perl => {
-        level => 'TRACE',
-        appenders => {
-            filelog => {
-                type => 'Log::Log4perl::Appender::File',
-                layout => '[%p] %d %F{1} %L %C %c> %m %n',
-                args => { filename => 'disbatchd.log' },
-            },
-            screenlog => {
-                type => 'Log::Log4perl::Appender::ScreenColoredLevels',
-                layout => '[%p] %d %F{1} %L %C %c> %m %n',
-                args => { },
-            }
-        }
-    },
-};
-delete $config->{auth} unless $use_auth;
-$config->{mongohost} .= "/?tlsCAFile=t/rootCA.crt&tlsCertificateKeyFile=t/serverCert.pem" if $use_ssl;
-
-mkdir "/tmp/$config->{database}";
-my $config_file = "/tmp/$config->{database}/config.json";
-write_file $config_file, encode_json $config;
+);
+my $config = $tm->config;
+my $config_file = $tm->config_file;
 
 diag "database = $config->{database}";
 
-my @mongo_args = (
-    '--logpath' => "/tmp/$config->{database}/mongod.log",
-    '--dbpath' => "/tmp/$config->{database}/",
-    '--pidfilepath' => "/tmp/$config->{database}/mongod.pid",
-    '--port' => $mongoport,
-    #'--noprealloc',	# not on 8.2 nor 6.0
-    #'--nojournal',	# not on 8.2 but is on 6.0
-    '--fork'		# NOTE: fork did not work on whatever 8.2 version I used at work on Rocky 9, but it does on 8.2.4 on my personal Rocky 9
-);
-push @mongo_args, $use_auth ? '--auth' : '--noauth';
-push @mongo_args, '--tlsMode' => 'requireTLS', '--tlsCertificateKeyFile' => 't/serverCert.pem', '--tlsCAFile' => 't/rootCAcombined.pem' if $use_ssl;
-my $mongo_args = join ' ', @mongo_args;
-say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 2016-05-05, it's now 2025)
-
-# Get test database, authed as root:
-my $attributes = {};
-if ($use_auth) {
-    my $admin = MongoDB->connect($config->{mongohost}, $attributes)->get_database('admin');
-    retry { $admin->run_command([createUser => 'root', pwd => 'kjfiwey76r3gjm', roles => [ { role => 'root', db => 'admin' } ]]) } catch { die $_ };
-    $attributes->{username} = 'root';
-    $attributes->{password} = 'kjfiwey76r3gjm';
-}
-my $test_db_root = retry { MongoDB->connect($config->{mongohost}, $attributes)->get_database($config->{database}) } catch { die $_ };
-
-# Create roles and users for a database:
-my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
-Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, %{$config->{auth}})->create_roles_and_users if $use_auth;
+# Start mongod, get test database authed as root, and create roles and users:
+my $test_db_root = $tm->start;
 
 # Create users collection:
 for my $username (qw/ foo bar /) {
@@ -149,7 +86,7 @@ sub daemonize {
     0;
 }
 
-my $webport = get_free_port;
+my $webport = TestMongo::get_free_port;
 
 my $webpid = daemonize();
 if ($webpid == 0) {
@@ -792,15 +729,9 @@ if ($webpid == 0) {
 
 END {
     # Cleanup:
-    if (defined $config and $config->{database}) {
+    if (defined $tm) {
         kill -9, $webpid if $webpid;
-        my $pidfile = "/tmp/$config->{database}/mongod.pid";
-        if (-e $pidfile) {
-            my $mongopid = read_file $pidfile;
-            chomp $mongopid;
-            kill 9, $mongopid;
-        }
-        remove_tree "/tmp/$config->{database}";
+        $tm->cleanup;
     }
 }
 
