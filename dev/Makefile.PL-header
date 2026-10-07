@@ -1,0 +1,25 @@
+# Included at the top of Makefile.PL by dist.ini (`header_file`).
+#
+# Install the go-task-runner in prebuilt/ for this platform as `go-task-runner`, in the same directory as the other programs.
+# The platform is the lowercase `uname -s` and `uname -m`, such as `linux-x86_64` (see dev/build-go-task-runner), or whatever
+# is in the environment variable `DISBATCH_GO_TARGET`, such as `DISBATCH_GO_TARGET=linux-aarch64 perl Makefile.PL`.
+# If there is not one, `go-task-runner` is not installed: set `task_runner` in the config file to the Perl `task_runner`.
+my @go_task_runner;
+{
+    my $target = $ENV{DISBATCH_GO_TARGET};
+    if (!defined $target) {
+        my ($os, $arch) = map { my $v = `uname $_ 2>/dev/null`; defined $v ? lc $v : '' } qw/-s -m/;
+        s/\s+$// for $os, $arch;
+        $target = "$os-$arch";
+    }
+    my $prebuilt = "prebuilt/go-task-runner-$target";
+    if (-x $prebuilt) {
+        require File::Copy;
+        File::Copy::copy($prebuilt, 'go-task-runner') or die "Could not copy $prebuilt to go-task-runner: $!\n";
+        chmod 0755, 'go-task-runner';
+        @go_task_runner = ('go-task-runner');
+        print "Installing $prebuilt as go-task-runner\n";
+    } else {
+        warn "No prebuilt go-task-runner for '$target', so go-task-runner will not be installed. Set task_runner in the config file to the Perl task_runner.\n";
+    }
+}
