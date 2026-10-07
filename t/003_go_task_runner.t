@@ -171,11 +171,9 @@ sub check_field {
 # Runs one task with the given plugin type and params, and checks the runner's exit code and the task document.
 # * $type: default, nomongo, mongo, handoff, or raw (a handoff plugin that does no validation of its own)
 # * %expect: status (required), stdout, stderr (see `check_field`), exit (of the runner, default 0),
-#            cmd_exit and cmd_err (what the runner saw from the plugin, default `0` and `<nil>`),
-#            todo (reason the runner is known to not do this yet)
+#            cmd_exit and cmd_err (what the runner saw from the plugin, default `0` and `<nil>`)
 sub check_task {
     my ($type, $name, $params, %expect) = @_;
-    local $TODO = $expect{todo};
     my $ok = subtest "$type: $name" => sub {
         my $queue_id = new_queue($plugin_file{$type});
         my $task_id = new_task($queue_id, $params);
@@ -245,11 +243,6 @@ for my $type (@types) {
         cmd_exit => 3, cmd_err => 'exit status 3';
 }
 
-# NOTE: for `handoff`, the runner currently does not finish the task if the plugin set a `status` other than 0 or an
-# integer that is >= 1: it looks for the task with `status: 0` to set status 2, doesn't find it, logs "could not find task
-# to set status after completion", and exits 1. The task is left with the plugin's invalid status.
-my $handoff_todo = 'handoff: runner looks for status 0 when setting status 2 for an invalid status';
-
 # invalid `status`: becomes status 2, with the plugin's result in stdout as Extended JSON.
 # `handoff` plugins are run via `raw` here, as `t/task-handoff.pl` fixes up the status itself.
 # For `handoff`, a missing status needs to be unset, as it is otherwise 0.
@@ -276,8 +269,7 @@ for my $bad (@bad_status) {
         my %expect_result = (%$result, stdout => $out, stderr => $err);
         if ($type eq 'handoff') {
             my %p = (%$status, %params, $name eq 'missing' ? (unset_status => 1) : ());
-            check_task 'raw', "$name status", \%p, status => 2, stdout => { %expect_result }, stderr => $handoff_stderr,
-                ($name eq 'zero' ? () : (todo => $handoff_todo));
+            check_task 'raw', "$name status", \%p, status => 2, stdout => { %expect_result }, stderr => $handoff_stderr;
         } else {
             check_task $type, "$name status", { %$status, %params }, status => 2, stdout => { %expect_result }, stderr => $stderr;
         }
