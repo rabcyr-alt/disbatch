@@ -536,6 +536,37 @@ sub get_gfs {
     $data;
 }
 
+# source _packed_oid() broken in BSON/OID.pm but the driver is EOL for over 6 years : should set $_pid to $$ after setting $_random to be fork safe for Disbatch::Web
+{
+    no warnings 'redefine';
+
+    my $_MAX_INC_VALUE = 0xFFFFFF;
+    my $_MAX_INC_VALUE_PLUS_ONE = 0x01000000;
+    my $_RANDOM_SIZE = 5;
+    my $_inc : shared;
+    {
+        lock($_inc);
+        $_inc = int( rand($_MAX_INC_VALUE) );
+    }
+
+    my $_pid = $$;
+    my $_random = Crypt::URandom::urandom($_RANDOM_SIZE);
+
+    *BSON::OID::_packed_oid = sub {
+        my $time = defined $_[0] ? $_[0] : time;
+        if ($$ != $_pid) {
+            $_random = Crypt::URandom::urandom($_RANDOM_SIZE);
+            $_pid = $$;
+        }
+        return pack(
+            'Na5a3',
+            $time,
+            $_random,
+            substr( pack( 'N', do { lock($_inc); $_inc++; $_inc %= $_MAX_INC_VALUE_PLUS_ONE } ), 1, 3)
+        );
+    };
+}
+
 DESTROY {
     my ($self) = @_;
     # this happens after the END block in the calling script, or if the object ever goes out of scope
