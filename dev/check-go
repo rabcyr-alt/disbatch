@@ -1,37 +1,14 @@
 #!/bin/sh
 
-# Builds go-task-runner for every platform it is shipped for, into prebuilt/go-task-runner-OS-ARCH, where OS-ARCH is the
-# lowercase `uname -s` and `uname -m` of the platform, such as `linux-x86_64`. This is run by `dzil build` (see
-# `Run::BeforeBuild` in dist.ini), and so by `dzil test` and `dzil release`, so they are in the tarball. `Makefile.PL`
-# installs the one for the platform it is run on (or the one in `DISBATCH_GO_TARGET`) as `go-task-runner`, and `dist.spec`
-# installs the one for the platform being built for. It can also be run by hand from anywhere.
-#
-# It fails if `gofmt -l` or `go vet` have any output, or if a build fails.
-# Nothing is downloaded: it needs the Go version in go/go.mod to be installed (not `GOTOOLCHAIN=auto`), and builds from go/vendor.
-#
-# To build for fewer platforms, such as to make `dzil test` faster, set `GO_TARGETS` to a space separated list of names, or
-# to `host` for only this platform:
-#
-#     GO_TARGETS=host dzil test
+# Fails if `gofmt -l` or `go vet` have any output for go/. This is run by `dzil build` (see `Run::BeforeBuild` in dist.ini),
+# and so by `dzil test` and `dzil release`. It does not build anything: Makefile.PL builds go/go-task-runner.
+# Nothing is downloaded: it needs the Go version in go/go.mod to be installed, and uses go/vendor.
 
 set -e
 
 cd "$(dirname "$0")/../go"
 
 export GOFLAGS=-mod=vendor GOTOOLCHAIN=local CGO_ENABLED=0
-
-# name GOOS GOARCH
-all_targets="
-linux-x86_64 linux amd64
-linux-aarch64 linux arm64
-darwin-x86_64 darwin amd64
-darwin-arm64 darwin arm64
-"
-
-wanted="${GO_TARGETS:-all}"
-if [ "$wanted" = host ]; then
-    wanted="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
-fi
 
 unformatted="$(gofmt -l *.go)"
 if [ -n "$unformatted" ]; then
@@ -45,20 +22,3 @@ if [ -n "$vetted" ]; then
     echo "ERROR: go vet had output" >&2
     exit 1
 fi
-
-mkdir -p ../prebuilt
-# not only the wanted ones, so `GO_TARGETS=host` does not leave old binaries for other platforms in the tarball
-rm -f ../prebuilt/go-task-runner-*
-
-built=
-echo "$all_targets" | while read -r name goos goarch; do
-    [ -n "$name" ] || continue
-    if [ "$wanted" != all ] && ! echo " $wanted " | grep -q " $name "; then
-        continue
-    fi
-    echo "building prebuilt/go-task-runner-$name"
-    # static and stripped, and no git info as the tarball does not have a .git
-    GOOS="$goos" GOARCH="$goarch" go build -trimpath -buildvcs=false -ldflags="-s -w" -o "../prebuilt/go-task-runner-$name" .
-done
-
-ls ../prebuilt/go-task-runner-* >/dev/null 2>&1 || { echo "ERROR: nothing was built: GO_TARGETS is '$wanted'" >&2; exit 1; }

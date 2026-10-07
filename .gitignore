@@ -23,4 +23,3 @@ web/.angular/cache/
 t/task-nomongo
 go/go-task-runner
 go/v2
-prebuilt/
