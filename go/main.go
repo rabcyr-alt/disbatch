@@ -171,10 +171,14 @@ func run() int {
 		var cargs []string
 		if args.Type != "nomongo" {
 			cf := r.configFile
-			for _, ext := range []string{".json-strict", ".json-task_runner", ".json"} {
-				if name, ok := strings.CutSuffix(r.configFile, ext); ok {
-					cf = name + ".json-plugin"
-					break
+			// if args.IsModule, we're handing off to the perl task runner, so whatever config we're using here is good
+			if !args.IsModule {
+				// don't trust the plugin with any passwords except for "plugin"
+				for _, ext := range []string{".json-strict", ".json-task_runner", ".json"} {
+					if name, ok := strings.CutSuffix(r.configFile, ext); ok {
+						cf = name + ".json-plugin"
+						break
+					}
 				}
 			}
 			cargs = append(cargs, "--config", cf)
