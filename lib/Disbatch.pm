@@ -98,7 +98,8 @@ sub load_config {
         $self->{config}{auth} //= {};
         $self->{config}{gfs} //= 'auto';	# deprecated in 4.4
         $self->{config}{quiet} //= Cpanel::JSON::XS::false;
-        $self->{config}{task_runner} //= '/usr/bin/task_runner';
+        $self->{config}{task_runner} //= '/usr/bin/go-task-runner';
+        $self->{config}{plugin_runner} //= '/usr/bin/task_runner';	# for go-task-runner to run Perl module plugins (`plugins` value of 1) via `--handoff`
         $self->{config}{testing} //= Cpanel::JSON::XS::false;
         $self->{config}{log4perl} //= $default_log4perl;
         $self->{config}{activequeues} //= [];
