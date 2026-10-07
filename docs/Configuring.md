@@ -25,8 +25,10 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
    12. If using Perl module plugins, `plugin_runner` must be the full path of
        `bin/task_runner`, which is the default (`/usr/bin/task_runner`)
    13. Leave `task_runner` unset to use `go-task-runner`
-       (`/usr/bin/go-task-runner`), or set it to the path of `bin/task_runner`
-       to use the Perl task runner (which can only run Perl module plugins)
+       (`/usr/bin/go-task-runner`, or the Perl `/usr/bin/task_runner` with a
+       logged warning if that is not installed), or set it to the path of
+       `bin/task_runner` to use the Perl task runner (which can only run Perl
+       module plugins)
    14. Set `temp_dir` (and `temp_dir_mode`) if you do not want to use
        `/tmp/disbatch`
    15. Remove the rest, which is optional and configured for development

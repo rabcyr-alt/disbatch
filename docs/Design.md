@@ -374,7 +374,9 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `task_runner`
 
-  Path to the DTR. Default is `"/usr/bin/go-task-runner"`. To use the Perl DTR,
+  Path to the DTR. Default is `"/usr/bin/go-task-runner"`, or if that is not
+  installed (it is not if Go was not installed when Disbatch was installed from
+  CPAN), `"/usr/bin/task_runner"` with a warning logged. To use the Perl DTR,
   which can only run Perl module plugins, set this to the path to
   `bin/task_runner`, such as `"/usr/bin/task_runner"`.
 

@@ -32,29 +32,29 @@ For an in-depth description of the design, see
         dzil build
         cpanm disbatch-<VERSION>.tar.gz
 
-  `dzil build` also builds `go-task-runner`, the default task runner, with
-  `dev/build-go-task-runner`, for Linux and macOS on x86_64 and arm64. They are
-  in the tarball as `prebuilt/go-task-runner-OS-ARCH`, where `OS-ARCH` is the
-  lowercase `uname -s` and `uname -m`, such as `linux-x86_64`. You need Go (the
-  version in `go/go.mod`) installed, and it fails if `gofmt -l` or `go vet` have
-  any output. It builds from `go/vendor` without downloading anything. To build
-  only for this platform, such as to make `dzil test` faster:
+  `go-task-runner`, the default task runner, is built from `go/` by
+  `Makefile.PL` (so by `cpanm`) if Go is installed: the version in `go/go.mod`.
+  It builds from `go/vendor` without downloading anything, and installs it as
+  `go-task-runner` in the same directory as the other programs (so `/usr/bin`
+  for the RPM, but `/usr/local/bin` for `cpanm` by default, in which case set
+  `task_runner` in the config file to its path). If Go is not installed, or is
+  too old, or the build fails, it says so and is not installed: `Disbatch` then
+  uses the Perl `task_runner`, which can only run Perl module plugins, and logs
+  a warning. To install `go-task-runner` later, install Go and run:
 
-        GO_TARGETS=host dev/build-go-task-runner
+        (cd go && go build -mod=vendor -o go-task-runner .)
 
-  `perl Makefile.PL` (so `cpanm`) installs the one for the platform it is run on
-  as `go-task-runner`, in the same directory as the other programs (so
-  `/usr/bin` for the RPM, but `/usr/local/bin` for `cpanm` by default, in which
-  case set `task_runner` in the config file to its path). Set
-  `DISBATCH_GO_TARGET` to install another, such as
-  `DISBATCH_GO_TARGET=linux-aarch64 perl Makefile.PL`. If there is none for the
-  platform, it is not installed, and `task_runner` in the config file needs to
-  be the Perl `task_runner`.
+  and copy it to `/usr/bin/go-task-runner`. Set `DISBATCH_SKIP_GO=1` to not
+  build it, and `GO` to use a `go` that is not first in `PATH`. `GOOS` and
+  `GOARCH` work as they do for `go build`.
 
-  The RPM (built from `dist.spec`) installs the one for the architecture it is
-  built for, and so is not `noarch`. Build for another architecture without
-  being on it with `rpmbuild --target aarch64` (or `RPM_TARGET=aarch64
-  ./rpm-demo-build.sh`).
+  `dzil build` fails if `gofmt -l` or `go vet` have any output for `go/`.
+
+  The RPM (built from `dist.spec`) requires Go to build, installs
+  `go-task-runner`, and so is not `noarch`. Build for another architecture
+  with `rpmbuild --target aarch64` (or `RPM_TARGET=aarch64
+  ./rpm-demo-build.sh`): Go cross compiles, so it does not need to be on that
+  architecture.
 
 
 #### Configuring Disbatch 4.4
