@@ -12,15 +12,31 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
    3. Ensure proper SSL settings in `attributes`, or remove it if not using SSL
    4. Change passwords in `auth` for the respective MongoDB users, or delete
       the field or set its value to `null` if not using MongoDB authentication
-   5. Set `plugins` to the name(s) of the plugins you want accessible for queue
-      creation
+   5. Set `plugins` to the plugins you want accessible for queue creation:
+      the name of each Perl module with a value of `1`, and the full path of
+      each program with an object that has its `type` (see
+      [Plugins](Plugins.md))
    6. Set `monitoring` to `false` if you want `GET /monitoring` to ignore checks
    7. Set `balance.enabled` to `true` if using QueueBalance
    8. Uncomment values in `web_extensions` if needing to use deprecated routes
    9. Uncomment `pre_hook` section if using a pre_hook plugin
    10. Set `activequeues` or `ignorequeues` per DEN if used
    11. Set `node_increase` and/or `queue_increase` to throttle thread increases
-   12. Remove the rest, which is optional and configured for development
+   12. If using Perl module plugins, set `plugin_runner` to the full path of
+       `bin/task_runner`
+   13. Leave `task_runner` unset to use `go-task-runner`, or set it to the path
+       of `bin/task_runner` to use the Perl task runner (which can only run
+       Perl module plugins)
+   14. Set `temp_dir` (and `temp_dir_mode`) if you do not want to use
+       `/tmp/disbatch`
+   15. Remove the rest, which is optional and configured for development
+
+`disbatchd` and the task runner must run as the same user, which does not need
+to be `root`. `disbatchd` starts the task runner, which reads the config files
+`disbatchd` writes with mode `0600` (`config.json-task_runner` and
+`config.json-plugin`), writes to `temp_dir` and the log file, and starts the
+plugins. The user needs to be able to write to `temp_dir`, and to the log file
+set in `log4perl`. See [Running](Running.md).
 
 See also [Configuring and Using SSL with MongoDB](SSL_MongoDB.md) and
 [Configuring and Using SSL with the Disbatch Command Interface](SSL_DCI.md).
