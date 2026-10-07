@@ -34,7 +34,7 @@ if (!$ENV{AUTHOR_TESTING} or $ENV{SKIP_FULL_TESTS}) {
 
 # Tasks are run by `go-task-runner` by default. Set `TASK_RUNNER` to use another, such as `TASK_RUNNER=./bin/task_runner` for the Perl one.
 my $task_runner = $ENV{TASK_RUNNER} // TestMongo::go_task_runner() // '';
-die "TASK_RUNNER '$task_runner' not found or not executable. Build go-task-runner for this platform via: GO_TARGETS=host dev/build-go-task-runner\n" unless -x $task_runner;
+die "TASK_RUNNER '$task_runner' not found or not executable. Build go-task-runner via: (cd go && go build -mod=vendor -o go-task-runner .)\n" unless -x $task_runner;
 
 my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
 
@@ -768,10 +768,12 @@ You can also disable MongoDB SSL and authentication via:
 
     USE_SSL=0 USE_AUTH=0 dzil test
 
-Tasks are run by C<go-task-runner>, which must be built first (C<dzil build> does this for all platforms, and C<dzil test>
-uses the one in C<prebuilt/> for this platform):
+Tasks are run by C<go-task-runner>, which C<Makefile.PL> builds as C<go/go-task-runner> if Go is installed (so C<dzil test>
+has it), or you can build it by hand:
 
-    GO_TARGETS=host dev/build-go-task-runner
+    (cd go && go build -mod=vendor -o go-task-runner .)
+
+C<$ENV{GO_TASK_RUNNER}> or an installed C</usr/bin/go-task-runner> are used if there is no C<go/go-task-runner>.
 
 To run the tasks with the Perl C<bin/task_runner> instead, set C<TASK_RUNNER>:
 

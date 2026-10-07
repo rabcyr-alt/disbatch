@@ -29,7 +29,7 @@ if (!$ENV{AUTHOR_TESTING} or $ENV{SKIP_FULL_TESTS}) {
 
 my $binary = TestMongo::go_task_runner() // '';
 if (!-x $binary) {
-    plan skip_all => 'go-task-runner has not been built for this platform: GO_TARGETS=host dev/build-go-task-runner';
+    plan skip_all => 'go-task-runner has not been built: (cd go && go build -mod=vendor -o go-task-runner .)';
     exit;
 }
 
@@ -58,6 +58,7 @@ my %plugin_file = (
     handoff => "$plugin_dir/task-handoff.pl",
     raw     => "$plugin_dir/task-handoff-raw.pl",	# handoff, but with no validation of its own
 );
+$config->{task_runner} = $binary;	# the one being tested, and so it does not log that it is using the Perl one as the default is not installed
 $config->{temp_dir} = $temp_dir;
 $config->{plugins} = {
     $plugin_file{default} => { type => 'default' },
@@ -377,10 +378,10 @@ t/003_go_task_runner.t - test C<go-task-runner> against a real MongoDB, running 
 
 =head1 USAGE
 
-Build C<go-task-runner> first (C<dzil build> does this for all platforms, and C<dzil test> uses the one in C<prebuilt/>
-for this platform):
+Build C<go-task-runner> first. C<Makefile.PL> builds it as C<go/go-task-runner> if Go is installed (so C<dzil test> has it),
+or you can build it by hand:
 
-    GO_TARGETS=host dev/build-go-task-runner
+    (cd go && go build -mod=vendor -o go-task-runner .)
 
 Then run the test with the following:
 
@@ -388,8 +389,7 @@ Then run the test with the following:
 
 This starts its own C<mongod> (found via C<$PATH>, or set C<MONGOD>), but does not start C<disbatchd> or the web interface.
 It runs C<go-task-runner> directly for each task, with C<--task>, C<--config>, and C<--quiet>, and checks the
-task document afterwards. It uses C<$ENV{GO_TASK_RUNNER}>, or C<go/go-task-runner> if it has been built by hand, or the
-one in C<prebuilt/> for this platform.
+task document afterwards. It uses C<$ENV{GO_TASK_RUNNER}>, or C<go/go-task-runner>, or an installed C</usr/bin/go-task-runner>.
 
 You can disable MongoDB SSL and authentication like with F<t/002_full.t>:
 

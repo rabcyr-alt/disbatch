@@ -30,13 +30,11 @@ sub get_free_port {
 }
 
 # Returns the path to the `go-task-runner` to test, or undef if there is none. This is `$ENV{GO_TASK_RUNNER}` if set, otherwise
-# `./go/go-task-runner` if it has been built by hand, otherwise the one for this platform from `dev/build-go-task-runner`
-# (which `dzil build` runs): `./prebuilt/go-task-runner-OS-ARCH`, where OS-ARCH is the lowercase `uname -s` and `uname -m`.
+# `./go/go-task-runner` (which `Makefile.PL` builds if Go is installed, so `dzil test` has it, or you can build it by hand),
+# otherwise an installed `/usr/bin/go-task-runner`.
 sub go_task_runner {
     return $ENV{GO_TASK_RUNNER} if defined $ENV{GO_TASK_RUNNER};
-    my ($os, $arch) = map { my $v = `uname $_ 2>/dev/null`; defined $v ? lc $v : '' } qw/-s -m/;
-    s/\s+$// for $os, $arch;
-    for my $path ('./go/go-task-runner', "./prebuilt/go-task-runner-$os-$arch") {
+    for my $path ('./go/go-task-runner', '/usr/bin/go-task-runner') {
         return $path if -x $path;
     }
     undef;
