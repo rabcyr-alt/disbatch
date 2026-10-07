@@ -60,9 +60,11 @@
     "queue_increase": null,	# defaults to null (no limit). per call to process_queues(), each queue will only pick up this many tasks. value must be null or integer > 0 and <= node_increase if defined.
 
     # Everthing below here is optional, and is set up for development, not production
-    #"task_runner": "./bin/task_runner",			# defaults to "/usr/bin/task_runner"
-    "task_runner": "./go/go-task-runner",			# go version
-    "plugin_runner": "/root/git/disbatch/bin/task_runner",	# have go version call perl version in handoff mode. full path required!
+    #"task_runner": "/usr/bin/go-task-runner",		# defaults to "/usr/bin/go-task-runner" (the go version)
+    #"task_runner": "/usr/bin/task_runner",		# the perl version, which can only run perl module plugins (`plugins` value of `1`)
+    "task_runner": "./go/go-task-runner",			# go version, when running from a git checkout
+    #"plugin_runner": "/usr/bin/task_runner",		# defaults to "/usr/bin/task_runner". have go version call perl version in handoff mode for perl module plugins. full path required!
+    "plugin_runner": "/root/git/disbatch/bin/task_runner",	# when running from a git checkout
     "temp_dir": "/tmp/disbatch",				# for go task runner task and response files. defaults to "/tmp/disbatch"
     "temp_dir_mode": "0755",					# permissions for temp_dir. defaults to "0755"
     #"gfs": false,					# defaults to "auto", DEPRECATED in 4.4 (always auto)
