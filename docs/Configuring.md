@@ -22,11 +22,11 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
    9. Uncomment `pre_hook` section if using a pre_hook plugin
    10. Set `activequeues` or `ignorequeues` per DEN if used
    11. Set `node_increase` and/or `queue_increase` to throttle thread increases
-   12. If using Perl module plugins, set `plugin_runner` to the full path of
-       `bin/task_runner`
-   13. Leave `task_runner` unset to use `go-task-runner`, or set it to the path
-       of `bin/task_runner` to use the Perl task runner (which can only run
-       Perl module plugins)
+   12. If using Perl module plugins, `plugin_runner` must be the full path of
+       `bin/task_runner`, which is the default (`/usr/bin/task_runner`)
+   13. Leave `task_runner` unset to use `go-task-runner`
+       (`/usr/bin/go-task-runner`), or set it to the path of `bin/task_runner`
+       to use the Perl task runner (which can only run Perl module plugins)
    14. Set `temp_dir` (and `temp_dir_mode`) if you do not want to use
        `/tmp/disbatch`
    15. Remove the rest, which is optional and configured for development

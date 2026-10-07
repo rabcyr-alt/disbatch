@@ -374,15 +374,15 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `task_runner`
 
-  Path to the DTR. Default is `go-task-runner`. To use the Perl DTR, which
-  can only run Perl module plugins, set this to the path to `bin/task_runner`,
-  such as `"/usr/bin/task_runner"`.
+  Path to the DTR. Default is `"/usr/bin/go-task-runner"`. To use the Perl DTR,
+  which can only run Perl module plugins, set this to the path to
+  `bin/task_runner`, such as `"/usr/bin/task_runner"`.
 
 * `plugin_runner`
 
   Full path to the Perl `bin/task_runner`, which `go-task-runner` runs with
   `--handoff` to run Perl module plugins (those with a `plugins` value of `1`).
-  Required if any are used. There is no default.
+  Default is `"/usr/bin/task_runner"`.
 
 * `temp_dir`
 

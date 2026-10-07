@@ -125,8 +125,9 @@ A `plugins` value of `1` means a Perl module plugin:
 validates the result, and saves it to the task. This allows queues of Perl
 module plugins and queues of programs to run on the same DEN.
 
-If `plugin_runner` is not set, or is not a full path to an executable file,
-the task fails with status `2` and `Unable to start` for `stdout`.
+`plugin_runner` defaults to `/usr/bin/task_runner`. If it is not a full path to
+an executable file, the task fails with status `2` and `Unable to start` for
+`stdout`.
 
 #### Plugins as programs for `go-task-runner`
 
