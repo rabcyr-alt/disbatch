@@ -439,11 +439,16 @@ if ($webpid == 0) {
 
     # Get report for task:
     my $report = retry { $disbatch->mongo->coll('reports')->find_one() or die 'No report found' } delay { return if $_[0] >= 5; sleep $_[0]; } catch { warn $_; {} };	# status done task_id
-    is $report->{status}, 'SUCCESS', 'report success';
+    # `process_queues` ran whichever task has the lowest `_id`, and the order of those is not what you'd expect: tasks made by the
+    # forked web workers have random bytes in the middle of the `_id` which differ for each one with BSON v1.12.2 (it does not
+    # update its saved pid after a fork), so within the same second they are in random order, even with `sort: fifo`.
+    # So any of the tasks could have run first, including ones with command `c` which fail by design.
+    my $expect_success = $report->{commands} !~ /c/;
+    is $report->{status}, $expect_success ? 'SUCCESS' : 'FAILED', 'report status';
 
     # Get task of report:
     my $task = retry { $disbatch->tasks->find_one({_id => $report->{task_id}, status => {'$ne' => 0}}) or die 'status still 0' } delay { return if $_[0] >= 5; sleep $_[0]; } catch { warn $_; $disbatch->tasks->find_one({_id => $report->{task_id}}) };
-    is $task->{status}, 1, 'task success';
+    is $task->{status}, $expect_success ? 1 : 2, 'task status';
 
     # GET /tasks/:id
     my $success_id = $task->{_id}->to_string;
