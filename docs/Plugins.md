@@ -301,7 +301,8 @@ A task document cannot be more than 16MB, so large output is put in GridFS (see
 
 * The runner needs `listIndexes` and `createIndex`, as well as `insert`, for
   `tasks.files` and `tasks.chunks`: `disbatch-create-users` does this. Plugins
-  writing to GridFS need `find`, `insert`, and `listIndexes` there, added in
+  writing to GridFS need `insert` there, and `find`, `listIndexes`, and
+  `createIndex` as well for the first file in an empty bucket, added in
   `plugin-permissions.json`.
 
 ##### When the result is invalid or the plugin fails

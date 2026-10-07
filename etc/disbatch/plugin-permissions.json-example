@@ -3,8 +3,9 @@
 # See https://docs.mongodb.org/manual/reference/built-in-roles/ for built-in roles.
 
 # Permissions are only required when using go-task-runner with "mongo" or with "handoff" (but not when "handoff" is calling a perl module).
-# A handoff plugin will need permissions for "find" and "update" on the "tasks" collection, and "insert" on the "tasks.files" and "tasks.chunks" collections.
-# A mongo plugin will need permissions for "find" and on the "tasks" collection, "insert" on the "results","tasks.files", and "tasks.chunks" collections.
+# A handoff plugin will need permissions for "find" and "update" on the "tasks" collection, and for GridFS (if stdout and stderr can be large) on the "tasks.files" and "tasks.chunks" collections.
+# A mongo plugin will need permissions for "find" on the "tasks" collection, "insert" on the "results" collection, and for GridFS (if stdout and stderr can be large) on the "tasks.files" and "tasks.chunks" collections.
+# For GridFS, "insert" is all that is needed once the first file has been stored, but uploading the first file to an empty bucket also needs "find", "listIndexes", and "createIndex".
 # Also note that Disbatch::Plugin::Demo must be able to do "insert" on the 'reports' collection, and I generally give a database-wide find permission.
 
 # My plugins typically need the following permissions:
@@ -18,8 +19,8 @@
 #    "contact_maps": [ "insert", "update", "createIndex" ],
 #    "status": [ "insert", "update", "createIndex" ],
 #    "yams": [ "insert", "update", "createIndex" ],
-#    "tasks.chunks": [ "insert" ],	# handoff, mongo
-#    "tasks.files": [ "insert" ],	# handoff, mongo
+#    "tasks.chunks": [ "find", "insert", "listIndexes", "createIndex" ],	# handoff, mongo
+#    "tasks.files": [ "find", "insert", "listIndexes", "createIndex" ],	# handoff, mongo
 #    "tasks": [ "find", "update" ],	# handoff
 #    "tasks": [ "find" ],		# mongo
 #    "results": [ "insert" ],		# mongo
