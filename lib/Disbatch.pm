@@ -4,7 +4,9 @@ use 5.12.0;
 use warnings;
 
 use boolean 0.25;
+use BSON::OID;
 use Cpanel::JSON::XS;
+use Crypt::URandom ();
 use Digest::MD5;
 use Data::Dumper;
 use Encode;
@@ -17,6 +19,26 @@ use Safe::Isa;
 use Sys::Hostname;
 use Time::Moment;
 use Try::Tiny::Retry;
+
+# BSON::OID (BSON v1.12.2) gets new random bytes for every OID made in a forked process, as it never updates its saved pid
+# after a fork, which contradicts the spec ("a 5-byte random number unique to a machine and process"). `Disbatch::Web` forks
+# its workers, and the tasks they make in the same second would not be in `_id` order (so `sort: fifo` is not in order).
+# This replaces `BSON::OID::_packed_oid` (used for every new OID) with one that gets new random bytes once per process.
+{
+    no warnings 'redefine';
+    my $inc = int(rand(0xFFFFFF));
+    my $pid = $$;
+    my $random = Crypt::URandom::urandom(5);
+    *BSON::OID::_packed_oid = sub {
+        my $time = defined $_[0] ? $_[0] : time;
+        if ($$ != $pid) {
+            $pid = $$;
+            $random = Crypt::URandom::urandom(5);
+        }
+        $inc = ($inc + 1) % 0x1000000;
+        return pack('Na5a3', $time, $random, substr(pack('N', $inc), 1, 3));
+    };
+}
 
 my $default_log4perl = {
     level => 'DEBUG',	# 'TRACE'
