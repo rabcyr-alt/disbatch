@@ -27,9 +27,9 @@ if (!$ENV{AUTHOR_TESTING} or $ENV{SKIP_FULL_TESTS}) {
     exit;
 }
 
-my $binary = $ENV{GO_TASK_RUNNER} // './go/go-task-runner';
+my $binary = TestMongo::go_task_runner() // '';
 if (!-x $binary) {
-    plan skip_all => "$binary has not been built: (cd go && go build -mod=vendor -o go-task-runner .)";
+    plan skip_all => 'go-task-runner has not been built for this platform: GO_TARGETS=host dev/build-go-task-runner';
     exit;
 }
 
@@ -297,7 +297,8 @@ check_task 'raw', 'plugin did not update status', { },
     status => 2, stdout => { status => 0 }, stderr => $not_updated;
 
 # output over 15MB combined goes to GridFS. `stderr` is kept in the task document if it fits, as it is the one more likely to be parsed
-for my $type (@types) {
+# set `GFS_TESTS=none` to skip these, which are the slowest
+for my $type (($ENV{GFS_TESTS} // '') eq 'none' ? () : @types) {
     check_task $type, 'stdout and stderr combined of 15MB stay in the task', { status => 1, large_stderr => 7*$MB, large_stdout => 8*$MB },
         status => 1, stdout => 'x' x (8*$MB), stderr => 'x' x (7*$MB);
     check_task $type, 'stdout goes to GridFS when over 15MB combined', { status => 1, large_stderr => 1*$MB, large_stdout => 15*$MB },
@@ -376,17 +377,19 @@ t/003_go_task_runner.t - test C<go-task-runner> against a real MongoDB, running 
 
 =head1 USAGE
 
-Build C<go-task-runner> first:
+Build C<go-task-runner> first (C<dzil build> does this for all platforms, and C<dzil test> uses the one in C<prebuilt/>
+for this platform):
 
-    (cd go && go build -mod=vendor -o go-task-runner .)
+    GO_TARGETS=host dev/build-go-task-runner
 
 Then run the test with the following:
 
     AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
 
 This starts its own C<mongod> (found via C<$PATH>, or set C<MONGOD>), but does not start C<disbatchd> or the web interface.
-It runs C<go/go-task-runner> directly for each task, with C<--task>, C<--config>, and C<--quiet>, and checks the
-task document afterwards. Use C<GO_TASK_RUNNER> to test a binary somewhere else.
+It runs C<go-task-runner> directly for each task, with C<--task>, C<--config>, and C<--quiet>, and checks the
+task document afterwards. It uses C<$ENV{GO_TASK_RUNNER}>, or C<go/go-task-runner> if it has been built by hand, or the
+one in C<prebuilt/> for this platform.
 
 You can disable MongoDB SSL and authentication like with F<t/002_full.t>:
 
