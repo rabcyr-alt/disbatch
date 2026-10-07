@@ -40,7 +40,7 @@ sub mongod_path {
 
 # Parameters:
 #   use_ssl, use_auth: default to $ENV{USE_SSL} and $ENV{USE_AUTH}, which both default to 1
-#   plugin_perms: passed to Disbatch::Roles
+#   plugin_perms, additional_perms: passed to Disbatch::Roles
 #   log_file: Log4perl file appender filename, default 'disbatchd.log'
 #   config: hash of keys that override or add to the base config
 sub new {
@@ -49,6 +49,7 @@ sub new {
         use_ssl => $args{use_ssl} // $ENV{USE_SSL} // 1,
         use_auth => $args{use_auth} // $ENV{USE_AUTH} // 1,
         plugin_perms => $args{plugin_perms} // {},
+        additional_perms => $args{additional_perms},
         mongoport => get_free_port(),
     }, $class;
 
@@ -88,9 +89,15 @@ sub new {
     $self->{dir} = "/tmp/$config->{database}";
     $self->{config_file} = "$self->{dir}/config.json";
     mkdir $self->{dir};
-    write_file $self->{config_file}, encode_json $config;
+    $self->write_config;
 
     $self;
+}
+
+# Writes the config file. Call this again after changing anything in `config` that should be in the file.
+sub write_config {
+    my ($self) = @_;
+    write_file $self->{config_file}, encode_json $self->{config};
 }
 
 sub config { $_[0]{config} }
@@ -132,7 +139,7 @@ sub start {
     $self->{db} = retry { MongoDB->connect($config->{mongohost}, $attributes)->get_database($config->{database}) } catch { die $_ };
 
     # Create roles and users for a database:
-    Disbatch::Roles->new(db => $self->{db}, plugin_perms => $self->{plugin_perms}, %{$config->{auth}})->create_roles_and_users if $self->{use_auth};
+    Disbatch::Roles->new(db => $self->{db}, plugin_perms => $self->{plugin_perms}, additional_perms => $self->{additional_perms}, %{$config->{auth}})->create_roles_and_users if $self->{use_auth};
 
     $self->{db};
 }
