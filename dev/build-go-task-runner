@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Builds go/go-task-runner. This is run by `dzil build` (see `Run::BeforeBuild` in dist.ini), and so by `dzil test` and
+# `dzil release`, so the binary is in the tarball. It can also be run by hand from anywhere.
+#
+# It fails if `gofmt -l` or `go vet` have any output, or if the build fails.
+# Nothing is downloaded: it needs the Go version in go/go.mod to be installed (not `GOTOOLCHAIN=auto`), and builds from go/vendor.
+
+set -e
+
+cd "$(dirname "$0")/../go"
+
+export GOFLAGS=-mod=vendor GOTOOLCHAIN=local CGO_ENABLED=0
+
+unformatted="$(gofmt -l *.go)"
+if [ -n "$unformatted" ]; then
+    echo "ERROR: gofmt needs to be run on: $unformatted" >&2
+    exit 1
+fi
+
+vetted="$(go vet ./... 2>&1)" || { echo "$vetted" >&2; echo "ERROR: go vet failed" >&2; exit 1; }
+if [ -n "$vetted" ]; then
+    echo "$vetted" >&2
+    echo "ERROR: go vet had output" >&2
+    exit 1
+fi
+
+# static and stripped, and no git info as the tarball does not have a .git
+go build -trimpath -buildvcs=false -ldflags="-s -w" -o go-task-runner .
