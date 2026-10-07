@@ -26,7 +26,7 @@ UI, while removing deprecated code.
   - plugins can be programs in any language, of type `default`, `nomongo`, `mongo`, or `handoff`. Perl module plugins are run via `plugin_runner`
   - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`, and `plugins` is an object instead of an array
   - new task document fields `cmdExit` and `cmdErr`, and `complete` is set by both task runners
-  - `dzil build` builds `go-task-runner` offline from `go/vendor` with `dev/build-go-task-runner` and puts it in the tarball, and the RPM (`dist.spec`) installs it as `/usr/bin/go-task-runner`, so it is no longer `noarch`. `gofmt -l` and `go vet` must have no output for `dzil build` to succeed
+  - `dzil build` builds `go-task-runner` offline from `go/vendor` with `dev/build-go-task-runner` for linux and darwin on x86_64 and arm64 (`prebuilt/go-task-runner-OS-ARCH` in the tarball), and `Makefile.PL` installs the one for its platform as `go-task-runner` (`DISBATCH_GO_TARGET` picks another). The RPM (`dist.spec`) installs the one for the architecture it is built for (`rpmbuild --target`), so it is no longer `noarch`. `gofmt -l` and `go vet` must have no output for `dzil build` to succeed
   - `Disbatch::Roles`: `task_runner` can `listIndexes` for `tasks.files` and `tasks.chunks`
   - `ensure_indexes` also creates `{ filename: 1, uploadDate: 1 }` on `tasks.files`, the index the Perl and Go MongoDB drivers want for GridFS, so they do not need `createIndex`
 - completely new web UI (same backend JSON API)

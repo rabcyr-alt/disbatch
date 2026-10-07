@@ -26,7 +26,7 @@ removed.
   - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
   - `disbatchd` and the task runner must run as the same user
   - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`. Restart `disbatchd`, which now creates the `filename_1_uploadDate_1` index on `tasks.files` that the MongoDB drivers want
-  - the RPM is no longer `noarch`: it installs `/usr/bin/go-task-runner`, which `dzil build` builds, so building needs Go (see `go/go.mod` for the version)
+  - the RPM is no longer `noarch`: it installs `/usr/bin/go-task-runner`, which `dzil build` builds for each platform, so building needs Go (see `go/go.mod` for the version). `perl Makefile.PL` installs the one for its platform as `go-task-runner` in the same directory as the other programs
   - see [Plugins](Plugins.md)
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3) : deprecated v3 routes: *-json, not tested
