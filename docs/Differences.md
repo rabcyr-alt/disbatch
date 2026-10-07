@@ -22,6 +22,11 @@ UI, while removing deprecated code.
   - SSL options changed
 - updated code for perl v5.32.1 (really 5.24 and later), but should still work on v5.16.2 and possibly back to 5.12.0)
   - `keys` can no longer take a scalar expression
+- new task runner `go-task-runner` (source in `go/`) is the default, and the Perl `bin/task_runner` is still available
+  - plugins can be programs in any language, of type `default`, `nomongo`, `mongo`, or `handoff`. Perl module plugins are run via `plugin_runner`
+  - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`, and `plugins` is an object instead of an array
+  - new task document fields `cmdExit` and `cmdErr`, and `complete` is set by both task runners
+  - `Disbatch::Roles`: `task_runner` can `listIndexes` and `createIndex` for `tasks.files` and `tasks.chunks`
 - completely new web UI (same backend JSON API)
   - rewritten in Angular 22 and Typescript, instead of various things hacked together
   - added `dashboard.refresh_ms` and `dashboard.live_window_ms` settings
