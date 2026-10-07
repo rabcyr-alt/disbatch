@@ -26,6 +26,7 @@ UI, while removing deprecated code.
   - plugins can be programs in any language, of type `default`, `nomongo`, `mongo`, or `handoff`. Perl module plugins are run via `plugin_runner`
   - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`, and `plugins` is an object instead of an array
   - new task document fields `cmdExit` and `cmdErr`, and `complete` is set by both task runners
+  - the RPM (`dist.spec`) builds `go-task-runner` offline from `go/vendor` and installs it as `/usr/bin/go-task-runner`, so it is no longer `noarch`. `gofmt -l` and `go vet` must have no output for it to build
   - `Disbatch::Roles`: `task_runner` can `listIndexes` and `createIndex` for `tasks.files` and `tasks.chunks`
 - completely new web UI (same backend JSON API)
   - rewritten in Angular 22 and Typescript, instead of various things hacked together

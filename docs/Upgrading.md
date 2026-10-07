@@ -22,10 +22,11 @@ removed.
 - Breaking change: web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`, and that should be it.
 - `go-task-runner` is now the default task runner, and `bin/task_runner` can still be used by setting `task_runner` in the config file:
   - `plugins` is now an object and not an array: the keys are the plugin names and the values are `1` for Perl modules, or an object with `type` for programs. Change an array `[ "Disbatch::Plugin::Demo" ]` to `{ "Disbatch::Plugin::Demo": 1 }`
-  - set `plugin_runner` to the full path of `bin/task_runner` to run Perl module plugins with `go-task-runner`
+  - `plugin_runner` is the full path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
   - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
   - `disbatchd` and the task runner must run as the same user
   - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as `task_runner` now needs `listIndexes` and `createIndex` for `tasks.files` and `tasks.chunks`
+  - the RPM is no longer `noarch`: it builds and installs `/usr/bin/go-task-runner`, so building it needs Go (see `go/go.mod` for the version)
   - see [Plugins](Plugins.md)
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3) : deprecated v3 routes: *-json, not tested
