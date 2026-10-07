@@ -212,6 +212,8 @@ sub ensure_indexes {
         $self->changelog->indexes->create_one([ collection => 1 ]);
         $self->mongo->coll('tasks.chunks')->indexes->create_one([ files_id => 1, n => 1 ], { unique => true });
         $self->mongo->coll('tasks.files')->indexes->create_one([ filename => 1, 'metadata.task_id' => 1 ]);
+        # the index the Perl and Go MongoDB drivers want for GridFS. if it does not exist when uploading to an empty bucket, they will try to create it, which needs `createIndex`
+        $self->mongo->coll('tasks.files')->indexes->create_one([ filename => 1, uploadDate => 1 ]);
     } catch {
         $self->logger->logdie("Could not ensure_indexes: $_")
     };
