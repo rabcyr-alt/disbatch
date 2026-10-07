@@ -12,12 +12,18 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-BUILD
 # Not noarch, as it includes go-task-runner (/usr/bin/go-task-runner), which is a compiled program and is the default task
 # runner. (An RPM can only have noarch subpackages, so a separate arch-specific go-task-runner subpackage is not possible
 # while the Perl part is noarch.)
-# go-task-runner (go/go-task-runner) is not built here: `dzil build` builds it (dev/build-go-task-runner, which also fails
-# on any gofmt or go vet output) and puts it in the tarball, so this must be built on the same architecture as the tarball.
+# go-task-runner is not built here: `dzil build` builds it for every platform (dev/build-go-task-runner, which also fails on
+# any gofmt or go vet output) as prebuilt/go-task-runner-OS-ARCH in the tarball, and Makefile.PL installs the one for
+# `go_target` (default `linux-` and the architecture being built for, so `rpmbuild --target aarch64` makes an aarch64 package,
+# with no need to be on that architecture, as everything else is Perl). Use `--define 'go_target linux-aarch64'` to pick
+# another, such as when `--target` is not the same name as `uname -m` gives.
+%{!?go_target: %global go_target linux-%{_target_cpu}}
 BuildRequires: perl >= 0:5.032001
 
-# go-task-runner is already built static and stripped, so there is no debuginfo to package
+# go-task-runner is already built static and stripped, so there is no debuginfo to package, and nothing to strip, which would
+# fail for a binary for another architecture
 %global debug_package %{nil}
+%global __strip /bin/true
 
 Requires: perl(Limper::Engine::PSGI) perl(Starwoman)
 
@@ -30,7 +36,7 @@ Suggests: perl(Template) perl(Template::Plugin::SimpleJson)
 %setup -q
 
 %build
-PERL_MB_OPT="" PERL_MM_OPT="" CFLAGS="$RPM_OPT_FLAGS" perl Makefile.PL INSTALLDIRS=vendor
+DISBATCH_GO_TARGET=%{go_target} PERL_MB_OPT="" PERL_MM_OPT="" CFLAGS="$RPM_OPT_FLAGS" perl Makefile.PL INSTALLDIRS=vendor
 make
 
 %check
@@ -47,9 +53,8 @@ make install DESTDIR=%{buildroot}
 
 find %{buildroot} \( -name perllocal.pod -o -name .packlist \) -exec rm -v {} \;
 
-# before the file list is made, so it is included in it. built by dzil, not here
-test -x go/go-task-runner || { echo "ERROR: go/go-task-runner is not in the tarball: use the tarball made by dzil build"; exit 1; }
-install -D -m0755 go/go-task-runner %{buildroot}/usr/bin/go-task-runner
+# installed by `make install` from prebuilt/go-task-runner-%{go_target}, or not at all if there is none for it
+test -x %{buildroot}/usr/bin/go-task-runner || { echo "ERROR: no prebuilt/go-task-runner-%{go_target} in the tarball, so go-task-runner was not installed: use the tarball made by dzil build, and a go_target it has"; exit 1; }
 
 find %{buildroot}/usr -type f -print | \
         sed "s@^%{buildroot}@@g" | \
