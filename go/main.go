@@ -266,6 +266,7 @@ func run() int {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned unknown type for status (see stdout for status and any stdout or stderr it may have set)"}
+				filter = bson.M{"_id": r.oid, "status": task["status"], "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, need to query on status:task["status"]
 			} else if status == 0 {
 				// plugin didn't finish. make it a failure
 				slog.Error("plugin did not update status", "plugin", plugin, "taskID", r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
@@ -301,6 +302,7 @@ func run() int {
 					slog.Error("could not marshal plugin result", "err", merr)
 				}
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned negative status (see stdout for status and any stdout or stderr it may have set)"}
+				filter = bson.M{"_id": r.oid, "status": task["status"], "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, need to query on status:task["status"]
 			}
 		} else if args.Type == "mongo" {
 			opts := options.FindOneAndDelete().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
