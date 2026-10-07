@@ -17,8 +17,9 @@ module name or full path to the program.
 
 #### Task runners
 
-`go-task-runner` is the default Disbatch Task Runner (DTR): `disbatchd` runs it
-once per claimed task. It validates the plugin, runs it, validates the result,
+`go-task-runner` (see `man go-task-runner`, or `go/go-task-runner.pod`) is
+the default Disbatch Task Runner (DTR): `disbatchd` runs it once per claimed
+task. It validates the plugin, runs it, validates the result,
 and writes the task's `status`, `stdout`, and `stderr`.
 
 `bin/task_runner` is still shipped, and can be used by setting `task_runner` in

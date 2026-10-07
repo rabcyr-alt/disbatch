@@ -240,6 +240,8 @@ Warns if C<--gfs> is used. Doesn't print the C<Starting task> nor C<params> mess
 
 =head1 SEE ALSO
 
+L<go-task-runner>
+
 L<Disbatch>
 
 L<Disbatch::Web>
