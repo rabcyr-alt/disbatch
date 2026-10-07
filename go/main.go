@@ -485,7 +485,6 @@ func mongodb(config Config) (*mongo.Database, error) {
 	opts.SetTimeout(30 * time.Second) // every operation will retry as needed for up to 30 seconds
 	if len(config.Auth) > 0 {
 		credential := options.Credential{
-			AuthMechanism: "PLAIN",
 			AuthSource:    config.Database,
 			Username:      "task_runner",
 			Password:      config.Auth["task_runner"],
