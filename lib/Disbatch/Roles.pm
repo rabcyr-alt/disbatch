@@ -44,8 +44,9 @@ sub new {
                 { resource => { db => $self->{db}{name}, collection => '' }, actions => [ 'find' ] },
                 { resource => { db => $self->{db}{name}, collection => 'queues' },  actions => [ 'update' ] },
                 { resource => { db => $self->{db}{name}, collection => 'tasks' },  actions => [ 'update' ] },
-                { resource => { db => $self->{db}{name}, collection => 'tasks.chunks' },  actions => [ 'insert' ] },
-                { resource => { db => $self->{db}{name}, collection => 'tasks.files' },  actions => [ 'insert' ] },
+                # `listIndexes` and `createIndex` on GridFS collections are for `go-task-runner`, as the Go driver ensures its indexes before the first upload
+                { resource => { db => $self->{db}{name}, collection => 'tasks.chunks' },  actions => [ 'insert', 'listIndexes', 'createIndex' ] },
+                { resource => { db => $self->{db}{name}, collection => 'tasks.files' },  actions => [ 'insert', 'listIndexes', 'createIndex' ] },
                 { resource => { db => $self->{db}{name}, collection => 'results' },  actions => [ 'remove' ] },
             ],
         },
