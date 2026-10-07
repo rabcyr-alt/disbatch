@@ -64,7 +64,10 @@ for my $field (qw/ stderr stdout /) {
     }
 }
 
-retry { $mongo->coll('results')->insert_one($result) } catch { die "Could not insert results for task $task_id with status $result->{status} after completion: $_" };
+# `no_result` skips this, so tests can make a plugin that does not create a result:
+unless ($doc->{params}{no_result}) {
+    retry { $mongo->coll('results')->insert_one($result) } catch { die "Could not insert results for task $task_id with status $result->{status} after completion: $_" };
+}
 
 for my $key (keys %$extra) {
     if ($key eq 'kill') {
