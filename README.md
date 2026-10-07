@@ -33,17 +33,28 @@ For an in-depth description of the design, see
         cpanm disbatch-<VERSION>.tar.gz
 
   `dzil build` also builds `go-task-runner`, the default task runner, with
-  `dev/build-go-task-runner`, and puts it in the tarball as
-  `go/go-task-runner`. You need Go (the version in `go/go.mod`) installed, and
-  it fails if `gofmt -l` or `go vet` have any output. It builds from `go/vendor`
-  without downloading anything. To build just the binary:
+  `dev/build-go-task-runner`, for Linux and macOS on x86_64 and arm64. They are
+  in the tarball as `prebuilt/go-task-runner-OS-ARCH`, where `OS-ARCH` is the
+  lowercase `uname -s` and `uname -m`, such as `linux-x86_64`. You need Go (the
+  version in `go/go.mod`) installed, and it fails if `gofmt -l` or `go vet` have
+  any output. It builds from `go/vendor` without downloading anything. To build
+  only for this platform, such as to make `dzil test` faster:
 
-        dev/build-go-task-runner
+        GO_TARGETS=host dev/build-go-task-runner
 
-  `cpanm` does not install `go-task-runner`: copy it to
-  `/usr/bin/go-task-runner`, or set `task_runner` in the config file to its
-  path. The RPM (built from `dist.spec`) installs it from the tarball, and so is
-  not `noarch`.
+  `perl Makefile.PL` (so `cpanm`) installs the one for the platform it is run on
+  as `go-task-runner`, in the same directory as the other programs (so
+  `/usr/bin` for the RPM, but `/usr/local/bin` for `cpanm` by default, in which
+  case set `task_runner` in the config file to its path). Set
+  `DISBATCH_GO_TARGET` to install another, such as
+  `DISBATCH_GO_TARGET=linux-aarch64 perl Makefile.PL`. If there is none for the
+  platform, it is not installed, and `task_runner` in the config file needs to
+  be the Perl `task_runner`.
+
+  The RPM (built from `dist.spec`) installs the one for the architecture it is
+  built for, and so is not `noarch`. Build for another architecture without
+  being on it with `rpmbuild --target aarch64` (or `RPM_TARGET=aarch64
+  ./rpm-demo-build.sh`).
 
 
 #### Configuring Disbatch 4.4
