@@ -32,15 +32,18 @@ For an in-depth description of the design, see
         dzil build
         cpanm disbatch-<VERSION>.tar.gz
 
-  This does not install `go-task-runner`, the default task runner. To build it
-  you need Go (the version in `go/go.mod`). It builds without downloading
-  anything:
+  `dzil build` also builds `go-task-runner`, the default task runner, with
+  `dev/build-go-task-runner`, and puts it in the tarball as
+  `go/go-task-runner`. You need Go (the version in `go/go.mod`) installed, and
+  it fails if `gofmt -l` or `go vet` have any output. It builds from `go/vendor`
+  without downloading anything. To build just the binary:
 
-        (cd go && go build -mod=vendor -o go-task-runner .)
+        dev/build-go-task-runner
 
-  Copy the binary to `/usr/bin/go-task-runner`, or set `task_runner` in the
-  config file to its path. The RPM (built from `dist.spec`) builds and installs
-  it, and so is not `noarch`.
+  `cpanm` does not install `go-task-runner`: copy it to
+  `/usr/bin/go-task-runner`, or set `task_runner` in the config file to its
+  path. The RPM (built from `dist.spec`) installs it from the tarball, and so is
+  not `noarch`.
 
 
 #### Configuring Disbatch 4.4
