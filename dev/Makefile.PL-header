@@ -1,25 +1,51 @@
 # Included at the top of Makefile.PL by dist.ini (`header_file`).
 #
-# Install the go-task-runner in prebuilt/ for this platform as `go-task-runner`, in the same directory as the other programs.
-# The platform is the lowercase `uname -s` and `uname -m`, such as `linux-x86_64` (see dev/build-go-task-runner), or whatever
-# is in the environment variable `DISBATCH_GO_TARGET`, such as `DISBATCH_GO_TARGET=linux-aarch64 perl Makefile.PL`.
-# If there is not one, `go-task-runner` is not installed: set `task_runner` in the config file to the Perl `task_runner`.
+# Builds go/go-task-runner, the default task runner, if Go is installed, so it is installed as `go-task-runner` in the same
+# directory as the other programs. It is static and stripped, and built from go/vendor, so nothing is downloaded.
+#
+# If Go is not installed, is older than go/go.mod needs, or the build fails, it is not built and so not installed, and this
+# says what to do about it. `Disbatch` uses the Perl `task_runner` if there is no `go-task-runner`.
+#
+# * Set `DISBATCH_SKIP_GO=1` to not build it (such as when building a package that does not include it).
+# * Set `GO` to the `go` to use if it is not the first in `$PATH`.
+# * It builds for the platform it is run on, or for `GOOS` and `GOARCH` (and uses `GOCACHE`) if set, like `go build`.
 my @go_task_runner;
 {
-    my $target = $ENV{DISBATCH_GO_TARGET};
-    if (!defined $target) {
-        my ($os, $arch) = map { my $v = `uname $_ 2>/dev/null`; defined $v ? lc $v : '' } qw/-s -m/;
-        s/\s+$// for $os, $arch;
-        $target = "$os-$arch";
-    }
-    my $prebuilt = "prebuilt/go-task-runner-$target";
-    if (-x $prebuilt) {
-        require File::Copy;
-        File::Copy::copy($prebuilt, 'go-task-runner') or die "Could not copy $prebuilt to go-task-runner: $!\n";
-        chmod 0755, 'go-task-runner';
-        @go_task_runner = ('go-task-runner');
-        print "Installing $prebuilt as go-task-runner\n";
+    my $go = $ENV{GO} // 'go';
+    my $by_hand = '(cd go && go build -mod=vendor -o go-task-runner .)';
+    my $what_to_do = "To use it, install Go (the version in go/go.mod) and build it with:\n\n    $by_hand\n\n"
+                   . "and copy go/go-task-runner to where the other programs are installed (or set task_runner in the config file to its path), "
+                   . "or install the go-task-runner package. Until then, the Perl task_runner is used, which can only run Perl module plugins.\n";
+    my $no_go = sub { warn "\ngo-task-runner was not built, so it will not be installed: $_[0]\n$what_to_do\n" };
+
+    my @need = (do { open my $fh, '<', 'go/go.mod' or die "Could not open go/go.mod: $!\n"; join '', <$fh> } =~ /^go\s+(\d+)\.(\d+)(?:\.(\d+))?/m);
+    my $need_text = join '.', grep { defined } @need;
+
+    my $version = $ENV{DISBATCH_SKIP_GO} ? '' : (`$go env GOVERSION 2>/dev/null` // '');
+    my @have = $version =~ /go(\d+)\.(\d+)(?:\.(\d+))?/;
+    if ($ENV{DISBATCH_SKIP_GO}) {
+        print "DISBATCH_SKIP_GO is set, so go-task-runner will not be built or installed.\n";
+    } elsif (!@have) {
+        $no_go->("Go was not found ('$go' is not in PATH)");
     } else {
-        warn "No prebuilt go-task-runner for '$target', so go-task-runner will not be installed. Set task_runner in the config file to the Perl task_runner.\n";
+        $have[2] //= 0;
+        my $too_old = 0;
+        for my $i (0 .. 2) {
+            my ($h, $n) = ($have[$i], $need[$i] // 0);
+            if ($h != $n) { $too_old = $h < $n; last }
+        }
+        if ($too_old) {
+            $no_go->("Go " . join('.', @have) . " is installed but go/go.mod needs $need_text or later");
+        } else {
+            print "Building go/go-task-runner with Go ", join('.', @have), "\n";
+            local $ENV{GOFLAGS} = '-mod=vendor';
+            local $ENV{GOTOOLCHAIN} = 'local';
+            local $ENV{CGO_ENABLED} = '0';
+            if (system($go, 'build', '-C', 'go', '-trimpath', '-buildvcs=false', '-ldflags=-s -w', '-o', 'go-task-runner', '.') == 0 and -x 'go/go-task-runner') {
+                @go_task_runner = ('go/go-task-runner');
+            } else {
+                $no_go->("'$go build' failed (see above)");
+            }
+        }
     }
 }
