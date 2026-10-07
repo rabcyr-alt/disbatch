@@ -10,6 +10,7 @@ use 5.12.0;
 use warnings;
 
 use Cpanel::JSON::XS;
+use Cwd qw/abs_path/;
 use Data::Dumper;
 use MongoDB 2.2.2;
 use Net::HTTP::Client;
@@ -31,6 +32,10 @@ if (!$ENV{AUTHOR_TESTING} or $ENV{SKIP_FULL_TESTS}) {
     exit;
 }
 
+# Tasks are run by `go-task-runner` by default. Set `TASK_RUNNER` to use another, such as `TASK_RUNNER=./bin/task_runner` for the Perl one.
+my $task_runner = $ENV{TASK_RUNNER} // './go/go-task-runner';
+die "TASK_RUNNER '$task_runner' not found or not executable. Build go-task-runner via: (cd go && go build -mod=vendor -o go-task-runner .)\n" unless -x $task_runner;
+
 my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
 
 my $tm = TestMongo->new(
@@ -50,7 +55,8 @@ my $tm = TestMongo->new(
         },
         web_root => 'etc/disbatch/htdocs/',
         views_dir => 'etc/disbatch/views/',
-        task_runner => './bin/task_runner',
+        task_runner => $task_runner,
+        plugin_runner => abs_path('bin/task_runner'),	# for go-task-runner to run `Disbatch::Plugin::Demo` via `bin/task_runner --handoff`. must be a full path.
         testing => 1,	# for task_runner to use lib 'lib'
     },
 );
@@ -537,8 +543,11 @@ if ($webpid == 0) {
         '1E'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  1,  15       16
         '7aC' => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  7+,  8       15+
         '7C'  => { auto => ['STR','STR'], 0 => ['STR','STR'] }, #  7,   8       15
-        'Eb'  => { auto => ['OID','OID'], 0 => ['NUL','STR'] }, #  0,  15+      15+
+        'Eb'  => { auto => ['OID','OID'], 0 => ['NUL','STR'], handoff => ['NUL','OID'] }, #  0,  15+      15+
     };
+    # `auto` is how `bin/task_runner` used directly puts empty stdout in GridFS when stderr goes there. `go-task-runner`
+    # and `--handoff` do not do this, as an empty field is left alone.
+    my $gfs_mode = $task_runner =~ m{(^|/)task_runner$} ? 'auto' : 'handoff';
 
     note "GFS loop start";
     $disbatch->{config}{quiet} = 1;
@@ -581,20 +590,21 @@ if ($webpid == 0) {
             is $content->[0]{status}, 1, 'status 1';
             ok exists $content->[0]{stdout}, 'stdout exists';
             ok exists $content->[0]{stderr}, 'stderr exists';
-            if ($gfs_tests->{$key}{auto}[0] eq 'NUL') {
+            my $expected = $gfs_tests->{$key}{$gfs_mode} // $gfs_tests->{$key}{auto};
+            if ($expected->[0] eq 'NUL') {
                 ok !defined $content->[0]{stdout}, 'stdout undefined';
-            } elsif ($gfs_tests->{$key}{auto}[0] eq 'STR') {
+            } elsif ($expected->[0] eq 'STR') {
                 ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
-            } elsif ($gfs_tests->{$key}{auto}[0] eq 'OID') {
+            } elsif ($expected->[0] eq 'OID') {
                 ok defined $content->[0]{stdout}, 'stdout OID';
             } else {
                 die;
             }
-            if ($gfs_tests->{$key}{auto}[1] eq 'NUL') {
+            if ($expected->[1] eq 'NUL') {
                 ok !defined $content->[0]{stderr}, 'stderr undefined';
-            } elsif ($gfs_tests->{$key}{auto}[1] eq 'STR') {
+            } elsif ($expected->[1] eq 'STR') {
                 ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
-            } elsif ($gfs_tests->{$key}{auto}[1] eq 'OID') {
+            } elsif ($expected->[1] eq 'OID') {
                 ok defined $content->[0]{stderr}, 'stderr OID';
             } else {
                 die;
@@ -752,6 +762,14 @@ Run the full test suite with the following:
 You can also disable MongoDB SSL and authentication via:
 
     USE_SSL=0 USE_AUTH=0 dzil test
+
+Tasks are run by C<go-task-runner>, which must be built first:
+
+    (cd go && go build -mod=vendor -o go-task-runner .)
+
+To run the tasks with the Perl C<bin/task_runner> instead, set C<TASK_RUNNER>:
+
+    TASK_RUNNER=./bin/task_runner dzil test
 
 You can skip GFS tests by setting C<GFS_TESTS> to C<none>.
 
