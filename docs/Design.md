@@ -17,7 +17,10 @@ of tasks for each queue.
 
 The DTR is called by the DEN when it claims a task. The DTR is responsible for
 loading the plugin and running the task, as well as updating the task document
-when the task completes.
+when the task completes. The default DTR is `go-task-runner`, which runs a
+plugin as a separate program of one of four types, and validates its result.
+The Perl `bin/task_runner` is also available, and only runs Perl module
+plugins. See [Plugins](Plugins.md).
 
 The DCI provides a JSON REST API for the DENs, as well as a web browser
 interface to the API. An additional CLI tool interacts with this API.
@@ -75,7 +78,9 @@ until the per-DEN `maxthreads` and per-queue `threads` thresholds are reached.
 The DEN then notifies the DTR of the task, and the DTR puts the task into a
 running state (setting `status` to `0`). When the plugin has finished, it
 reports back the status, stdout, and stderr of the task to the DTR. The DTR
-then updates the task's document in MongoDB with these values.
+then updates the task's document in MongoDB with these values: `status` first,
+and then `stdout`, `stderr`, and `complete`. (A plugin of type `handoff` updates
+the task itself, instead of reporting back.)
 
 ###### `findOneAndUpdate(filter, update, options)`
 
@@ -198,6 +203,23 @@ should be set to `null` when created:
 
 * `stderr`: task errors as a string or the GridFS file's `ObjectId`, or null
 
+The following elements are set by the DTR:
+
+* `complete`: `true` when the DTR has finished writing the task's `stdout` and
+  `stderr`, which it does after setting `status`. It is `false` if that failed.
+  It does not exist until then, so a client should wait for `complete` to exist
+  if it needs `stdout` or `stderr` after `status` is positive.
+
+* `cmdExit`: an integer, the exit code of the plugin process. It is `0` on a
+  clean exit. It is `-1` if the process was killed by a signal, `-2` if waiting
+  for it failed, and `-3` if it could not be started. It is only set by
+  `go-task-runner`, and only if it ran the plugin: it does not exist for a task
+  that could not be started (where `stdout` is `Unable to start`).
+
+* `cmdErr`: a string, the error from running the plugin process. It is `<nil>`
+  on a clean exit, otherwise something like `exit status 3` or `signal: killed`.
+  Like `cmdExit`, it is only set by `go-task-runner`.
+
 MongoDB will create an `ObjectId` for the task's `_id`.
 
 ###### Example
@@ -311,8 +333,18 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `plugins`
 
-   An array of default allowed plugin names for queues, such as
-  `"Disbatch::Plugin::Demo"`. Default is `[]`.
+  An object of the plugins allowed for queues. A queue can only use a plugin
+  listed here. Default is `{}`. The keys are plugin names, and the value is:
+
+  * `1` for a Perl module, such as `"Disbatch::Plugin::Demo": 1`. This is
+    run by `go-task-runner` as type `handoff` via `plugin_runner`.
+
+  * An object with the optional key `type` for a program run by
+    `go-task-runner`. The key is the full path to the program, and `type` is
+    one of `default` (the default), `nomongo`, `mongo`, or `handoff`, such as
+    `"/usr/local/bin/migrate-user": {"type": "nomongo"}`.
+
+  See [Plugins](Plugins.md) for what each type is passed and must return.
 
 * `monitoring`
 
@@ -342,8 +374,28 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `task_runner`
 
-  Path to the DTR. Future support will allow task runners for plugins in
-  languages other than Perl. Default is `"/usr/bin/task_runner"`.
+  Path to the DTR. Default is `go-task-runner`. To use the Perl DTR, which
+  can only run Perl module plugins, set this to the path to `bin/task_runner`,
+  such as `"/usr/bin/task_runner"`.
+
+* `plugin_runner`
+
+  Full path to the Perl `bin/task_runner`, which `go-task-runner` runs with
+  `--handoff` to run Perl module plugins (those with a `plugins` value of `1`).
+  Required if any are used. There is no default.
+
+* `temp_dir`
+
+  Directory for the files `go-task-runner` passes to plugins of type `default`
+  and `nomongo`: `TASK_ID.json` and `TASK_ID-response.json`. `disbatchd`
+  creates it on startup if it does not exist, with mode `temp_dir_mode`, and
+  it must be writable by the user `go-task-runner` runs as. Default is
+  `"/tmp/disbatch"`.
+
+* `temp_dir_mode`
+
+  The permissions, as an octal string, to create `temp_dir` with. Default is
+  `"0755"`.
 
 * `gfs`
 
