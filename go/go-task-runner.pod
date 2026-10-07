@@ -1,0 +1,243 @@
+=encoding utf8
+
+=head1 NAME
+
+go-task-runner - run a single Disbatch task
+
+=head1 DESCRIPTION
+
+The default Disbatch Task Runner (DTR). It is a subprocess spawned by L<disbatchd> for each claimed task, and is the Go version of L<task_runner>.
+
+It sets the task's C<status> to C<0>, finds the task's queue and the plugin for it, runs the plugin as a separate program, checks the result, and writes the
+task's C<status> and then C<stdout>, C<stderr>, and C<complete> to MongoDB. It also saves how the plugin exited as C<cmdExit> and C<cmdErr>. If it cannot start
+the plugin, or the plugin fails to return a valid result, the task is failed with a C<status> of C<2> instead of left running.
+
+A plugin is either a Perl module, which is run with C<plugin_runner> (the Perl L<task_runner>) and C<--handoff>, or an executable program of type C<default>,
+C<nomongo>, C<mongo>, or C<handoff>, all of which are in C<plugins> in the config file. See L</PLUGINS>.
+
+The Perl L<task_runner> can be used instead by setting C<task_runner> in the config file, but it can only run Perl module plugins.
+
+=head1 SYNOPSIS
+
+  go-task-runner --task 565bc0d43fb6ecd1c8504492 --config /etc/disbatch/config.json-task_runner
+
+=head1 ARGUMENTS
+
+=over 2
+
+=item --config <string>
+
+Path to the JSON Disbatch config file. Mandatory.
+
+L<disbatchd> writes C<config.json-task_runner> next to the config file when it starts, which has only the password for the C<task_runner> MongoDB user in C<auth>,
+and is the file it passes to C<go-task-runner>.
+
+=item --task <string>
+
+The task's C<_id>. Mandatory.
+
+The task must have a C<status> of C<-1> and a C<node> that is the hostname of this server, as set by L<disbatchd> when it claimed the task. If it does not, the
+task is not changed and the exit code is C<1>.
+
+=item --quiet
+
+Suppress STDOUT and STDERR output at end (mainly for testing). This is also passed to plugins of type C<handoff>.
+
+=item --testing
+
+Passed to the Perl L<task_runner> with C<--handoff> when running a Perl module plugin, which uses C<lib 'lib'> (mainly for testing).
+
+=item --gfs [<string>]
+
+Ignored. It is accepted because L<disbatchd> passes it to the Perl L<task_runner>. C<go-task-runner> always stores C<stdout> and C<stderr> in GridFS when they
+are large: see L</GRIDFS>.
+
+=back
+
+=head1 CONFIGURATION
+
+C<go-task-runner> reads the following from the config file. See F<docs/Design.md>.
+
+=over 2
+
+=item mongohost, database
+
+How to connect to MongoDB. Only the URI is used, so options for TLS must be in it, such as
+C<mongodb://mongo01.example.com/?tls=true&tlsCAFile=/etc/ssl/certs/ca-bundle.crt>. The C<attributes> in the config file are for the Perl MongoDB driver, and are
+not used.
+
+=item auth
+
+If it has any keys, C<go-task-runner> authenticates to MongoDB as the user C<task_runner> with the password C<auth.task_runner>.
+
+=item plugins, plugin_runner
+
+The plugins that can be used, and the full path to the Perl L<task_runner> to run Perl module plugins with. See L</PLUGINS>.
+
+=item temp_dir
+
+The directory for the files for plugins of type C<default> and C<nomongo>. Default is F</tmp/disbatch>. It must exist: L<disbatchd> creates it.
+
+=item log4perl
+
+The file in C<log4perl.appenders.filelog.args.filename> is appended to (default is F</var/log/disbatchd.log>), as well as writing to STDERR, with a level of
+C<log4perl.level> (C<TRACE>, C<DEBUG>, C<INFO>, C<WARN>, C<ERROR>, or C<FATAL>). The layout is not used.
+
+=back
+
+=head1 PLUGINS
+
+A C<plugins> value of C<1> is a Perl module, which is run as type C<handoff> by running C<plugin_runner> with C<--handoff>:
+
+  "plugins": { "Disbatch::Plugin::Demo": 1 }
+
+Otherwise the key is the full path to an executable program, which must be the C<plugin> of the queue, and the value is an object with the optional key C<type>:
+
+  "plugins": {
+      "/usr/local/bin/migrate-user": {},
+      "/usr/local/bin/migrate-fast": {"type": "nomongo"},
+      "/usr/local/bin/migrate-big": {"type": "mongo"},
+      "/usr/local/bin/migrate-full": {"type": "handoff"}
+  }
+
+=over 2
+
+=item default
+
+Run with C<--task TEMP_DIR/TASK_ID.json --config FILE>. The task file is the task document as JSON. The program writes its result as a JSON object to
+C<TEMP_DIR/TASK_ID-response.json>. Both files are removed afterwards. C<FILE> is the config file with only the password for the C<plugin> MongoDB user in C<auth>.
+
+=item nomongo
+
+The same as C<default> but without C<--config>.
+
+=item mongo
+
+Run with C<--task TASK_ID --config FILE>. The program reads the task from MongoDB, and saves its result in the C<results> collection with the same C<_id> as the
+task. C<go-task-runner> removes it afterwards.
+
+=item handoff
+
+Run with C<--task TASK_ID --config FILE> (and C<--quiet> if given). The program reads the task from MongoDB and updates it with its C<status>, C<stdout>, and
+C<stderr>, and sets C<complete> to C<true>, itself.
+
+=back
+
+The program's own standard output and standard error go to the same place as those of C<go-task-runner>. They are not the task's C<stdout> and C<stderr>.
+
+A valid result has a C<status> that is a positive integer (C<1> for success, otherwise a failure, generally C<2>), and optionally C<stdout> and C<stderr> that are
+strings or null. A program should exit C<0> even when the task failed.
+
+For the full contract, see F<docs/Plugins.md>.
+
+=head2 Invalid results
+
+These all fail the task with a C<status> of C<2>:
+
+=over 2
+
+=item *
+
+The plugin cannot be started: the queue or its C<plugin> is not found, the C<plugin> is not a full path, is not found or not executable, or has an unknown type.
+C<stdout> is C<Unable to start> and C<stderr> says why.
+
+=item *
+
+C<status> is missing, is not an integer, is C<0>, or is negative. C<stdout> is the result as Extended JSON.
+
+=item *
+
+C<status> is C<1> but the plugin exited non-zero. A C<status> greater than C<1> with a non-zero exit is kept, and a warning is logged.
+
+=item *
+
+Type C<default> and C<nomongo>: the response file is missing or not valid JSON.
+
+=item *
+
+Type C<mongo>: there is no document in C<results> for the task.
+
+=item *
+
+Type C<handoff>: C<status> was not updated from C<0>.
+
+=back
+
+=head1 GRIDFS
+
+A task document cannot be more than 16MB. For plugins of type C<default> and C<nomongo>, if C<stderr> and then C<stdout> together are more than 15MiB, then the field
+that went over and any non-empty field after it are saved in GridFS (collections C<tasks.files> and C<tasks.chunks>, in files named C<stdout> or C<stderr> with
+C<metadata: { task_id }>), and the value in the task is the C<ObjectId> of the file. Plugins of type C<mongo> and C<handoff> need to do this themselves.
+
+=head1 TASK DOCUMENT
+
+C<go-task-runner> sets these in the task document:
+
+=over 2
+
+=item status
+
+C<0> when it starts the task, and then the final status.
+
+=item stdout, stderr
+
+The task's output, or the C<ObjectId> of its GridFS file.
+
+=item complete
+
+C<true> after C<stdout> and C<stderr> are saved, or C<false> if saving them failed. It does not exist until then.
+
+=item cmdExit
+
+The exit code of the plugin: C<0> on a clean exit, C<-1> if it was killed by a signal, C<-2> if waiting for it failed, and C<-3> if it could not be started. It
+is not set if the plugin was not started.
+
+=item cmdErr
+
+The error from running the plugin as a string: C<< <nil> >> if it exited cleanly, otherwise such as C<exit status 3> or C<signal: killed>. It is not set if the
+plugin was not started.
+
+=back
+
+=head1 EXIT STATUS
+
+=over 2
+
+=item C<0>
+
+The task was finished. This includes tasks that failed, and tasks that could not be started.
+
+=item C<1>
+
+An error that left the task as it was, or only partly finished: a bad argument or config file, no connection to MongoDB, the task could not be claimed, or the
+task could not be found to be updated. The reason is logged.
+
+=back
+
+=head1 SEE ALSO
+
+F<docs/Plugins.md>
+
+F<docs/Design.md>
+
+L<task_runner>
+
+L<disbatchd>
+
+L<Disbatch>
+
+L<Disbatch::Roles>
+
+L<disbatch-create-users>
+
+=head1 AUTHORS
+
+Ashley Willis <consul-5flap@icloud.com>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
+
+This is free software, licensed under:
+
+  The Apache License, Version 2.0, January 2004
