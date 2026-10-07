@@ -40,7 +40,10 @@ See [Configuring](docs/Configuring.md)
 
 #### Creating task plugins
 
-See [Plugins](docs/Plugins.md)
+See [Plugins](docs/Plugins.md). A plugin is either a Perl module, or a program
+in any language that is run by `go-task-runner`, the default task runner. The
+Perl `bin/task_runner` is still included, and can be used by setting
+`task_runner` in the config file.
 
 
 #### Creating web extension plugins
