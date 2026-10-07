@@ -49,3 +49,21 @@ my @go_task_runner;
         }
     }
 }
+
+# The man page for go-task-runner, which is a binary so cannot have its POD in it like the programs in bin/ do. Setting MAN1PODS replaces
+# what MakeMaker finds by itself (the programs in EXE_FILES that have POD), so this does that too.
+sub man1pods {
+    my %pods = ('go/go-task-runner.pod' => '$(INST_MAN1DIR)/go-task-runner.$(MAN1EXT)');
+    for my $file (@_) {
+        next unless -T $file;
+        open my $fh, '<', $file or next;
+        while (my $line = <$fh>) {
+            if ($line =~ /^=head/) {
+                (my $name = $file) =~ s{.*/}{};
+                $pods{$file} = "\$(INST_MAN1DIR)/$name.\$(MAN1EXT)";
+                last;
+            }
+        }
+    }
+    \%pods;
+}
