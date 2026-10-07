@@ -40,7 +40,8 @@ my $doc = $json->decode(scalar read_file $task_file);
 
 my ($result, $extra) = ParamsResult::params2result($doc->{params});
 
-write_file $out_file, $json->encode($result);
+# `raw_response` is written as is, so tests can make invalid responses:
+write_file $out_file, defined $doc->{params}{raw_response} ? $doc->{params}{raw_response} : $json->encode($result);
 
 for my $key (keys %$extra) {
     if ($key eq 'kill') {
