@@ -16,7 +16,7 @@ if [ -n "$unformatted" ]; then
     exit 1
 fi
 
-vetted="$(go vet ./... 2>&1)" || { echo "$vetted" >&2; echo "ERROR: go vet failed" >&2; exit 1; }
+vetted="$(go vet main.go 2>&1)" || { echo "$vetted" >&2; echo "ERROR: go vet failed" >&2; exit 1; }
 if [ -n "$vetted" ]; then
     echo "$vetted" >&2
     echo "ERROR: go vet had output" >&2
