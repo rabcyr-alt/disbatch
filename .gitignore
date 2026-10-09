@@ -9,6 +9,7 @@ etc/disbatch/config.json
 etc/disbatch/config.json-plugin
 etc/disbatch/config.json-strict
 etc/disbatch/config.json-task_runner
+etc/disbatch/plugin-permissions.json
 .build/
 # ignore all untracked md files in the root directory (generally agent and personal dev notes)
 /*.md
@@ -19,5 +20,6 @@ web/node_modules/
 web/dist/
 web/.angular/cache/
 
+t/task-nomongo
 go/go-task-runner
 go/v2
