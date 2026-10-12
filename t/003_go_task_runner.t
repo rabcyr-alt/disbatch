@@ -42,8 +42,8 @@ if (!TestMongo::mongod_path()) {
 my $plugin_perms = {
     tasks          => [ 'find', 'update' ],
     results        => [ 'insert' ],
-    'tasks.files'  => [ 'find', 'insert', 'listIndexes' ],
-    'tasks.chunks' => [ 'find', 'insert', 'listIndexes' ],
+    'tasks.files'  => [ 'find', 'insert', 'listIndexes' ],	# FIXME: tests pass without 'listIndexes', but manual testing fails
+    'tasks.chunks' => [ 'insert', 'listIndexes' ],		# FIXME: tests pass without 'listIndexes', but manual testing fails
 };
 
 my $tm = TestMongo->new(plugin_perms => $plugin_perms);
