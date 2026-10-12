@@ -10,9 +10,8 @@ use 5.12.0;
 use warnings;
 
 use Cpanel::JSON::XS;
+use Cwd qw/abs_path/;
 use Data::Dumper;
-use File::Path qw/remove_tree/;
-use File::Slurp;
 use MongoDB 2.2.2;
 use Net::HTTP::Client;
 use POSIX qw(setsid);
@@ -20,9 +19,10 @@ use Sys::Hostname;
 use Try::Tiny::Retry ':all';
 
 use lib 'lib';
+use lib 't';
 use Disbatch;
-use Disbatch::Roles;
 use Disbatch::Web;
+use TestMongo;
 
 my $use_ssl = $ENV{USE_SSL} // 1;
 my $use_auth = $ENV{USE_AUTH} // 1;
@@ -32,98 +32,41 @@ if (!$ENV{AUTHOR_TESTING} or $ENV{SKIP_FULL_TESTS}) {
     exit;
 }
 
-sub get_free_port {
-    my ($port, $sock);
-    do {
-        $port = int rand()*32767+32768;
-        $sock = IO::Socket::INET->new(Listen => 1, ReuseAddr => 1, LocalAddr => 'localhost', LocalPort => $port, Proto => 'tcp')
-                or warn "\n# cannot bind to port $port: $!";
-    } while (!defined $sock);
-    $sock->shutdown(2);
-    $sock->close();
-    $port;
-}
+# Tasks are run by `go-task-runner` by default. Set `TASK_RUNNER` to use another, such as `TASK_RUNNER=./bin/task_runner` for the Perl one.
+my $task_runner = $ENV{TASK_RUNNER} // TestMongo::go_task_runner() // '';
+die "TASK_RUNNER '$task_runner' not found or not executable. Build go-task-runner via: (cd go && go build -mod=vendor -o go-task-runner .)\n" unless -x $task_runner;
 
-my $mongoport = get_free_port;
+my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
 
-# define config and make up a database name:
-my $config = {
-    monitoring => 1,
-    balance => {
-        log => 1,
-        verbose => 0,
-        pretend => 0,
-        enabled => 0,
+my $tm = TestMongo->new(
+    use_ssl => $use_ssl,
+    use_auth => $use_auth,
+    plugin_perms => $plugin_perms,
+    config => {
+        monitoring => 1,
+        balance => {
+            log => 1,
+            verbose => 0,
+            pretend => 0,
+            enabled => 0,
+        },
+        plugins => { 'Disbatch::Plugin::Demo' => 1 },
+        web_extensions => {
+        },
+        web_root => 'etc/disbatch/htdocs/',
+        views_dir => 'etc/disbatch/views/',
+        task_runner => $task_runner,
+        plugin_runner => abs_path('bin/task_runner'),	# for go-task-runner to run `Disbatch::Plugin::Demo` via `bin/task_runner --handoff`. must be a full path.
+        testing => 1,	# for task_runner to use lib 'lib'
     },
-    mongohost => "mongodb://localhost:$mongoport",
-    database => "disbatch_test$$" . int(rand(10000)),
-    auth => {
-        disbatchd => 'qwerty1',		# { username => 'disbatchd', password => 'qwerty1' },
-        disbatch_web => 'qwerty2',	# { username => 'disbatch_web', password => 'qwerty2' },
-        task_runner => 'qwerty3',	# { username => 'task_runner', password => 'qwerty3' },
-        queuebalance => 'qwerty4',	# { username => 'queuebalance', password => 'qwerty4' },
-        plugin => 'qwerty5',		# { username => 'plugin', password => 'qwerty5' },
-    },
-    plugins => { 'Disbatch::Plugin::Demo' => 1 },
-    web_extensions => {
-    },
-    web_root => 'etc/disbatch/htdocs/',
-    views_dir => 'etc/disbatch/views/',
-    task_runner => './bin/task_runner',
-    testing => 1,	# for task_runner to use lib 'lib'
-    gfs => 'auto',	# default, deprecated in 4.4
-    log4perl => {
-        level => 'TRACE',
-        appenders => {
-            filelog => {
-                type => 'Log::Log4perl::Appender::File',
-                layout => '[%p] %d %F{1} %L %C %c> %m %n',
-                args => { filename => 'disbatchd.log' },
-            },
-            screenlog => {
-                type => 'Log::Log4perl::Appender::ScreenColoredLevels',
-                layout => '[%p] %d %F{1} %L %C %c> %m %n',
-                args => { },
-            }
-        }
-    },
-};
-delete $config->{auth} unless $use_auth;
-$config->{mongohost} .= "/?tlsCAFile=t/rootCA.crt&tlsCertificateKeyFile=t/serverCert.pem" if $use_ssl;
-
-mkdir "/tmp/$config->{database}";
-my $config_file = "/tmp/$config->{database}/config.json";
-write_file $config_file, encode_json $config;
+);
+my $config = $tm->config;
+my $config_file = $tm->config_file;
 
 diag "database = $config->{database}";
 
-my @mongo_args = (
-    '--logpath' => "/tmp/$config->{database}/mongod.log",
-    '--dbpath' => "/tmp/$config->{database}/",
-    '--pidfilepath' => "/tmp/$config->{database}/mongod.pid",
-    '--port' => $mongoport,
-    #'--noprealloc',	# not on 8.2 nor 6.0
-    #'--nojournal',	# not on 8.2 but is on 6.0
-    '--fork'		# NOTE: fork did not work on whatever 8.2 version I used at work on Rocky 9, but it does on 8.2.4 on my personal Rocky 9
-);
-push @mongo_args, $use_auth ? '--auth' : '--noauth';
-push @mongo_args, '--tlsMode' => 'requireTLS', '--tlsCertificateKeyFile' => 't/serverCert.pem', '--tlsCAFile' => 't/rootCAcombined.pem' if $use_ssl;
-my $mongo_args = join ' ', @mongo_args;
-say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 2016-05-05, it's now 2025)
-
-# Get test database, authed as root:
-my $attributes = {};
-if ($use_auth) {
-    my $admin = MongoDB->connect($config->{mongohost}, $attributes)->get_database('admin');
-    retry { $admin->run_command([createUser => 'root', pwd => 'kjfiwey76r3gjm', roles => [ { role => 'root', db => 'admin' } ]]) } catch { die $_ };
-    $attributes->{username} = 'root';
-    $attributes->{password} = 'kjfiwey76r3gjm';
-}
-my $test_db_root = retry { MongoDB->connect($config->{mongohost}, $attributes)->get_database($config->{database}) } catch { die $_ };
-
-# Create roles and users for a database:
-my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
-Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, %{$config->{auth}})->create_roles_and_users if $use_auth;
+# Start mongod, get test database authed as root, and create roles and users:
+my $test_db_root = $tm->start;
 
 # Create users collection:
 for my $username (qw/ foo bar /) {
@@ -149,7 +92,7 @@ sub daemonize {
     0;
 }
 
-my $webport = get_free_port;
+my $webport = TestMongo::get_free_port;
 
 my $webpid = daemonize();
 if ($webpid == 0) {
@@ -496,11 +439,16 @@ if ($webpid == 0) {
 
     # Get report for task:
     my $report = retry { $disbatch->mongo->coll('reports')->find_one() or die 'No report found' } delay { return if $_[0] >= 5; sleep $_[0]; } catch { warn $_; {} };	# status done task_id
-    is $report->{status}, 'SUCCESS', 'report success';
+    # `process_queues` ran whichever task has the lowest `_id`, and the order of those is not what you'd expect: tasks made by the
+    # forked web workers have random bytes in the middle of the `_id` which differ for each one with BSON v1.12.2 (it does not
+    # update its saved pid after a fork), so within the same second they are in random order, even with `sort: fifo`.
+    # So any of the tasks could have run first, including ones with command `c` which fail by design.
+    my $expect_success = $report->{commands} !~ /c/;
+    is $report->{status}, $expect_success ? 'SUCCESS' : 'FAILED', 'report status';
 
     # Get task of report:
     my $task = retry { $disbatch->tasks->find_one({_id => $report->{task_id}, status => {'$ne' => 0}}) or die 'status still 0' } delay { return if $_[0] >= 5; sleep $_[0]; } catch { warn $_; $disbatch->tasks->find_one({_id => $report->{task_id}}) };
-    is $task->{status}, 1, 'task success';
+    is $task->{status}, $expect_success ? 1 : 2, 'task status';
 
     # GET /tasks/:id
     my $success_id = $task->{_id}->to_string;
@@ -600,8 +548,11 @@ if ($webpid == 0) {
         '1E'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  1,  15       16
         '7aC' => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  7+,  8       15+
         '7C'  => { auto => ['STR','STR'], 0 => ['STR','STR'] }, #  7,   8       15
-        'Eb'  => { auto => ['OID','OID'], 0 => ['NUL','STR'] }, #  0,  15+      15+
+        'Eb'  => { auto => ['OID','OID'], 0 => ['NUL','STR'], handoff => ['NUL','OID'] }, #  0,  15+      15+
     };
+    # `auto` is how `bin/task_runner` used directly puts empty stdout in GridFS when stderr goes there. `go-task-runner`
+    # and `--handoff` do not do this, as an empty field is left alone.
+    my $gfs_mode = $task_runner =~ m{(^|/)task_runner$} ? 'auto' : 'handoff';
 
     note "GFS loop start";
     $disbatch->{config}{quiet} = 1;
@@ -644,20 +595,21 @@ if ($webpid == 0) {
             is $content->[0]{status}, 1, 'status 1';
             ok exists $content->[0]{stdout}, 'stdout exists';
             ok exists $content->[0]{stderr}, 'stderr exists';
-            if ($gfs_tests->{$key}{auto}[0] eq 'NUL') {
+            my $expected = $gfs_tests->{$key}{$gfs_mode} // $gfs_tests->{$key}{auto};
+            if ($expected->[0] eq 'NUL') {
                 ok !defined $content->[0]{stdout}, 'stdout undefined';
-            } elsif ($gfs_tests->{$key}{auto}[0] eq 'STR') {
+            } elsif ($expected->[0] eq 'STR') {
                 ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
-            } elsif ($gfs_tests->{$key}{auto}[0] eq 'OID') {
+            } elsif ($expected->[0] eq 'OID') {
                 ok defined $content->[0]{stdout}, 'stdout OID';
             } else {
                 die;
             }
-            if ($gfs_tests->{$key}{auto}[1] eq 'NUL') {
+            if ($expected->[1] eq 'NUL') {
                 ok !defined $content->[0]{stderr}, 'stderr undefined';
-            } elsif ($gfs_tests->{$key}{auto}[1] eq 'STR') {
+            } elsif ($expected->[1] eq 'STR') {
                 ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
-            } elsif ($gfs_tests->{$key}{auto}[1] eq 'OID') {
+            } elsif ($expected->[1] eq 'OID') {
                 ok defined $content->[0]{stderr}, 'stderr OID';
             } else {
                 die;
@@ -792,15 +744,9 @@ if ($webpid == 0) {
 
 END {
     # Cleanup:
-    if (defined $config and $config->{database}) {
+    if (defined $tm) {
         kill -9, $webpid if $webpid;
-        my $pidfile = "/tmp/$config->{database}/mongod.pid";
-        if (-e $pidfile) {
-            my $mongopid = read_file $pidfile;
-            chomp $mongopid;
-            kill 9, $mongopid;
-        }
-        remove_tree "/tmp/$config->{database}";
+        $tm->cleanup;
     }
 }
 
@@ -821,6 +767,17 @@ Run the full test suite with the following:
 You can also disable MongoDB SSL and authentication via:
 
     USE_SSL=0 USE_AUTH=0 dzil test
+
+Tasks are run by C<go-task-runner>, which C<Makefile.PL> builds as C<go/go-task-runner> if Go is installed (so C<dzil test>
+has it), or you can build it by hand:
+
+    (cd go && go build -mod=vendor -o go-task-runner .)
+
+C<$ENV{GO_TASK_RUNNER}> or an installed C</usr/bin/go-task-runner> are used if there is no C<go/go-task-runner>.
+
+To run the tasks with the Perl C<bin/task_runner> instead, set C<TASK_RUNNER>:
+
+    TASK_RUNNER=./bin/task_runner dzil test
 
 You can skip GFS tests by setting C<GFS_TESTS> to C<none>.
 

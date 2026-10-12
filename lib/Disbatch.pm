@@ -98,7 +98,9 @@ sub load_config {
         $self->{config}{auth} //= {};
         $self->{config}{gfs} //= 'auto';	# deprecated in 4.4
         $self->{config}{quiet} //= Cpanel::JSON::XS::false;
-        $self->{config}{task_runner} //= '/usr/bin/task_runner';
+        my $task_runner_was_given = defined $self->{config}{task_runner};
+        $self->{config}{task_runner} //= '/usr/bin/go-task-runner';
+        $self->{config}{plugin_runner} //= '/usr/bin/task_runner';	# for go-task-runner to run Perl module plugins (`plugins` value of 1) via `--handoff`
         $self->{config}{testing} //= Cpanel::JSON::XS::false;
         $self->{config}{log4perl} //= $default_log4perl;
         $self->{config}{activequeues} //= [];
@@ -106,6 +108,11 @@ sub load_config {
         $self->{config}{plugins} //= {};
         $self->{config}{temp_dir} //= '/tmp/disbatch';
         $self->{config}{temp_dir_mode} //= '0755';
+        # `go-task-runner` is the default task runner, but it is not installed if Go was not installed when installing Disbatch (such as via cpanm). The Perl `task_runner` can only run Perl module plugins.
+        if (!$task_runner_was_given and !-x $self->{config}{task_runner}) {
+            $self->logger->warn("Default task_runner '$self->{config}{task_runner}' not found or not executable, so using the Perl '/usr/bin/task_runner', which can only run Perl module plugins. Install go-task-runner, or set task_runner in the config file.");
+            $self->{config}{task_runner} = '/usr/bin/task_runner';
+        }
         # IDEA: validate config values (note from 2016-05-06, it's now 2025)
 
         if (!defined $self->{config}{mongohost} or !defined $self->{config}{database}) {
@@ -189,6 +196,8 @@ sub ensure_indexes {
         $self->changelog->indexes->create_one([ collection => 1 ]);
         $self->mongo->coll('tasks.chunks')->indexes->create_one([ files_id => 1, n => 1 ], { unique => true });
         $self->mongo->coll('tasks.files')->indexes->create_one([ filename => 1, 'metadata.task_id' => 1 ]);
+        # the index the Perl and Go MongoDB drivers want for GridFS. if it does not exist when uploading to an empty bucket, they will try to create it, which needs `createIndex`
+        $self->mongo->coll('tasks.files')->indexes->create_one([ filename => 1, uploadDate => 1 ]);
     } catch {
         $self->logger->logdie("Could not ensure_indexes: $_")
     };
@@ -525,6 +534,37 @@ sub get_gfs {
         $data .= $chunk->{data};
     }
     $data;
+}
+
+# source _packed_oid() broken in BSON/OID.pm but the driver is EOL for over 6 years : should set $_pid to $$ after setting $_random to be fork safe for Disbatch::Web
+{
+    no warnings 'redefine';
+
+    my $_MAX_INC_VALUE = 0xFFFFFF;
+    my $_MAX_INC_VALUE_PLUS_ONE = 0x01000000;
+    my $_RANDOM_SIZE = 5;
+    my $_inc : shared;
+    {
+        lock($_inc);
+        $_inc = int( rand($_MAX_INC_VALUE) );
+    }
+
+    my $_pid = $$;
+    my $_random = Crypt::URandom::urandom($_RANDOM_SIZE);
+
+    *BSON::OID::_packed_oid = sub {
+        my $time = defined $_[0] ? $_[0] : time;
+        if ($$ != $_pid) {
+            $_random = Crypt::URandom::urandom($_RANDOM_SIZE);
+            $_pid = $$;
+        }
+        return pack(
+            'Na5a3',
+            $time,
+            $_random,
+            substr( pack( 'N', do { lock($_inc); $_inc++; $_inc %= $_MAX_INC_VALUE_PLUS_ONE } ), 1, 3)
+        );
+    };
 }
 
 DESTROY {

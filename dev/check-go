@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Fails if `gofmt -l` or `go vet` have any output for go/. This is run by `dzil build` (see `Run::BeforeBuild` in dist.ini),
+# and so by `dzil test` and `dzil release`. It does not build anything: Makefile.PL builds go/go-task-runner.
+# Nothing is downloaded: it needs the Go version in go/go.mod to be installed, and uses go/vendor.
+
+set -e
+
+cd "$(dirname "$0")/../go"
+
+export GOFLAGS=-mod=vendor GOTOOLCHAIN=local CGO_ENABLED=0
+
+unformatted="$(gofmt -l *.go)"
+if [ -n "$unformatted" ]; then
+    echo "ERROR: gofmt needs to be run on: $unformatted" >&2
+    exit 1
+fi
+
+vetted="$(go vet ./... 2>&1)" || { echo "$vetted" >&2; echo "ERROR: go vet failed" >&2; exit 1; }
+if [ -n "$vetted" ]; then
+    echo "$vetted" >&2
+    echo "ERROR: go vet had output" >&2
+    exit 1
+fi
