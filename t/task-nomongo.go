@@ -1,3 +1,11 @@
+/*
+This software is Copyright (c) 2026 by Ashley Willis.
+
+This is free software, licensed under:
+
+  The Apache License, Version 2.0, January 2004
+*/
+
 // go build -o t/task-nomongo t/task-nomongo.go
 // port by opus 5.5
 package main

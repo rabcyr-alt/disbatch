@@ -125,5 +125,7 @@ This is free software, licensed under:
 
 > The Apache License, Version 2.0, January 2004
 
-Some web browser code in `etc/disbatch/htdocs/` includes third-party libraries copyright others and licensed under their own terms.
-See [THIRD-PARTY-LIBS](THIRD-PARTY-LIBS).
+This distribution includes third-party code copyright others and licensed under their own terms:
+
+* web browser libraries in `etc/disbatch/htdocs/`, see [THIRD-PARTY-LIBS](THIRD-PARTY-LIBS)
+* Go modules in `go/vendor/` (Apache License 2.0, MIT License, and BSD 3-Clause License), see `find go/vendor -name LICENSE`

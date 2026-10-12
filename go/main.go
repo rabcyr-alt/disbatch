@@ -1,3 +1,13 @@
+/*
+This software is Copyright (c) 2026 by Ashley Willis.
+
+This is free software, licensed under:
+
+  The Apache License, Version 2.0, January 2004
+
+See `perldoc go-task-runner.pod` for instructions
+*/
+
 package main
 
 import (

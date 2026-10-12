@@ -171,3 +171,27 @@ sub cleanup {
 }
 
 1;
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+t/TestMongo.pm - shared setup for the tests that need a real mongod: free port, config, TLS/auth, roles and users.
+
+=head1 USAGE
+
+Used by L<t/002_full.t> and L<t/003_go_task_runner.t>.
+
+=head1 AUTHORS
+
+Ashley Willis <consul-5flap@icloud.com>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
+
+This is free software, licensed under:
+
+  The Apache License, Version 2.0, January 2004

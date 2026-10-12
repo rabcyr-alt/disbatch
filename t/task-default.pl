@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+# This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
+# This is free software, licensed under: The Apache License, Version 2.0, January 2004
+
 use 5.12.0;
 use warnings;
 
