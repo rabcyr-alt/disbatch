@@ -53,7 +53,6 @@ my $temp_dir = "$tm->{dir}/temp";
 my $plugin_dir = abs_path('t');
 my %plugin_file = (
     default => "$plugin_dir/task-default.pl",
-    nomongo => "$plugin_dir/task-nomongo.pl",
     mongo   => "$plugin_dir/task-mongo.pl",
     handoff => "$plugin_dir/task-handoff.pl",
     raw     => "$plugin_dir/task-handoff-raw.pl",	# handoff, but with no validation of its own
@@ -62,7 +61,6 @@ $config->{task_runner} = $binary;	# the one being tested, and so it does not log
 $config->{temp_dir} = $temp_dir;
 $config->{plugins} = {
     $plugin_file{default} => { type => 'default' },
-    $plugin_file{nomongo} => { type => 'nomongo' },
     $plugin_file{mongo}   => { type => 'mongo' },
     $plugin_file{handoff} => { type => 'handoff' },
     $plugin_file{raw}     => { type => 'handoff' },
@@ -173,7 +171,7 @@ sub check_field {
 }
 
 # Runs one task with the given plugin type and params, and checks the runner's exit code and the task document.
-# * $type: default, nomongo, mongo, handoff, or raw (a handoff plugin that does no validation of its own)
+# * $type: default, mongo, handoff, or raw (a handoff plugin that does no validation of its own)
 # * %expect: status (required), stdout, stderr (see `check_field`), exit (of the runner, default 0),
 #            cmd_exit and cmd_err (what the runner saw from the plugin, default `0` and `<nil>`)
 sub check_task {
@@ -192,7 +190,7 @@ sub check_task {
         is $task->{cmdExit}, $expect{cmd_exit} // 0, 'cmdExit';
         is $task->{cmdErr}, $expect{cmd_err} // '<nil>', 'cmdErr';
 
-        if ($type eq 'default' or $type eq 'nomongo') {
+        if ($type eq 'default') {
             ok !-e "$temp_dir/$id.json", 'task file removed';
             ok !-e "$temp_dir/$id-response.json", 'response file removed';
         } elsif ($type eq 'mongo') {
@@ -220,7 +218,7 @@ sub check_unable_to_start {
     diag $last_output unless $ok;
 }
 
-my @types = qw/ default nomongo mongo handoff /;
+my @types = qw/ default mongo handoff /;
 
 my ($out, $err) = ('out', 'err');
 
@@ -265,8 +263,8 @@ for my $bad (@bad_status) {
     my ($name, $status, $result, $stderr, $handoff_stderr) = @$bad;
     my %params = (stdout => $out, stderr => $err);
     for my $type (@types) {
-        # an infinite status is not valid JSON, so it can't make it to a `default` or `nomongo` plugin or back
-        next if $name eq 'infinite' and ($type eq 'default' or $type eq 'nomongo');
+        # an infinite status is not valid JSON, so it can't make it to a `default` plugin or back
+        next if $name eq 'infinite' and $type eq 'default';
 
         my %expect_result = (%$result, stdout => $out, stderr => $err);
         if ($type eq 'handoff') {
@@ -279,7 +277,7 @@ for my $bad (@bad_status) {
 }
 
 # plugin did not leave a response for the task runner
-for my $type (qw/ default nomongo /) {
+for my $type (qw/ default /) {
     my $missing = qr/^could not read task plugin response file/;
     check_task $type, 'response file missing after exiting cleanly', { exit => 0 }, status => 2, stderr => $missing;
     check_task $type, 'response file missing after non-zero exit', { exit => 3 }, status => 2, stderr => $missing,
@@ -396,7 +394,7 @@ You can disable MongoDB TLS and authentication like with F<t/002_full.t>:
 
     USE_SSL=0 USE_AUTH=0 AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
 
-The plugins are F<t/task-default.pl>, F<t/task-nomongo.pl>, F<t/task-mongo.pl>, F<t/task-handoff.pl>, and
+The plugins are F<t/task-default.pl>, F<t/task-mongo.pl>, F<t/task-handoff.pl>, and
 F<t/task-handoff-raw.pl>. They are told what to return via the C<params> of the task: see F<t/ParamsResult.pm>.
 
 =head1 AUTHORS

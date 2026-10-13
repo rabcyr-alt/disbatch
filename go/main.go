@@ -103,7 +103,7 @@ func run() int {
 			return 1
 		}
 		opts := options.UpdateOne().SetUpsert(true)
-		if _, err = r.db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": r.oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-nomongo.pl", "threads": 0}}, opts); err != nil {
+		if _, err = r.db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": r.oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-default.pl", "threads": 0}}, opts); err != nil {
 			slog.Error("could not upsert test queue", "err", err)
 			return 1
 		}
@@ -155,7 +155,7 @@ func run() int {
 				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, r.taskID)
 			} else if fileinfo, ferr := os.Stat(plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
 				errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, r.taskID)
-			} else if !slices.Contains([]string{"default", "nomongo", "mongo", "handoff"}, args.Type) {
+			} else if !slices.Contains([]string{"default", "mongo", "handoff"}, args.Type) {
 				errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, r.taskID)
 			}
 		}
@@ -168,9 +168,7 @@ func run() int {
 		slog.Error(errmsg)
 		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": errmsg}
 	} else {
-		// types: default nomongo mongo handoff
-		// * nomongo: no mongo access, passes task and result via /tmp/r.taskID.json
-		//            uses local filesystem, don't have to worry about result size
+		// types: default mongo handoff
 		// * default: optional mongo access, passes task and result via /tmp/r.taskID.json
 		//            uses local filesystem, don't have to worry about result size
 		// * mongo:   reads task from mongo via r.taskID, saves result in "results" collection and this copies to "tasks" collection
@@ -178,27 +176,25 @@ func run() int {
 		// * handoff: reads task from mongo via r.taskID, saves result in "tasks" collection and this exits
 		//            writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
 		var cargs []string
-		if args.Type != "nomongo" {
-			cf := r.configFile
-			// if args.IsModule, we're handing off to the perl task runner, so whatever config we're using here is good
-			if !args.IsModule {
-				// don't trust the plugin with any passwords except for "plugin"
-				cf = r.configFile + "-plugin" // unlikely, but in case it has no suffix
-				for _, ext := range []string{"-strict", "-task_runner", "-plugin"} {
-					if name, ok := strings.CutSuffix(r.configFile, ext); ok {
-						cf = name + "-plugin"
-						break
-					}
+		cf := r.configFile
+		// if args.IsModule, we're handing off to the perl task runner, so whatever config we're using here is good
+		if !args.IsModule {
+			// don't trust the plugin with any passwords except for "plugin"
+			cf = r.configFile + "-plugin" // unlikely, but in case it has no suffix
+			for _, ext := range []string{"-strict", "-task_runner", "-plugin"} {
+				if name, ok := strings.CutSuffix(r.configFile, ext); ok {
+					cf = name + ".json-plugin"
+					break
 				}
 			}
-			cargs = append(cargs, "--config", cf)
 		}
+		cargs = append(cargs, "--config", cf)
 		if config.TempDir == "" {
 			config.TempDir = "/tmp/disbatch" // below will fail if this directory does not exist, but better than the root user creating in /
 		}
 		taskFile := filepath.Join(config.TempDir, r.taskID+".json")
 		responseFile := filepath.Join(config.TempDir, r.taskID+"-response.json")
-		if args.Type == "default" || args.Type == "nomongo" {
+		if args.Type == "default" {
 			var jsonTask []byte
 			if jsonTask, err = json.Marshal(r.doc); err != nil {
 				slog.Error("could not create json from task doc", "taskID", r.taskID, "err", err)
@@ -329,7 +325,7 @@ func run() int {
 					result = bson.M{"status": 2, "stderr": "unknown issue querying for result for task in 'results' collection: " + err.Error()}
 				}
 			}
-		} else { // args.Type == "default" || args.Type == "nomongo"
+		} else { // args.Type == "default"
 			var text []byte
 			if text, err = os.ReadFile(responseFile); err != nil {
 				slog.Error("could not read task plugin response file", "plugin", plugin, "file", responseFile, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
@@ -526,7 +522,7 @@ func mongodb(config Config) (*mongo.Database, error) {
 }
 
 type Plugin struct {
-	Type     string `json:"type"` // "default", "handoff", "mongo" or "nomongo"
+	Type     string `json:"type"` // "default", "handoff", or "mongo"
 	IsModule bool   `json:"-"`    // true when the config value was 1
 }
 
@@ -566,7 +562,7 @@ type Config struct {
 	Database     string            `json:"database"`
 	Auth         map[string]string `json:"auth"`
 	Log4perl     Log4perl          `json:"log4perl"`
-	Plugins      map[string]Plugin `json:"plugins"` // value may be `1` or a map with key `type` and value: `default` `handoff` `mongo` `nomongo`
+	Plugins      map[string]Plugin `json:"plugins"` // value may be `1` or a map with key `type` and value: `default` `handoff` `mongo`
 	PluginRunner string            `json:"plugin_runner"`
 	TempDir      string            `json:"temp_dir"`
 }

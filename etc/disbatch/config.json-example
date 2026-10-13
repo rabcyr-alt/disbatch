@@ -24,11 +24,9 @@
         "/path/to/disbatch/t/task-default.pl": {},
         "/path/to/disbatch/t/task-handoff.pl": {"type": "handoff"},
         "/path/to/disbatch/t/task-mongo.pl": {"type": "mongo"},
-        "/path/to/disbatch/t/task-nomongo.pl": {"type": "nomongo"},
         #"/path/to/disbatch/t/task-default": {},
         #"/path/to/disbatch/t/task-handoff": {"type": "handoff"},
         #"/path/to/disbatch/t/task-mongo": {"type": "mongo"},
-        "/path/to/disbatch/t/task-nomongo": {"type": "nomongo"},
     },
 
     "monitoring": true,					# new in 4.2

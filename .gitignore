@@ -20,6 +20,5 @@ web/node_modules/
 web/dist/
 web/.angular/cache/
 
-t/task-nomongo
 go/go-task-runner
 go/v2

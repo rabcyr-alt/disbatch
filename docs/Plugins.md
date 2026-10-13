@@ -139,13 +139,12 @@ full path to `plugins`, with its type, and use the same full path as the
 
         "plugins": {
             "/usr/local/bin/migrate-user": {},
-            "/usr/local/bin/migrate-fast": {"type": "nomongo"},
             "/usr/local/bin/migrate-big": {"type": "mongo"},
             "/usr/local/bin/migrate-full": {"type": "handoff"}
         }
 
 The value is an object with the optional key `type`, which is one of `default`
-(if `type` is not given), `nomongo`, `mongo`, or `handoff`. The path must be
+(if `type` is not given), `mongo`, or `handoff`. The path must be
 absolute and the file must be executable by the user `go-task-runner` runs as
 (see [Running](Running.md)), or the task fails with status `2`.
 
@@ -154,16 +153,15 @@ The types differ in how the plugin gets its task and returns its result:
 | type      | task passed as      | `--config` passed | result returned via       | plugin finalizes task |
 | --------- | ------------------- | ----------------- | ------------------------- | --------------------- |
 | `default` | JSON file           | yes               | JSON file                 | no                    |
-| `nomongo` | JSON file           | no                | JSON file                 | no                    |
 | `mongo`   | task `_id`          | yes               | document in `results`     | no                    |
 | `handoff` | task `_id`          | yes               | the task document itself  | yes                   |
 
-Use `default` or `nomongo` unless you have a reason not to: they use the local
-filesystem, so you do not need to worry about the size of the result, and
-`nomongo` plugins need no MongoDB driver. `mongo` creates extra load on
-MongoDB for the `results` collection, and the plugin needs to deal with large
-results itself. `handoff` writes the result right where it belongs but the
-plugin has to do everything.
+Use `default` unless you have a reason not to: it uses the local
+filesystem, so you do not need manage large results, and MongoDB use is
+optional. The `collection` type creates extra load on MongoDB for the `results`
+collection, and the plugin needs to manage large results itself, but it keeps
+files off the filesystem. The `handoff` type writes the result to the actual
+task document but the plugin has to manage all validation.
 
 The plugin's own standard output and standard error are not the task's
 `stdout` and `stderr`: they are inherited from the runner. The exit code of the
@@ -179,9 +177,9 @@ invalid](#when-the-result-is-invalid-or-the-plugin-fails).
   password for the `plugin` MongoDB user. Created by `disbatchd` on startup,
   with `-plugin` appended to the file name. Connect to MongoDB with host
   `mongohost`, database `database`, user `"plugin"`, and password
-  `auth.plugin`. `nomongo` plugins are not passed this.
+  `auth.plugin`.
 
-* `--task FILE` (`default` and `nomongo`)
+* `--task FILE` (`default`)
 
   The full path to the task file, `TEMP_DIR/TASK_ID.json`.
 
@@ -209,10 +207,10 @@ A task that fails because of a problem with the task itself should return a
 valid result with a status greater than `1` and exit with `0`. It should not
 exit non-zero.
 
-##### Type `default` and `nomongo`
+##### Type `default`
 
-The plugin is run with `--task TEMP_DIR/TASK_ID.json` and, for `default`,
-`--config FILE`. `TEMP_DIR` is `temp_dir` from the config file.
+The plugin is run with `--task TEMP_DIR/TASK_ID.json` and `--config FILE`.
+`TEMP_DIR` is `temp_dir` from the config file.
 
 * The task file is the full task document as JSON, as it was when the runner
   claimed it (so `status` is `-1`). `_id` and `queue` are strings, and `ctime`
@@ -304,10 +302,10 @@ A task document cannot be more than 16MB, so large output is put in GridFS (see
   to be parsed on a failure. If `stderr` itself needs GridFS, so does a
   non-empty `stdout`.
 
-* `go-task-runner` handles this for `default` and `nomongo`. Plugins of type
-  `mongo` and `handoff` need to do it themselves, as shown in `t/task-mongo.pl`
-  and `t/task-handoff.pl`. The files are in the bucket `tasks`, are named
-  `stdout` or `stderr`, and have `metadata: { task_id: TASK_ID }`.
+* `go-task-runner` handles this for `default`. Plugins of type `mongo` and
+  `handoff` need to do it themselves, as shown in `t/task-mongo.pl` and
+  `t/task-handoff.pl`. The files are in the bucket `tasks`, are named `stdout`
+  or `stderr`, and have `metadata: { task_id: TASK_ID }`.
 
 * The runner has permissions for this, but plugins writing to GridFS need to
   have them added in `plugin-permissions.json` (used by `disbatch-create-users`).
@@ -338,7 +336,7 @@ unless `go-task-runner` failed before running the plugin.
   `stderr` is set to an error message, such as `plugin returned unknown type
   for status (see stdout for status and any stdout or stderr it may have set)`.
 
-* `default` and `nomongo`: the response file is missing, or is not valid JSON
+* `default`: the response file is missing, or is not valid JSON
 
   `status` is set to `2`, `stdout` is set to the content of the response file
   (if available) and `stderr` is set to `could not read task plugin response

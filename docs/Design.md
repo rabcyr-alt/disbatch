@@ -330,8 +330,8 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
   * An object with the optional key `type` for a program run by
     `go-task-runner`. The key is the full path to the program, and `type` is
-    one of `default` (the default), `nomongo`, `mongo`, or `handoff`, such as
-    `"/usr/local/bin/migrate-user": {"type": "nomongo"}`.
+    one of `default` (the default), `mongo`, or `handoff`, such as
+    `"/usr/local/bin/migrate-user": {"type": "mongo"}`.
 
   See [Plugins](Plugins.md) for what each type is passed and must return.
 
@@ -375,10 +375,10 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `temp_dir`
 
-  Directory for the files `go-task-runner` passes to plugins of type `default`
-  and `nomongo`. `disbatchd` creates it on startup if it does not exist, with
-  mode `temp_dir_mode`, and it must be writable by the user `go-task-runner`
-  runs as. Default is `"/tmp/disbatch"`.
+  Directory for the files `go-task-runner` passes to plugins of type `default`.
+  `disbatchd` creates it on startup if it does not exist, with mode
+  `temp_dir_mode`, and it must be writable by the user `go-task-runner` runs
+  as. Default is `"/tmp/disbatch"`.
 
 * `temp_dir_mode`
 
