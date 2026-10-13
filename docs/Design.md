@@ -283,9 +283,12 @@ As a document cannot be more than 16MB, GridFS will be needed to store `stdout`
 and `stderr` if they can cause the task document to exceed this size.
 
 Disbatch uses the collections `tasks.files` and `tasks.chunks` instead of the
-default `fs.files` and `fs.chunks`, and the chunks are stored to ensure `data`
-is of type `String` and not `BinData`. Each file contains `metadata: { task_id:
-task._id }`, and the filenames are `stdout` or `stderr`.
+default `fs.files` and `fs.chunks`. Each file contains `metadata: { task_id:
+task._id }`, and the filenames are `stdout` or `stderr`. `bin/task_runner`
+calls the custom implementation `$disbatch->put_gfs()` which stores the chunks'
+`data` field as type `String` instead of `BinData`. `go-task-runner` uses the
+standard driver implementation, as does `t/task-handoff.pl` and
+`t/task-mongo.pl`. `$disbatch->get_gfs()` handles both formats.
 
 
 #### Config file
@@ -380,13 +383,6 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
   The permissions, as an octal string, to create `temp_dir` with. Default is
   `"0755"`.
-
-* `gfs`
-
-  Set this to `false` to store `stdout` and `stderr` in the task document
-  instead of using GridFS. Set this to `true` to always use GridFS. Set this to
-  `"auto"` to only store `stdout` and `stderr` in GridFS if needed due to size.
-  Default is `"auto"`. Deprecated in 4.4, existing only for legacy `task_runner`.
 
 * `web_root`
 

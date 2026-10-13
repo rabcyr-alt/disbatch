@@ -159,7 +159,10 @@ sub check_field {
     } elsif (ref $expected eq 'ARRAY') {
         my $content = $expected->[1];
         if (isa_ok $value, 'BSON::OID', "$field") {
-            ok gfs_content($value) eq $content, "$field in GridFS is " . length($content) . ' bytes as expected';
+            # NOTE: GridFS content is stored by either the Go or Perl MongoDB driver, and `gfs_content()` returns it using the driver.
+            # However, we want to test that the custom Disbatch implementation returns it correctly (and the driver test seems superfluous)
+            #ok gfs_content($value) eq $content, "$field in GridFS is " . length($content) . ' bytes as expected';
+            ok $disbatch->get_gfs($value) eq $content, "$field in GridFS is " . length($content) . ' bytes as expected';
         }
     } elsif (ref $expected eq 'HASH') {
         my $got = eval { decode_json($value // '') };

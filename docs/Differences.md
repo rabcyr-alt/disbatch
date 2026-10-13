@@ -25,6 +25,7 @@ UI, while removing deprecated code.
 - new task runner `go-task-runner` (source in `go/`) is the default, and the Perl `bin/task_runner` is still available
   - breaking change: `config.plugins` is now an object instead of an array
   - breaking change: `attributes` no longer used, as MongoDB TLS settings now go in the `mongohost` connection string (see below for `bin/disbatch`)
+  - semi-breaking change: `gfs`/`--gfs` no longer used, and the algorithm slightly changed (an empty `stdout` will no longer be stored in GridFS if `stderr` size is over 15MB)
   - plugins can be programs in any language, of type `default`, `nomongo`, `mongo`, or `handoff`, as well as existing Perl module plugins
   - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`
   - new task document fields `cmdExit` and `cmdErr`

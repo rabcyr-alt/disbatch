@@ -42,7 +42,6 @@ func run() int {
 	flag.StringVar(&r.configFile, "config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	flag.BoolVar(&r.quiet, "quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
 	flag.BoolVar(&r.testing, "testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins")
-	flag.String("gfs", "", "NOOP: backcompat")
 	flag.Parse()
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
 	if r.configFile == "" {

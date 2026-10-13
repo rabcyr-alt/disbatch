@@ -23,6 +23,7 @@ removed.
   - web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
   - `config.plugins` is now an object and not an array, and for existing plugins the value should be `1`
   - `attributes` no longer used, as MongoDB TLS settings now go in the `mongohost` connection string (see below for `bin/disbatch`)
+  - `gfs`/`--gfs` no longer used, and the algorithm slightly changed (an empty `stdout` will no longer be stored in GridFS if `stderr` size is over 15MB)
 - `go-task-runner` is now the default task runner, but will fall back to the Perl `task_runner` if not available
   - requires golang >= 1.26.7 to build
   - `plugin_runner` is the full path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`

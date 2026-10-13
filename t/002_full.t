@@ -534,26 +534,22 @@ if ($webpid == 0) {
     is $content->{'MongoDB::UpdateResult'}{modified_count}, 1, 'modified success';
 
     my $gfs_tests = {
-        'e'   => { auto => ['STR','NUL'], 0 => ['STR','NUL'] }, # 15,   0       15
-        'eb'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, # 15,   0+      15+
-        'aE'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  0+, 15       15+
-        'ea'  => { auto => ['OID','NUL'], 0 => ['STR','NUL'] }, # 15+,  0       15+
-        'E'   => { auto => ['NUL','STR'], 0 => ['NUL','STR'] }, #  0,  15       15
-        'eA'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, # 15,   1       16
-        '1E'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  1,  15       16
-        '7aC' => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  7+,  8       15+
-        '7C'  => { auto => ['STR','STR'], 0 => ['STR','STR'] }, #  7,   8       15
-        'Eb'  => { auto => ['OID','OID'], 0 => ['NUL','STR'], handoff => ['NUL','OID'] }, #  0,  15+      15+
+        'e'   => ['STR','NUL'], # 15,   0       15
+        'eb'  => ['OID','STR'], # 15,   0+      15+
+        'aE'  => ['OID','STR'], #  0+, 15       15+
+        'ea'  => ['OID','NUL'], # 15+,  0       15+
+        'E'   => ['NUL','STR'], #  0,  15       15
+        'eA'  => ['OID','STR'], # 15,   1       16
+        '1E'  => ['OID','STR'], #  1,  15       16
+        '7aC' => ['OID','STR'], #  7+,  8       15+
+        '7C'  => ['STR','STR'], #  7,   8       15
+        'Eb'  => ['NUL','OID'], #  0,  15+      15+
     };
-    # `auto` is how `bin/task_runner` used directly puts empty stdout in GridFS when stderr goes there. `go-task-runner`
-    # and `--handoff` do not do this, as an empty field is left alone.
-    my $gfs_mode = $task_runner =~ m{(^|/)task_runner$} ? 'auto' : 'handoff';
 
     note "GFS loop start";
     $disbatch->{config}{quiet} = 1;
     unless (exists $ENV{GFS_TESTS} and $ENV{GFS_TESTS} eq 'none') {
         for my $key (keys  %$gfs_tests) {
-            #note "GFS: $gfs $key $gfs_tests->{$key}{$gfs}[0] $gfs_tests->{$key}{$gfs}[1]";
             $data = { queue => $name, params => [ {commands => $key} ] };
             $res = Net::HTTP::Client->request(POST => "$uri/tasks", 'Content-Type' => 'application/json', encode_json($data));
             is $res->status_line, '200 OK', '200 status';
@@ -590,21 +586,20 @@ if ($webpid == 0) {
             is $content->[0]{status}, 1, 'status 1';
             ok exists $content->[0]{stdout}, 'stdout exists';
             ok exists $content->[0]{stderr}, 'stderr exists';
-            my $expected = $gfs_tests->{$key}{$gfs_mode} // $gfs_tests->{$key}{auto};
-            if ($expected->[0] eq 'NUL') {
+            if ($gfs_tests->{$key}[0] eq 'NUL') {
                 ok !defined $content->[0]{stdout}, 'stdout undefined';
-            } elsif ($expected->[0] eq 'STR') {
+            } elsif ($gfs_tests->{$key}[0] eq 'STR') {
                 ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
-            } elsif ($expected->[0] eq 'OID') {
+            } elsif ($gfs_tests->{$key}[0] eq 'OID') {
                 ok defined $content->[0]{stdout}, 'stdout OID';
             } else {
                 die;
             }
-            if ($expected->[1] eq 'NUL') {
+            if ($gfs_tests->{$key}[1] eq 'NUL') {
                 ok !defined $content->[0]{stderr}, 'stderr undefined';
-            } elsif ($expected->[1] eq 'STR') {
+            } elsif ($gfs_tests->{$key}[1] eq 'STR') {
                 ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
-            } elsif ($expected->[1] eq 'OID') {
+            } elsif ($gfs_tests->{$key}[1] eq 'OID') {
                 ok defined $content->[0]{stderr}, 'stderr OID';
             } else {
                 die;

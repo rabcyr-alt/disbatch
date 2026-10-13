@@ -42,11 +42,6 @@ Suppress STDOUT and STDERR output at end (mainly for testing). This is also pass
 
 Passed to the Perl L<task_runner> with C<--handoff> when running a Perl module plugin.
 
-=item --gfs [<string>]
-
-Ignored. Backcompat because L<disbatchd> passes it to the Perl L<task_runner>. C<go-task-runner> always stores C<stdout> and C<stderr> in GridFS when they are
-large, even when running a Perl module via C<task_runner --handoff>).
-
 =back
 
 =head1 SEE ALSO

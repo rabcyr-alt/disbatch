@@ -75,7 +75,6 @@ sub new {
             queuebalance => 'qwerty4',	# { username => 'queuebalance', password => 'qwerty4' },
             plugin => 'qwerty5',		# { username => 'plugin', password => 'qwerty5' },
         },
-        gfs => 'auto',	# default, deprecated in 4.4
         log4perl => {
             level => 'TRACE',
             appenders => {

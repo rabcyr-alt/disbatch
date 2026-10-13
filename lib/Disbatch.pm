@@ -95,7 +95,6 @@ sub load_config {
         };
         # Ensure defaults:
         $self->{config}{auth} //= {};
-        $self->{config}{gfs} //= 'auto';	# deprecated in 4.4
         $self->{config}{quiet} //= Cpanel::JSON::XS::false;
         if (!defined $self->{config}{task_runner}) {
             $self->{config}{task_runner} = '/usr/bin/go-task-runner';
@@ -381,7 +380,6 @@ sub start_task {
         '--config' => "$self->{config_file}-task_runner",	# NOTE: "$self->{config_file}-strict" could also be used
         '--task'   => $task->{_id},
     );
-    push @args, '--gfs', $self->{config}{gfs} if $self->{config}{gfs};	# deprecated in 4.4, existing only for legacy `task_runner`
     push @args, '--quiet' if $self->{config}{quiet};
     push @args, '--testing' if $self->{config}{testing};
     $self->logger->info(join ' ', $command, @args);
@@ -514,6 +512,7 @@ sub put_gfs {
 
 # returns the content as a string
 # throws an error if the file document does not exist, and any other error
+# works on both the custom and standard GridFS formats
 sub get_gfs {
     my ($self, $filename_or_id, $metadata) = @_;
     my $file_id;
@@ -812,7 +811,7 @@ Returns a C<BSON::OID> object for the ID inserted in the C<tasks.files> collecti
 
 Parameters: filename or C<BSON::OID> object, optional metadata C<HASH>
 
-Gets UTF-8 content from the custom GridFS format. Metadata is only used if given a filename instead of a C<BSON::OID> object.
+Gets UTF-8 content from both the custom and standard GridFS formats. Metadata is only used if given a filename instead of a C<BSON::OID> object.
 
 Returns: content string.
 
