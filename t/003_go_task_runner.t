@@ -391,7 +391,7 @@ This starts its own C<mongod> (found via C<$PATH>, or set C<MONGOD>), but does n
 It runs C<go-task-runner> directly for each task, with C<--task>, C<--config>, and C<--quiet>, and checks the
 task document afterwards. It uses C<$ENV{GO_TASK_RUNNER}>, or C<go/go-task-runner>, or an installed C</usr/bin/go-task-runner>.
 
-You can disable MongoDB SSL and authentication like with F<t/002_full.t>:
+You can disable MongoDB TLS and authentication like with F<t/002_full.t>:
 
     USE_SSL=0 USE_AUTH=0 AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
 

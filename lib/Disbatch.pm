@@ -62,7 +62,7 @@ sub logger {
 sub mongo {
     my ($self) = @_;
     return $self->{mongo} if defined $self->{mongo};
-    my %attributes = %{$self->{config}{attributes}};
+    my %attributes;
     if (keys %{$self->{config}{auth}}) {
         my $username = 'plugin';
         $username = 'disbatchd' if $self->{class} eq 'disbatch';
@@ -94,7 +94,6 @@ sub load_config {
             $self->logger->logdie("Could not parse $self->{config_file}: $_");
         };
         # Ensure defaults:
-        $self->{config}{attributes} //= {};
         $self->{config}{auth} //= {};
         $self->{config}{gfs} //= 'auto';	# deprecated in 4.4
         $self->{config}{quiet} //= Cpanel::JSON::XS::false;

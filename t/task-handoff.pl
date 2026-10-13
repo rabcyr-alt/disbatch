@@ -129,7 +129,7 @@ for my $key (keys %$extra) {
 
 sub mongo {
     my ($config, $class) = @_;
-    my %attributes = %{$config->{attributes}};
+    my %attributes;
     if (keys %{$config->{auth}}) {
         $attributes{username} = 'plugin';
         $attributes{password} = $config->{auth}{plugin};

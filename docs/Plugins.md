@@ -173,12 +173,12 @@ invalid](#when-the-result-is-invalid-or-the-plugin-fails).
 
 * `--config FILE` (`default`, `mongo`, and `handoff`)
 
-  A copy of the config file whose `auth` has only the password for the
-  `plugin` MongoDB user. `disbatchd` creates it on startup, next to the config
-  file, named with `-plugin` added to the end (so
-  `/etc/disbatch/config.json-plugin` for `/etc/disbatch/config.json`). Connect
-  to MongoDB with the `plugin` user and this config's `mongohost`, `database`,
-  and `attributes`. `nomongo` programs are not passed this.
+  A copy of the config file whose `auth` has only the password for the `plugin`
+  MongoDB user. `disbatchd` creates it on startup, next to the config file,
+  named with `-plugin` added to the end (so `/etc/disbatch/config.json-plugin`
+  for `/etc/disbatch/config.json`). Connect to MongoDB with the `plugin` user
+  and this config's `mongohost` and `database`. `nomongo` programs are not
+  passed this.
 
 * `--task FILE` (`default` and `nomongo`)
 

@@ -100,14 +100,14 @@ See [Upgrading](docs/Upgrading.md)
 See [Authentication_MongoDB](docs/Authentication_MongoDB.md)
 
 
-#### Configuring and Using SSL with MongoDB
+#### Configuring and Using TLS with MongoDB
 
-See [SSL_MongoDB](docs/SSL_MongoDB.md)
+See [TLS_MongoDB](docs/TLS_MongoDB.md)
 
 
-#### Configuring and Using SSL with the Disbatch Command Interface
+#### Configuring and Using TLS with the Disbatch Command Interface
 
-See [SSL_DCI](docs/SSL_DCI.md)
+See [TLS_DCI](docs/TLS_DCI.md)
 
 
 #### Authors

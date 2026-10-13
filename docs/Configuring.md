@@ -7,9 +7,9 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 2. Make sure that only the process running Disbatch can read and edit
    `/etc/disbatch/config.json`
 3. Edit `/etc/disbatch/config.json`
-   1. Change `mongohost` to the URI of your MongoDB servers
+   1. Change `mongohost` to the URI of your MongoDB servers, including TLS options
    2. Change `database` to the MongoDB database name you are using for Disbatch
-   3. Ensure proper SSL settings in `attributes`, or remove it if not using SSL
+   3. Ensure proper TLS settings in `tls` for the DCI, or remove it if not using TLS
    4. Change passwords in `auth` for the respective MongoDB users, or delete
       the field or set its value to `null` if not using MongoDB authentication
    5. Set `plugins` to the plugins you want accessible for queue creation:
@@ -40,8 +40,8 @@ to be `root`. `disbatchd` starts the task runner, which reads the config files
 plugins. The user needs to be able to write to `temp_dir`, and to the log file
 set in `log4perl`. See [Running](Running.md).
 
-See also [Configuring and Using SSL with MongoDB](SSL_MongoDB.md) and
-[Configuring and Using SSL with the Disbatch Command Interface](SSL_DCI.md).
+See also [Configuring and Using TLS with MongoDB](TLS_MongoDB.md) and
+[Configuring and Using TLS with the Disbatch Command Interface](TLS_DCI.md).
 
 #### Create MongoDB users for Disbatch if using authentication
 - Configure the permissions your plugin needs in

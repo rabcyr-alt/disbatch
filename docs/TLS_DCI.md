@@ -1,10 +1,10 @@
-### Configuring and Using SSL with the Disbatch Command Interface
+### Configuring and Using TLS with the Disbatch Command Interface
 
 Copyright (c) 2016, 2026 by Ashley Willis.
 
 #### Configuring
 
-This will run the Disbatch Command Interface on port 443 using SSL, as well as
+This will run the Disbatch Command Interface on port 443 using TLS, as well as
 create 301 redirects for ports 80 and 8080.
 
 * For a clean nginx deployment, copy `/etc/disbatch/nginx-default.conf-example`
@@ -29,4 +29,4 @@ To use the CLI on another host, pass `--url https://$FQDN` and either
 `--disable_ssl_verification` to disable verification.
 
 Alternately, if the process has read access to `/etc/disbatch/config.json`, it
-can use the same SSL settings as MongoDB.
+can use the settings in `tls`.

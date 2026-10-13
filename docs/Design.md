@@ -306,22 +306,18 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `mongohost`
 
-  A MongoDB URI, such as `"mongodb://mongodb01.example.com:27017"`.
+  A MongoDB URI, such as `"mongodb://mongodb01.example.com:27017"`. Examples with TLS:
+
+      "mongohost": "mongodb://dev.ashley.lan:27017/?tls=true", # this should work for a proper cert
+      "mongohost": "mongodb://dev.ashley.lan:27017/?tlsCAFile=/etc/ssl/mongodb/dev.ashley.lan.crt",
+
+  See [Connection String Options](https://www.mongodb.com/docs/manual/reference/connection-string-options/)
 
 * `database`
 
   The MongoDB database to use.
 
 ##### Optional MongoDB settings are:
-
-* `attributes`
-
-  A hash of connection attributes for
-  [MongoDB->connect()](https://metacpan.org/pod/MongoDB).
-  For SSL, it will contain the key `ssl` with a value of `1` if using a public
-  certificate, a value of `{"SSL_ca_file": PATH_TO_CERTIFICATE_AUTHORITY }` if
-  using an internally-signed certificate, or a value of `{"SSL_verify_mode": 0}`
-  if using a self-signed certificate.
 
 * `auth`
 

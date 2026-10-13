@@ -61,12 +61,10 @@ if (defined $ssl_ca_file) {
 } elsif ($disable_ssl_verification) {
     $ua_options->{ssl_opts}{verify_hostname} = 0;
 } else {
-    # Note: the SSL settings are for MongoDB, but ideally if using SSL with MongoDB, it is also being used with the DCI
     # try loading the config file, but don't fail if it doesn't exist
     my $config = try { Cpanel::JSON::XS->new->utf8->relaxed->decode(scalar read_file $config_file) } catch { {} };
-    if (defined $config->{attributes}{ssl}) {
-        $ua_options->{ssl_opts} = $config->{attributes}{ssl};
-        $ua_options->{ssl_opts}{verify_hostname} = $ua_options->{ssl_opts}{SSL_verify_mode} if defined $ua_options->{ssl_opts}{SSL_verify_mode};
+    if (defined $config->{tls}) {
+        $ua_options->{ssl_opts} = $config->{tls};
     }
 }
 
@@ -269,11 +267,11 @@ Display this message
 
 =item --ssl_ca_file <ssl_ca_file>
 
-Path to the SSL CA file. Needed if using SSL with a private CA.
+Path to the TLS CA file. Needed if using TLS with a private CA.
 
 =item --disable_ssl_verification
 
-Disables hostname verification if SSL is used.
+Disables hostname verification if TLS is used.
 
 Only used if C<--ssl_ca_file> is not used.
 
@@ -282,8 +280,6 @@ Only used if C<--ssl_ca_file> is not used.
 Path to Disbatch config file. Default is C</etc/disbatch/config.json>.
 
 Only used if neither C<--ssl_ca_file> nor C<--disable_ssl_verification> is used.
-
-Note: the SSL settings in the Disbatch config file are for MongoDB, but ideally if using SSL with MongoDB, then it is also being used with the DCI.
 
 =back
 

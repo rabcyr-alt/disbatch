@@ -1,14 +1,8 @@
 {
     # Mandatory:
     "mongohost": "mongodb://127.0.0.1:27017",
+    #"mongohost": "mongodb://dev.ashley.lan:27017/?tlsCAFile=/etc/ssl/mongodb/dev.ashley.lan.crt",	# TLS format
     "database": "disbatch_test",
-    # Only needed if using SSL with MongoDB:
-    "attributes": {
-        "ssl": {
-            "SSL_ca_file": "/etc/ssl/certs/ca-bundle.crt",	# ssl is enabled on the server
-            #"SSL_verify_mode": 0,				# ssl is enabled on the server, but without a valid cert
-        },
-    },
     # Only needed if using MongoDB authentication:
     "auth": {
         "disbatchd": "qwerty1",
@@ -16,6 +10,11 @@
         "task_runner": "qwerty3",
         "queuebalance": "qwerty4",
         "plugin": "qwerty5",
+    },
+    # Only needed if using TLS on the web server:
+    "tls": {
+        "SSL_ca_file": "/etc/ssl/certs/ca-bundle.crt",     # tls is enabled on the server
+        #"verify_hostname": 0,                             # tls is enabled on the server, but without a valid cert
     },
     # Can only load a plugin listed here
     "plugins": {					# defaults to {}, breaking change in 4.4

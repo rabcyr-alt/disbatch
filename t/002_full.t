@@ -759,7 +759,7 @@ Run the full test suite with the following:
 
     dzil test
 
-You can also disable MongoDB SSL and authentication via:
+You can also disable MongoDB TLS and authentication via:
 
     USE_SSL=0 USE_AUTH=0 dzil test
 
