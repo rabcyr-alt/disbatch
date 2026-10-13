@@ -763,21 +763,21 @@ You can also disable MongoDB TLS and authentication via:
 
     USE_SSL=0 USE_AUTH=0 dzil test
 
-Tasks are run by C<go-task-runner>, which C<Makefile.PL> builds as C<go/go-task-runner> if Go is installed (so C<dzil test>
-has it), or you can build it by hand:
+You can skip GFS tests by setting C<GFS_TESTS> to C<none>.
+
+    GFS_TESTS=none dzil test
+
+Tasks are run by C<./go/go-task-runner> or C</usr/bin/go-task-runner> if they exist. You can build C<./go/go-task-runner> with the following:
 
     (cd go && go build -mod=vendor -o go-task-runner .)
 
-C<$ENV{GO_TASK_RUNNER}> or an installed C</usr/bin/go-task-runner> are used if there is no C<go/go-task-runner>.
+You can override this by setting C<GO_TASK_RUNNER>.
 
-To run the tasks with the Perl C<bin/task_runner> instead, set C<TASK_RUNNER>:
+    GO_TASK_RUNNER=./bin/go-task-runner dzil test
+
+To run the tasks with the Perl C<bin/task_runner> instead, set C<TASK_RUNNER>.
 
     TASK_RUNNER=./bin/task_runner dzil test
-
-You can skip GFS tests by setting C<GFS_TESTS> to C<none>.
-
-    GFS_TESTS=none
-
 
 =head1 AUTHORS
 

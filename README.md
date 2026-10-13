@@ -21,41 +21,19 @@ For an in-depth description of the design, see
 
 #### Installing
 
-* From CPAN (not yet published):
-
-        cpanm Disbatch
-
 * From Git:
 
-        git clone https://github.com/mbusigin/disbatch.git
+        git clone https://github.com/rabcyr-alt/disbatch.git
         cd disbatch
         dzil build
-        cpanm disbatch-<VERSION>.tar.gz
+        cpanm disbatch-<VERSION>.tar.gz # NOTE: soft requirement on golang >= 1.26.7
 
-  `go-task-runner`, the default task runner, is built from `go/` by
-  `Makefile.PL` (so by `cpanm`) if Go is installed: the version in `go/go.mod`.
-  It builds from `go/vendor` without downloading anything, and installs it as
-  `go-task-runner` in the same directory as the other programs (so `/usr/bin`
-  for the RPM, but `/usr/local/bin` for `cpanm` by default, in which case set
-  `task_runner` in the config file to its path). If Go is not installed, or is
-  too old, or the build fails, it says so and is not installed: `Disbatch` then
-  uses the Perl `task_runner`, which can only run Perl module plugins, and logs
-  a warning. To install `go-task-runner` later, install Go and run:
+* From CPAN (likely quite out of date):
 
-        (cd go && go build -mod=vendor -o go-task-runner .)
+        cpanm Disbatch # NOTE: soft requirement on golang >= 1.26.7
 
-  and copy it to `/usr/bin/go-task-runner`. Set `DISBATCH_SKIP_GO=1` to not
-  build it, and `GO` to use a `go` that is not first in `PATH`. `GOOS` and
-  `GOARCH` work as they do for `go build`.
-
-  `dzil build` fails if `gofmt -l` or `go vet` have any output for `go/`.
-
-  The RPM (built from `dist.spec`) requires Go to build, installs
-  `go-task-runner`, and so is not `noarch`. Build for another architecture
-  with `rpmbuild --target aarch64` (or `RPM_TARGET=aarch64
-  ./rpm-demo-build.sh`): Go cross compiles, so it does not need to be on that
-  architecture.
-
+Set `DISBATCH_SKIP_GO=1` to not build optional `go-task-runner`.
+Set `GO=<PATH>` to use other than the default `go`.
 
 #### Configuring Disbatch 4.4
 
@@ -64,10 +42,7 @@ See [Configuring](docs/Configuring.md)
 
 #### Creating task plugins
 
-See [Plugins](docs/Plugins.md). A plugin is either a Perl module, or a program
-in any language that is run by `go-task-runner`, the default task runner. The
-Perl `bin/task_runner` is still included, and can be used by setting
-`task_runner` in the config file.
+See [Plugins](docs/Plugins.md)
 
 
 #### Creating web extension plugins

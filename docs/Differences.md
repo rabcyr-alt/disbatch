@@ -23,12 +23,14 @@ UI, while removing deprecated code.
 - updated code for perl v5.32.1 (really 5.24 and later), but should still work on v5.16.2 and possibly back to 5.12.0)
   - `keys` can no longer take a scalar expression
 - new task runner `go-task-runner` (source in `go/`) is the default, and the Perl `bin/task_runner` is still available
-  - plugins can be programs in any language, of type `default`, `nomongo`, `mongo`, or `handoff`. Perl module plugins are run via `plugin_runner`
-  - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`, and `plugins` is an object instead of an array
-  - new task document fields `cmdExit` and `cmdErr`, and `complete` is set by both task runners
-  - `Makefile.PL` builds `go-task-runner` offline from `go/vendor` if Go is installed (the tarball has the source and no binaries), and installs it as `go-task-runner`. If not, it says so, and `Disbatch` falls back to the Perl `task_runner`. The RPM (`dist.spec`) is built with Go for the architecture it is built for (`rpmbuild --target`), so it is no longer `noarch`. `gofmt -l` and `go vet` must have no output for `dzil build` to succeed
+  - breaking change: `config.plugins` is now an object instead of an array
+  - breaking change: `attributes` no longer used, as MongoDB TLS settings now go in the `mongohost` connection string (see below for `bin/disbatch`)
+  - plugins can be programs in any language, of type `default`, `nomongo`, `mongo`, or `handoff`, as well as existing Perl module plugins
+  - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`
+  - new task document fields `cmdExit` and `cmdErr`
+  - `Makefile.PL` builds `go-task-runner` offline from `go/vendor` if Go is installed
   - `Disbatch::Roles`: `task_runner` can `listIndexes` for `tasks.files` and `tasks.chunks`
-  - `ensure_indexes` also creates `{ filename: 1, uploadDate: 1 }` on `tasks.files`, the index the Perl and Go MongoDB drivers want for GridFS, so they do not need `createIndex`
+  - `ensure_indexes` also creates `{ filename: 1, uploadDate: 1 }` on `tasks.files`
 - completely new web UI (same backend JSON API)
   - rewritten in Angular 22 and Typescript, instead of various things hacked together
   - added `dashboard.refresh_ms` and `dashboard.live_window_ms` settings

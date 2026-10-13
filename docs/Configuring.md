@@ -18,27 +18,10 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
       [Plugins](Plugins.md))
    6. Set `monitoring` to `false` if you want `GET /monitoring` to ignore checks
    7. Set `balance.enabled` to `true` if using QueueBalance
-   8. Uncomment values in `web_extensions` if needing to use deprecated routes
-   9. Uncomment `pre_hook` section if using a pre_hook plugin
-   10. Set `activequeues` or `ignorequeues` per DEN if used
-   11. Set `node_increase` and/or `queue_increase` to throttle thread increases
-   12. If using Perl module plugins, `plugin_runner` must be the full path of
-       `bin/task_runner`, which is the default (`/usr/bin/task_runner`)
-   13. Leave `task_runner` unset to use `go-task-runner`
-       (`/usr/bin/go-task-runner`, or the Perl `/usr/bin/task_runner` with a
-       logged warning if that is not installed), or set it to the path of
-       `bin/task_runner` to use the Perl task runner (which can only run Perl
-       module plugins)
-   14. Set `temp_dir` (and `temp_dir_mode`) if you do not want to use
-       `/tmp/disbatch`
-   15. Remove the rest, which is optional and configured for development
-
-`disbatchd` and the task runner must run as the same user, which does not need
-to be `root`. `disbatchd` starts the task runner, which reads the config files
-`disbatchd` writes with mode `0600` (`config.json-task_runner` and
-`config.json-plugin`), writes to `temp_dir` and the log file, and starts the
-plugins. The user needs to be able to write to `temp_dir`, and to the log file
-set in `log4perl`. See [Running](Running.md).
+   8. Uncomment `pre_hook` section if using a pre_hook plugin
+   9. Set `activequeues` or `ignorequeues` per DEN if used
+   10. Set `node_increase` and/or `queue_increase` to throttle thread increases
+   11. Remove the rest, which is optional and configured for development
 
 See also [Configuring and Using TLS with MongoDB](TLS_MongoDB.md) and
 [Configuring and Using TLS with the Disbatch Command Interface](TLS_DCI.md).

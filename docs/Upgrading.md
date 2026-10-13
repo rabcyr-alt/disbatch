@@ -19,15 +19,17 @@ This release enables running on newer systems (Perl 5.32, MongoDB 8.2) while hop
 running on older systems, and has an entirely new web UI. Code deprecated in 4.0 and 4.2 has been
 removed.
 
-- Breaking change: web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`, and that should be it.
-- `go-task-runner` is now the default task runner, and `bin/task_runner` can still be used by setting `task_runner` in the config file:
-  - `plugins` is now an object and not an array: the keys are the plugin names and the values are `1` for Perl modules, or an object with `type` for programs. Change an array `[ "Disbatch::Plugin::Demo" ]` to `{ "Disbatch::Plugin::Demo": 1 }`
+- Breaking changes:
+  - web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+  - `config.plugins` is now an object and not an array, and for existing plugins the value should be `1`
+  - `attributes` no longer used, as MongoDB TLS settings now go in the `mongohost` connection string (see below for `bin/disbatch`)
+- `go-task-runner` is now the default task runner, but will fall back to the Perl `task_runner` if not available
+  - requires golang >= 1.26.7 to build
   - `plugin_runner` is the full path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
   - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
-  - `disbatchd` and the task runner must run as the same user
-  - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`. Restart `disbatchd`, which now creates the `filename_1_uploadDate_1` index on `tasks.files` that the MongoDB drivers want
-  - the RPM is no longer `noarch`: it installs `/usr/bin/go-task-runner`, which `Makefile.PL` builds from `go/` when Go is installed (see `go/go.mod` for the version), so building the RPM needs Go. `cpanm` installs it as `go-task-runner` in the same directory as the other programs if Go is installed, and otherwise says it was not installed and `Disbatch` uses the Perl `task_runner`, which only runs Perl module plugins
-  - see [Plugins](Plugins.md)
+  - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as user `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`.
+  - the RPM is no longer `noarch` as it installs the binary `/usr/bin/go-task-runner`
+  - see [Plugins](Plugins.md) for specifications
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3) : deprecated v3 routes: *-json, not tested
   - file `lib/Disbatch/Web/Tasks.pm` (Disbatch::Web::Tasks) : deprecated v4 routes: POST /tasks/search, POST /tasks/:queue, POST /tasks/:queue/:collection

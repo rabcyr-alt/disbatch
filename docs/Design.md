@@ -17,10 +17,7 @@ of tasks for each queue.
 
 The DTR is called by the DEN when it claims a task. The DTR is responsible for
 loading the plugin and running the task, as well as updating the task document
-when the task completes. The default DTR is `go-task-runner`, which runs a
-plugin as a separate program of one of four types, and validates its result.
-The Perl `bin/task_runner` is also available, and only runs Perl module
-plugins. See [Plugins](Plugins.md).
+when the task completes.
 
 The DCI provides a JSON REST API for the DENs, as well as a web browser
 interface to the API. An additional CLI tool interacts with this API.
@@ -78,9 +75,9 @@ until the per-DEN `maxthreads` and per-queue `threads` thresholds are reached.
 The DEN then notifies the DTR of the task, and the DTR puts the task into a
 running state (setting `status` to `0`). When the plugin has finished, it
 reports back the status, stdout, and stderr of the task to the DTR. The DTR
-then updates the task's document in MongoDB with these values: `status` first,
-and then `stdout`, `stderr`, and `complete`. (A plugin of type `handoff` updates
-the task itself, instead of reporting back.)
+then updates (or validates) the task's document in MongoDB with these values:
+`status` first, then `stdout` and `stderr`. The new `go-task-runner` also sets
+`cmdExit` and `cmdErr` from the sub-process it runs.
 
 ###### `findOneAndUpdate(filter, update, options)`
 
@@ -189,36 +186,29 @@ The following elements must be included when creating a task:
 
 * `mtime`: an `ISODate` of the modification time
 
-* `node`: the DEN this task is running or ran on, or `null` if queued
+* `node`: the DEN this task is running or ran on, or `null` if queued (`null` on creation)
 
-* `status`: an integer for the task status code
+* `status`: an integer for the task status code (`-2` on creation)
 
 * `params`: an object describing the unique qualities of this task (user,
   commands, etc)
 
-The following elements should be created by the DEN when the task finishes, and
-should be set to `null` when created:
+The following elements should be included when creating a task:
 
-* `stdout`: task output as a string or the GridFS file's `ObjectId`, or null
+* `stdout`: task output as a string or the GridFS file's `ObjectId`, or null (`null` on creation)
 
-* `stderr`: task errors as a string or the GridFS file's `ObjectId`, or null
+* `stderr`: task errors as a string or the GridFS file's `ObjectId`, or null (`null` on creation)
 
-The following elements are set by the DTR:
-
-* `complete`: `true` when the DTR has finished writing the task's `stdout` and
-  `stderr`, which it does after setting `status`. It is `false` if that failed.
-  It does not exist until then, so a client should wait for `complete` to exist
-  if it needs `stdout` or `stderr` after `status` is positive.
+The following additional elements are set by the new Go DTR:
 
 * `cmdExit`: an integer, the exit code of the plugin process. It is `0` on a
   clean exit. It is `-1` if the process was killed by a signal, `-2` if waiting
-  for it failed, and `-3` if it could not be started. It is only set by
-  `go-task-runner`, and only if it ran the plugin: it does not exist for a task
-  that could not be started (where `stdout` is `Unable to start`).
+  for it failed, and `-3` if it could not be started. If unset, then the task
+  failed before it could run the plugin.
 
 * `cmdErr`: a string, the error from running the plugin process. It is `<nil>`
   on a clean exit, otherwise something like `exit status 3` or `signal: killed`.
-  Like `cmdExit`, it is only set by `go-task-runner`.
+  If unset, then the task failed before it could run the plugin.
 
 MongoDB will create an `ObjectId` for the task's `_id`.
 
@@ -257,7 +247,7 @@ These are the standard status codes in Disbatch 4:
 * `-1`: Claimed
 
   A task claimed by a DEN but has yet to start (within ms). The `node` must also
-  be set to the DEN's hostname for tasks with a claimed status.
+  be set to the DEN's hostname for tasks with a claimed status, and `mtime` updated.
 
 * `0`: Running
 
@@ -370,25 +360,21 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `task_runner`
 
-  Path to the DTR. Default is `"/usr/bin/go-task-runner"`, or if that is not
-  installed (it is not if Go was not installed when Disbatch was installed from
-  CPAN), `"/usr/bin/task_runner"` with a warning logged. To use the Perl DTR,
-  which can only run Perl module plugins, set this to the path to
-  `bin/task_runner`, such as `"/usr/bin/task_runner"`.
+  Path to the DTR. Default is `"/usr/bin/go-task-runner"`, or if not installed
+  `"/usr/bin/task_runner"` with a warning logged. No fallback and no warning
+  logged if set.
 
 * `plugin_runner`
 
-  Full path to the Perl `bin/task_runner`, which `go-task-runner` runs with
-  `--handoff` to run Perl module plugins (those with a `plugins` value of `1`).
-  Default is `"/usr/bin/task_runner"`.
+  Full path to the original Perl DTR, which `go-task-runner` runs with
+  `--handoff` to run Perl module plugins. Default is `"/usr/bin/task_runner"`.
 
 * `temp_dir`
 
   Directory for the files `go-task-runner` passes to plugins of type `default`
-  and `nomongo`: `TASK_ID.json` and `TASK_ID-response.json`. `disbatchd`
-  creates it on startup if it does not exist, with mode `temp_dir_mode`, and
-  it must be writable by the user `go-task-runner` runs as. Default is
-  `"/tmp/disbatch"`.
+  and `nomongo`. `disbatchd` creates it on startup if it does not exist, with
+  mode `temp_dir_mode`, and it must be writable by the user `go-task-runner`
+  runs as. Default is `"/tmp/disbatch"`.
 
 * `temp_dir_mode`
 
@@ -433,6 +419,8 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
                 }
             }
         },
+
+  For `go-task-runner`, only `level` and `appenders.filelog.args.filename` is used.
 
 * `activequeues` and `ignorequeues`
 
