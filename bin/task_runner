@@ -138,14 +138,17 @@ for my $field (qw/ stderr stdout /) {
         $result->{$field} = $id;
     }
 }
-retry { $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {stdout => $result->{stdout}, stderr => $result->{stderr}, complete => Cpanel::JSON::XS::true}}) }
+
+my $update = {stdout => $result->{stdout}, stderr => $result->{stderr}};
+$update->{complete} = Cpanel::JSON::XS::true if $testing;
+retry { $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => $update}) }
 on_retry {
     $logger->warn("Update to stdout/stderr failed for task $task_id: $_");
     # MongoDB::WriteError: Resulting document after update is larger than 16777216
     # MongoDB::DocumentError: Document exceeds maximum size 16777216
     $result->{stdout} = "$_" if $_->$_isa('MongoDB::DocumentError') or $_->$_isa('MongoDB::WriteError');
 } catch {
-    $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {complete => Cpanel::JSON::XS::false}});
+    $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {complete => Cpanel::JSON::XS::false}}) if $testing;
     $logger->logdie("Could not update task $task_id stdout/stderr after completion: $_")
 };
 
@@ -175,7 +178,7 @@ Path to the JSON Disbatch config file. Mandatory.
 
 =item --task <string>
 
-The task's _id. Mandatory.
+The task's C<_id>. Mandatory.
 
 =item --quiet
 
@@ -183,7 +186,7 @@ Suppress STDOUT and STDERR output at end (mainly for testing).
 
 =item --testing
 
-Do C<< require lib 'lib'; lib->import('lib'); >> before C<require Disbatch;>.
+Do C<< require lib 'lib'; lib->import('lib'); >> before C<require Disbatch;>, and set C<complete> when setting C<stdout> and C<stderr>.
 
 =item --handoff
 

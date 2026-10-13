@@ -56,7 +56,7 @@ die "No task found for $task_id\n" unless defined $doc;
 my ($result, $extra) = ParamsResult::params2result($doc->{params});
 
 my $update = {};
-$update->{'$set'} = { %$result, complete => Cpanel::JSON::XS::true } if keys %$result;
+$update->{'$set'} = $result if keys %$result;
 $update->{'$unset'} = { status => 1 } if $doc->{params}{unset_status};
 if (keys %$update) {
     retry { $mongo->coll('tasks')->update_one({_id => $oid, status => 0, node => $node}, $update) }

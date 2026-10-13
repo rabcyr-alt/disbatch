@@ -266,14 +266,14 @@ needed.
 * Read the task from the `tasks` collection: `{_id: TASK_ID, status: 0, node:
   HOSTNAME}`.
 
-* When finished, update that task: set `status`, `stdout`, and `stderr`, and
-  set `complete` to `true`. Set `status` before you set the others, with a
-  filter that includes `status: 0` and `node: HOSTNAME`. The rest should use a
-  filter that includes the new `status` and the same `node`.
+* When finished, update that task: set `status`, `stdout`, and `stderr`. Set
+  `status` before you set the others, with a filter that includes `status: 0`
+  and `node: HOSTNAME`. The rest should use a filter that includes the new
+  `status` and the same `node`.
 
 * You are responsible for all of the finalizing. This includes putting large
-  `stdout` and `stderr` in GridFS (see below), and setting `complete` to `true`
-  when the task is completely written.
+  `stdout` and `stderr` in GridFS (see below), validating `status` before
+  updating the task, and any output you want.
 
 * Do not change the task's `node` or `mtime`: the runner uses them to find the
   task.
@@ -371,4 +371,4 @@ running with matching `node` and `mtime`, or if the update for `status` or
 
 ##### Task document fields set by the runner
 
-See [Design](Design.md#tasks) for `complete`, `cmdExit`, and `cmdErr`.
+See [Design](Design.md#tasks) for `cmdExit` and `cmdErr`.

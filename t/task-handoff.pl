@@ -106,14 +106,13 @@ for my $field (qw/ stderr stdout /) {
     }
 }
 
-retry { $mongo->coll('tasks')->update_one({_id => $oid, status => $result->{status}, node => $node}, {'$set' => {stdout => $result->{stdout}, stderr => $result->{stderr}, complete => Cpanel::JSON::XS::true}}) }
+retry { $mongo->coll('tasks')->update_one({_id => $oid, status => $result->{status}, node => $node}, {'$set' => {stdout => $result->{stdout}, stderr => $result->{stderr}}}) }
 on_retry {
     $logger->warn("Update to stdout/stderr failed for task $task_id: $_");
     # MongoDB::WriteError: Resulting document after update is larger than 16777216
     # MongoDB::DocumentError: Document exceeds maximum size 16777216
     $result->{stdout} = "$_" if $_->$_isa('MongoDB::DocumentError') or $_->$_isa('MongoDB::WriteError');
 } catch {
-    $mongo->coll('tasks')->update_one({_id => $oid, status => $result->{status}, node => $node}, {'$set' => {complete => Cpanel::JSON::XS::false}});
     $logger->logdie("Could not update task $task_id stdout/stderr after completion: $_")
 };
 

@@ -40,7 +40,7 @@ Suppress STDOUT and STDERR output at end (mainly for testing). This is also pass
 
 =item --testing
 
-Passed to the Perl L<task_runner> with C<--handoff> when running a Perl module plugin.
+Passed to the Perl L<task_runner> with C<--handoff> when running a Perl module plugin, and set C<complete> when setting C<stdout> and C<stderr>.
 
 =back
 

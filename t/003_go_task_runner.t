@@ -189,7 +189,6 @@ sub check_task {
         is $task->{status}, $expect{status}, 'status';
         check_field($task, 'stdout', $expect{stdout});
         check_field($task, 'stderr', $expect{stderr});
-        ok $task->{complete}, 'complete';
         is $task->{cmdExit}, $expect{cmd_exit} // 0, 'cmdExit';
         is $task->{cmdErr}, $expect{cmd_err} // '<nil>', 'cmdErr';
 
@@ -214,7 +213,6 @@ sub check_unable_to_start {
         is $task->{status}, 2, 'status';
         is $task->{stdout}, 'Unable to start', 'stdout';
         like $task->{stderr}, $stderr, 'stderr';
-        ok $task->{complete}, 'complete';
         ok !exists $task->{cmdExit}, 'no cmdExit';
         ok !exists $task->{cmdErr}, 'no cmdErr';
         ok !-e "$temp_dir/" . $task_id->to_string . '.json', 'no task file';

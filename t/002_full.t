@@ -57,7 +57,7 @@ my $tm = TestMongo->new(
         views_dir => 'etc/disbatch/views/',
         task_runner => $task_runner,
         plugin_runner => abs_path('bin/task_runner'),	# for go-task-runner to run `Disbatch::Plugin::Demo` via `bin/task_runner --handoff`. must be a full path.
-        testing => 1,	# for task_runner to use lib 'lib'
+        testing => 1,	# for task_runner to use lib 'lib' and set `complete`
     },
 );
 my $config = $tm->config;

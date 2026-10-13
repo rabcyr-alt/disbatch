@@ -41,7 +41,7 @@ func run() int {
 	flag.StringVar(&r.taskID, "task", "", "The task's _id. Mandatory.")
 	flag.StringVar(&r.configFile, "config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	flag.BoolVar(&r.quiet, "quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
-	flag.BoolVar(&r.testing, "testing", false, "Passed to the Perl task runner with --handoff when running Perl plugins")
+	flag.BoolVar(&r.testing, "testing", false, "Passed to the Perl task runner with --handoff when running a Perl module plugin, and set `complete` when setting `stdout` and `stderr`.")
 	flag.Parse()
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
 	if r.configFile == "" {
@@ -451,9 +451,14 @@ func (r *Runner) finish(result bson.M, filter bson.M) int {
 	}
 
 	filter = bson.M{"_id": r.oid, "status": result["status"], "node": r.node, "mtime": r.doc["mtime"]}
-	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"], "complete": true}}
+	update = bson.M{"$set": bson.M{"stdout": result["stdout"], "stderr": result["stderr"]}}
+	if r.testing {
+		update["complete"] = true
+	}
 	if res, err := r.db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		r.db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set": bson.M{"complete": false}})
+		if r.testing {
+			r.db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set": bson.M{"complete": false}})
+		}
 		slog.Error("unknown issue updating task to set stdout/stderr after completion", "taskID", r.taskID, "mtime", r.doc["mtime"], "err", err)
 		return 1
 	} else if res.MatchedCount == 0 {

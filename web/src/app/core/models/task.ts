@@ -16,8 +16,6 @@ export interface Task {
   mtime: string | number;
   stdout: TaskOutput;
   stderr: TaskOutput;
-  /** Present once the task has reached a terminal state. */
-  complete?: number;
 }
 
 /** Index set, e.g. ['id'] or ['queue', 'status']. */
