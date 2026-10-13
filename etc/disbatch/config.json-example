@@ -59,12 +59,12 @@
     "queue_increase": null,	# defaults to null (no limit). per call to process_queues(), each queue will only pick up this many tasks. value must be null or integer > 0 and <= node_increase if defined.
 
     # Everthing below here is optional, and is set up for development, not production
-    "task_runner": "./go/go-task-runner",			# defaults to "/usr/bin/go-task-runner", or "/usr/bin/task_runner" if "/usr/bin/go-task-runner" not installed
-    "plugin_runner": "/root/git/disbatch/bin/task_runner",	# defaults to "/usr/bin/task_runner". have go version call perl version in handoff mode for perl module plugins. full path required!
-    "temp_dir": "/tmp/disbatch",				# for go task runner task and response files. defaults to "/tmp/disbatch"
-    "temp_dir_mode": "0755",					# permissions for temp_dir. defaults to "0755"
-    "web_root": "etc/disbatch/htdocs/",			# defaults to "/etc/disbatch/htdocs/"
-    "views_dir": "etc/disbatch/views/",			# defaults to "/etc/disbatch/views/"
+    "task_runner": "./go/go-task-runner",	# defaults to "/usr/bin/go-task-runner", or "/usr/bin/task_runner" if "/usr/bin/go-task-runner" not installed
+    "plugin_runner": "./bin/task_runner",	# defaults to "/usr/bin/task_runner". go version calls this in handoff mode for perl module plugins
+    "temp_dir": "/tmp/disbatch",		# for go task runner task and response files. defaults to "/tmp/disbatch"
+    "temp_dir_mode": "0755",			# permissions for temp_dir. defaults to "0755"
+    "web_root": "etc/disbatch/htdocs/",		# defaults to "/etc/disbatch/htdocs/"
+    "views_dir": "etc/disbatch/views/",		# defaults to "/etc/disbatch/views/"
 
     # defaults to "DEBUG" for level, and "/var/log/disbatchd.log" for the filename
     "log4perl": {

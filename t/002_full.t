@@ -10,7 +10,6 @@ use 5.12.0;
 use warnings;
 
 use Cpanel::JSON::XS;
-use Cwd qw/abs_path/;
 use Data::Dumper;
 use MongoDB 2.2.2;
 use Net::HTTP::Client;
@@ -56,7 +55,7 @@ my $tm = TestMongo->new(
         web_root => 'etc/disbatch/htdocs/',
         views_dir => 'etc/disbatch/views/',
         task_runner => $task_runner,
-        plugin_runner => abs_path('bin/task_runner'),	# for go-task-runner to run `Disbatch::Plugin::Demo` via `bin/task_runner --handoff`. must be a full path.
+        plugin_runner => 'bin/task_runner',	# for go-task-runner to run `Disbatch::Plugin::Demo` via `bin/task_runner --handoff`
         testing => 1,	# for task_runner to use lib 'lib' and set `complete`
     },
 );

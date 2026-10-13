@@ -10,6 +10,7 @@ use Data::Dumper;
 use Encode;
 use File::Path 'make_path';
 use File::Slurp;
+use File::Spec;
 use Log::Log4perl;
 use MongoDB 2.2.2;
 use POSIX 'setsid';
@@ -104,6 +105,7 @@ sub load_config {
             }
         }
         $self->{config}{plugin_runner} //= '/usr/bin/task_runner';
+        $self->{config}{plugin_runner} = File::Spec->rel2abs($self->{config}{plugin_runner});	# path may be relative in testing
         $self->{config}{testing} //= Cpanel::JSON::XS::false;
         $self->{config}{log4perl} //= $default_log4perl;
         $self->{config}{activequeues} //= [];

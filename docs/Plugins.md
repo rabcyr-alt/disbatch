@@ -121,14 +121,15 @@ A `plugins` value of `1` means a Perl module plugin:
         }
 
 `go-task-runner` treats these as plugins of type `handoff`. It runs
-`config.plugin_runner` (the full path to `bin/task_runner`, such as
+`config.plugin_runner` (the path to `bin/task_runner`, such as
 `/usr/bin/task_runner`) with `--handoff`, and that loads the module, runs it,
 validates the result, and saves it to the task. This allows queues of Perl
 modules and queues of programs to run on the same DEN.
 
-`plugin_runner` defaults to `/usr/bin/task_runner`. If it is not a full path to
-an executable file, the task fails with status `2` and `Unable to start` for
-`stdout`.
+`plugin_runner` defaults to `/usr/bin/task_runner`. Disbatch ensures it is a
+full path when starting and creating the standard JSON config files. If it is
+not a full path to an executable file, the task fails with status `2` and
+`Unable to start` for `stdout`.
 
 #### Programs as plugins for `go-task-runner`
 

@@ -27,7 +27,7 @@ removed.
   - `complete` (undocumented) now only set in the task when `--testing` is used (as it exists just for `t/002_full.t`)
 - `go-task-runner` is now the default task runner, but will fall back to the Perl `task_runner` if not available
   - requires golang >= 1.26.7 to build
-  - `plugin_runner` is the full path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
+  - `plugin_runner` is the path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
   - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
   - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as user `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`.
   - the RPM is no longer `noarch` as it installs the binary `/usr/bin/go-task-runner`
