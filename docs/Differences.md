@@ -27,7 +27,7 @@ UI, while removing deprecated code.
   - breaking change: `attributes` no longer used, as MongoDB TLS settings now go in the `mongohost` connection string (see below for `bin/disbatch`)
   - semi-breaking change: `gfs`/`--gfs` no longer used, and the algorithm slightly changed (an empty `stdout` will no longer be stored in GridFS if `stderr` size is over 15MB)
   - semi-breaking change: `complete` (undocumented) now only set in the task when `--testing` is used (as it exists just for `t/002_full.t`)
-  - plugins can be programs in any language, of type `default`, `mongo`, or `handoff`, as well as existing Perl module plugins
+  - plugins can be programs in any language, of type `file`, `collection`, or `handoff`, as well as existing Perl module plugins
   - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`
   - new task document fields `cmdExit` and `cmdErr`
   - `Makefile.PL` builds `go-task-runner` offline from `go/vendor` if Go is installed

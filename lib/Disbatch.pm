@@ -210,10 +210,10 @@ sub validate_plugins {
         next if exists $self->{plugins}{$plugin};
         my $args = $self->{config}{plugins}{$plugin} // 0;
         if (ref $args eq 'HASH') {
-            $args->{type} //= 'default';
+            $args->{type} //= 'file';
             if ($plugin !~ m{^/}) {
                 $self->logger->error("Illegal plugin value: $plugin");
-            } elsif (! grep { $args->{type} eq $_ } qw/ default mongo handoff /) {
+            } elsif (! grep { $args->{type} eq $_ } qw/ file collection handoff /) {
                 $self->logger->error("$plugin has unknown type '$args->{type}'");
             } elsif (-f $plugin and -x _) {
                 $self->{plugins}{$plugin} = $plugin;

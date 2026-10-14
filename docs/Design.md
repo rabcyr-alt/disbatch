@@ -288,7 +288,7 @@ task._id }`, and the filenames are `stdout` or `stderr`. `bin/task_runner`
 calls the custom implementation `$disbatch->put_gfs()` which stores the chunks'
 `data` field as type `String` instead of `BinData`. `go-task-runner` uses the
 standard driver implementation, as does `t/task-handoff.pl` and
-`t/task-mongo.pl`. `$disbatch->get_gfs()` handles both formats.
+`t/task-collection.pl`. `$disbatch->get_gfs()` handles both formats.
 
 
 #### Config file
@@ -330,8 +330,8 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
   * An object with the optional key `type` for a program run by
     `go-task-runner`. The key is the full path to the program, and `type` is
-    one of `default` (the default), `mongo`, or `handoff`, such as
-    `"/usr/local/bin/migrate-user": {"type": "mongo"}`.
+    one of `file` (the default), `collection`, or `handoff`, such as
+    `"/usr/local/bin/migrate-user": {"type": "collection"}`.
 
   See [Plugins](Plugins.md) for what each type is passed and must return.
 
@@ -375,7 +375,7 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
 
 * `temp_dir`
 
-  Directory for the files `go-task-runner` passes to plugins of type `default`.
+  Directory for the files `go-task-runner` passes to plugins of type `file`.
   `disbatchd` creates it on startup if it does not exist, with mode
   `temp_dir_mode`, and it must be writable by the user `go-task-runner` runs
   as. Default is `"/tmp/disbatch"`.

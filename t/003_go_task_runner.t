@@ -52,18 +52,18 @@ my $config = $tm->config;
 my $temp_dir = "$tm->{dir}/temp";
 my $plugin_dir = abs_path('t');
 my %plugin_file = (
-    default => "$plugin_dir/task-default.pl",
-    mongo   => "$plugin_dir/task-mongo.pl",
-    handoff => "$plugin_dir/task-handoff.pl",
-    raw     => "$plugin_dir/task-handoff-raw.pl",	# handoff, but with no validation of its own
+    file       => "$plugin_dir/task-file.pl",
+    collection => "$plugin_dir/task-collection.pl",
+    handoff    => "$plugin_dir/task-handoff.pl",
+    raw        => "$plugin_dir/task-handoff-raw.pl",	# handoff, but with no validation of its own
 );
 $config->{task_runner} = $binary;	# the one being tested, and so it does not log that it is using the Perl one as the default is not installed
 $config->{temp_dir} = $temp_dir;
 $config->{plugins} = {
-    $plugin_file{default} => { type => 'default' },
-    $plugin_file{mongo}   => { type => 'mongo' },
-    $plugin_file{handoff} => { type => 'handoff' },
-    $plugin_file{raw}     => { type => 'handoff' },
+    $plugin_file{file}       => { type => 'file' },
+    $plugin_file{collection} => { type => 'collection' },
+    $plugin_file{handoff}    => { type => 'handoff' },
+    $plugin_file{raw}        => { type => 'handoff' },
 };
 $config->{log4perl}{appenders}{filelog}{args}{filename} = "$tm->{dir}/disbatchd.log";
 $tm->write_config;
@@ -171,7 +171,7 @@ sub check_field {
 }
 
 # Runs one task with the given plugin type and params, and checks the runner's exit code and the task document.
-# * $type: default, mongo, handoff, or raw (a handoff plugin that does no validation of its own)
+# * $type: file, collection, handoff, or raw (a handoff plugin that does no validation of its own)
 # * %expect: status (required), stdout, stderr (see `check_field`), exit (of the runner, default 0),
 #            cmd_exit and cmd_err (what the runner saw from the plugin, default `0` and `<nil>`)
 sub check_task {
@@ -190,10 +190,10 @@ sub check_task {
         is $task->{cmdExit}, $expect{cmd_exit} // 0, 'cmdExit';
         is $task->{cmdErr}, $expect{cmd_err} // '<nil>', 'cmdErr';
 
-        if ($type eq 'default') {
+        if ($type eq 'file') {
             ok !-e "$temp_dir/$id.json", 'task file removed';
             ok !-e "$temp_dir/$id-response.json", 'response file removed';
-        } elsif ($type eq 'mongo') {
+        } elsif ($type eq 'collection') {
             ok !$db->coll('results')->find_one({ _id => $task_id }), 'result document removed';
         }
     };
@@ -218,7 +218,7 @@ sub check_unable_to_start {
     diag $last_output unless $ok;
 }
 
-my @types = qw/ default mongo handoff /;
+my @types = qw/ file collection handoff /;
 
 my ($out, $err) = ('out', 'err');
 
@@ -263,8 +263,8 @@ for my $bad (@bad_status) {
     my ($name, $status, $result, $stderr, $handoff_stderr) = @$bad;
     my %params = (stdout => $out, stderr => $err);
     for my $type (@types) {
-        # an infinite status is not valid JSON, so it can't make it to a `default` plugin or back
-        next if $name eq 'infinite' and $type eq 'default';
+        # an infinite status is not valid JSON, so it can't make it to a `file` plugin or back
+        next if $name eq 'infinite' and $type eq 'file';
 
         my %expect_result = (%$result, stdout => $out, stderr => $err);
         if ($type eq 'handoff') {
@@ -277,7 +277,7 @@ for my $bad (@bad_status) {
 }
 
 # plugin did not leave a response for the task runner
-for my $type (qw/ default /) {
+for my $type (qw/ file /) {
     my $missing = qr/^could not read task plugin response file/;
     check_task $type, 'response file missing after exiting cleanly', { exit => 0 }, status => 2, stderr => $missing;
     check_task $type, 'response file missing after non-zero exit', { exit => 3 }, status => 2, stderr => $missing,
@@ -290,7 +290,7 @@ for my $type (qw/ default /) {
         { raw_response => '{"status":1,"stdout":"out","noise":"bar"}' }, status => 1, stdout => $out, stderr => undef;
 }
 
-check_task 'mongo', 'plugin did not create a result', { no_result => 1 },
+check_task 'collection', 'plugin did not create a result', { no_result => 1 },
     status => 2, stderr => qr/^plugin did not create a document in 'results'/;
 
 check_task 'raw', 'plugin did not update status', { },
@@ -316,7 +316,7 @@ for my $case (
 ) {
     my ($name, $override, $status) = @$case;
     my $ok = subtest "cannot claim task $name" => sub {
-        my $queue_id = new_queue($plugin_file{default});
+        my $queue_id = new_queue($plugin_file{file});
         my $task_id = new_task($queue_id, { status => 1 }, %$override);
         my $before = get_task($task_id);
         is run_task($task_id), 1, 'runner exit code';
@@ -337,10 +337,10 @@ for my $case (
 # tasks that can't be started get status 2 and "Unable to start"
 {
     my $missing_queue = unused_id('queues');
-    check_unable_to_start 'queue not found', $plugin_file{default}, qr/^queue ObjectID\("\Q$missing_queue\E"\) not found for task /, queue => $missing_queue;
+    check_unable_to_start 'queue not found', $plugin_file{file}, qr/^queue ObjectID\("\Q$missing_queue\E"\) not found for task /, queue => $missing_queue;
 }
 check_unable_to_start 'queue has no plugin', undef, qr/^no plugin defined for task /;
-check_unable_to_start 'plugin is not an absolute path', 't/task-default.pl', qr/^plugin value 't\/task-default.pl' for task \w+ must be a full path/;
+check_unable_to_start 'plugin is not an absolute path', 't/task-file.pl', qr/^plugin value 't\/task-file.pl' for task \w+ must be a full path/;
 check_unable_to_start 'plugin does not exist', "$temp_dir/does-not-exist.pl", qr/^\Q$temp_dir\E\/does-not-exist.pl not found or not executable for task /;
 {
     my $not_executable = "$temp_dir/not-executable.pl";
@@ -394,7 +394,7 @@ You can disable MongoDB TLS and authentication like with F<t/002_full.t>:
 
     USE_SSL=0 USE_AUTH=0 AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
 
-The plugins are F<t/task-default.pl>, F<t/task-mongo.pl>, F<t/task-handoff.pl>, and
+The plugins are F<t/task-file.pl>, F<t/task-collection.pl>, F<t/task-handoff.pl>, and
 F<t/task-handoff-raw.pl>. They are told what to return via the C<params> of the task: see F<t/ParamsResult.pm>.
 
 =head1 AUTHORS

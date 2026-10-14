@@ -21,12 +21,12 @@
         "Disbatch::Plugin::Demo": 1,	# `1` sets args.IsModule in `go-task-runner`, will run as `{"type": "handoff"}` but call `config.plugin_runner` with `--handoff`
         "Disbatch::Plugin::Test": 1,
         # for `go-task-runner`: perl and go test task programs. must be full path. change `/path/to/disbatch/` to where you have the disbatch source.
-        "/path/to/disbatch/t/task-default.pl": {},
+        "/path/to/disbatch/t/task-file.pl": {},
         "/path/to/disbatch/t/task-handoff.pl": {"type": "handoff"},
-        "/path/to/disbatch/t/task-mongo.pl": {"type": "mongo"},
-        #"/path/to/disbatch/t/task-default": {},
+        "/path/to/disbatch/t/task-collection.pl": {"type": "collection"},
+        #"/path/to/disbatch/t/task-file": {},
         #"/path/to/disbatch/t/task-handoff": {"type": "handoff"},
-        #"/path/to/disbatch/t/task-mongo": {"type": "mongo"},
+        #"/path/to/disbatch/t/task-collection": {"type": "collection"},
     },
 
     "monitoring": true,					# new in 4.2

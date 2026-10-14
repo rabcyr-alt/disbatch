@@ -103,7 +103,7 @@ func run() int {
 			return 1
 		}
 		opts := options.UpdateOne().SetUpsert(true)
-		if _, err = r.db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": r.oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-default.pl", "threads": 0}}, opts); err != nil {
+		if _, err = r.db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": r.oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-file.pl", "threads": 0}}, opts); err != nil {
 			slog.Error("could not upsert test queue", "err", err)
 			return 1
 		}
@@ -155,7 +155,7 @@ func run() int {
 				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, r.taskID)
 			} else if fileinfo, ferr := os.Stat(plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
 				errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, r.taskID)
-			} else if !slices.Contains([]string{"default", "mongo", "handoff"}, args.Type) {
+			} else if !slices.Contains([]string{"file", "collection", "handoff"}, args.Type) {
 				errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, r.taskID)
 			}
 		}
@@ -168,13 +168,13 @@ func run() int {
 		slog.Error(errmsg)
 		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": errmsg}
 	} else {
-		// types: default mongo handoff
-		// * default: optional mongo access, passes task and result via /tmp/r.taskID.json
-		//            uses local filesystem, don't have to worry about result size
-		// * mongo:   reads task from mongo via r.taskID, saves result in "results" collection and this copies to "tasks" collection
-		//            uses an additional collection creating extra load on mongo, have to worry about result size if it can exceed ~16MB, but no temp files
-		// * handoff: reads task from mongo via r.taskID, saves result in "tasks" collection and this exits
-		//            writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
+		// types: file collection handoff
+		// * file:       optional mongo access, passes task and result via /tmp/r.taskID.json
+		//               uses local filesystem, don't have to worry about result size
+		// * collection: reads task from mongo via r.taskID, saves result in "results" collection and this copies to "tasks" collection
+		//               uses an additional collection creating extra load on mongo, have to worry about result size if it can exceed ~16MB, but no temp files
+		// * handoff:    reads task from mongo via r.taskID, saves result in "tasks" collection and this exits
+		//               writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
 		var cargs []string
 		cf := r.configFile
 		// if args.IsModule, we're handing off to the perl task runner, so whatever config we're using here is good
@@ -194,7 +194,7 @@ func run() int {
 		}
 		taskFile := filepath.Join(config.TempDir, r.taskID+".json")
 		responseFile := filepath.Join(config.TempDir, r.taskID+"-response.json")
-		if args.Type == "default" {
+		if args.Type == "file" {
 			var jsonTask []byte
 			if jsonTask, err = json.Marshal(r.doc); err != nil {
 				slog.Error("could not create json from task doc", "taskID", r.taskID, "err", err)
@@ -229,7 +229,7 @@ func run() int {
 						cargs = append(cargs, "--testing")
 					}
 				}
-			} else if args.Type == "mongo" {
+			} else if args.Type == "collection" {
 				if _, err = r.db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": r.oid}); err != nil {
 					slog.Error("could not delete any pre-existing result for task in 'results' collection", "taskID", r.taskID, "err", err)
 					result = bson.M{"status": 2, "stderr": "could not delete any pre-existing result for task in 'results' collection: " + err.Error()}
@@ -314,7 +314,7 @@ func run() int {
 				result = bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned negative status (see stdout for status and any stdout or stderr it may have set)"}
 				filter = bson.M{"_id": r.oid, "status": task["status"], "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, need to query on status:task["status"]
 			}
-		} else if args.Type == "mongo" {
+		} else if args.Type == "collection" {
 			opts := options.FindOneAndDelete().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
 			if err = r.db.Collection("results").FindOneAndDelete(context.Background(), bson.M{"_id": r.oid}, opts).Decode(&result); err != nil {
 				if errors.Is(err, mongo.ErrNoDocuments) {
@@ -325,7 +325,7 @@ func run() int {
 					result = bson.M{"status": 2, "stderr": "unknown issue querying for result for task in 'results' collection: " + err.Error()}
 				}
 			}
-		} else { // args.Type == "default"
+		} else { // args.Type == "file"
 			var text []byte
 			if text, err = os.ReadFile(responseFile); err != nil {
 				slog.Error("could not read task plugin response file", "plugin", plugin, "file", responseFile, "err", err, "cmdExit", cmdExit, "cmdErr", cmdErr)
@@ -522,7 +522,7 @@ func mongodb(config Config) (*mongo.Database, error) {
 }
 
 type Plugin struct {
-	Type     string `json:"type"` // "default", "handoff", or "mongo"
+	Type     string `json:"type"` // "file", "collection", or "handoff"
 	IsModule bool   `json:"-"`    // true when the config value was 1
 }
 
@@ -541,7 +541,7 @@ func (p *Plugin) UnmarshalJSON(data []byte) error {
 	}
 	*p = Plugin(tmp)
 	if p.Type == "" {
-		p.Type = "default"
+		p.Type = "file"
 	}
 	return nil
 }
@@ -562,7 +562,7 @@ type Config struct {
 	Database     string            `json:"database"`
 	Auth         map[string]string `json:"auth"`
 	Log4perl     Log4perl          `json:"log4perl"`
-	Plugins      map[string]Plugin `json:"plugins"` // value may be `1` or a map with key `type` and value: `default` `handoff` `mongo`
+	Plugins      map[string]Plugin `json:"plugins"` // value may be `1` or a map with key `type` and value: `file` `collection` `handoff`
 	PluginRunner string            `json:"plugin_runner"`
 	TempDir      string            `json:"temp_dir"`
 }

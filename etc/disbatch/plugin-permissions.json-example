@@ -2,9 +2,9 @@
 # Format is { collection_name: array_of_actions, ... }
 # See https://docs.mongodb.org/manual/reference/built-in-roles/ for built-in roles.
 
-# Permissions are only required when using go-task-runner with "mongo" or with "handoff" (but not when "handoff" is calling a perl module).
+# Permissions are only required when using go-task-runner with "collection" or with "handoff" (but not when "handoff" is calling a perl module).
 # A handoff plugin will need permissions for "find" and "update" on "tasks", "insert" and "listIndexes" on "tasks.files" and "tasks.chunks", and "find" on "tasks.files".
-# A mongo plugin will need permissions for "find" on the "tasks" collection, "insert" on "results", "insert" and "listIndexes" on "tasks.files" and "tasks.chunks", and "find" on "tasks.files".
+# A collection plugin will need permissions for "find" on the "tasks" collection, "insert" on "results", "insert" and "listIndexes" on "tasks.files" and "tasks.chunks", and "find" on "tasks.files".
 # NOTE: once files exist, all that is needed is "find" on "tasks.files" and "insert" on both, but nothing wrong with giving "listIndexes"
 # Also note that Disbatch::Plugin::Demo must be able to do "insert" on the 'reports' collection, and I generally give a database-wide find permission.
 
@@ -19,9 +19,9 @@
 #    "contact_maps": [ "insert", "update", "createIndex" ],
 #    "status": [ "insert", "update", "createIndex" ],
 #    "yams": [ "insert", "update", "createIndex" ],
-#    "tasks.chunks": [ "insert", "listIndexes" ],		# handoff, mongo
-#    "tasks.files": [ "find", "insert", "listIndexes" ],	# handoff, mongo
+#    "tasks.chunks": [ "insert", "listIndexes" ],		# handoff, collection
+#    "tasks.files": [ "find", "insert", "listIndexes" ],	# handoff, collection
 #    "tasks": [ "find", "update" ],		# handoff
-#    "tasks": [ "find" ],			# mongo
-#    "results": [ "insert" ],			# mongo
+#    "tasks": [ "find" ],			# collection
+#    "results": [ "insert" ],			# collection
 }
