@@ -104,9 +104,11 @@ options.
 * Accessing and updating other MongoDB collections
 
   You may need to find, update, or insert documents in other collections. The
-  `plugin` role by default can read all collections in the database it has
-  access to. Add `insert`, `update`, and possibly `createIndex` permissions to
-  the role as appropriate.
+  `plugin` role can be configured to be able to read all collections in the
+  database it has access to. Add `insert`, `update`, and possibly `createIndex`
+  permissions to the role per collection as appropriate.
+
+  See `etc/disbatch/plugin-permissions.json-example` for examples.
 
   Within the plugin, you can access these collections with the following:
 
