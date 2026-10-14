@@ -33,6 +33,7 @@ UI, while removing deprecated code.
   - `Makefile.PL` builds `go-task-runner` offline from `go/vendor` if Go is installed
   - `Disbatch::Roles`: `task_runner` can `listIndexes` for `tasks.files` and `tasks.chunks`
   - `ensure_indexes` also creates `{ filename: 1, uploadDate: 1 }` on `tasks.files`
+- `bin/disbatch` now uses its own config file for `ssl_opts`. See [TLS_DCI](TLS_DCI.md) and `perldoc disbatch`
 - completely new web UI (same backend JSON API)
   - rewritten in Angular 22 and Typescript, instead of various things hacked together
   - added `dashboard.refresh_ms` and `dashboard.live_window_ms` settings

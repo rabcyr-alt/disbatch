@@ -32,6 +32,7 @@ removed.
   - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as user `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`.
   - the RPM is no longer `noarch` as it installs the binary `/usr/bin/go-task-runner`
   - see [Plugins](Plugins.md) for specifications
+- `bin/disbatch` now uses its own config file for `ssl_opts`. See [TLS_DCI](TLS_DCI.md) and `perldoc disbatch`
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3) : deprecated v3 routes: *-json, not tested
   - file `lib/Disbatch/Web/Tasks.pm` (Disbatch::Web::Tasks) : deprecated v4 routes: POST /tasks/search, POST /tasks/:queue, POST /tasks/:queue/:collection

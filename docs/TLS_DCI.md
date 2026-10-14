@@ -28,5 +28,5 @@ To use the CLI on another host, pass `--url https://$FQDN` and either
 `--ssl_ca_file $ssl_ca_file` if using a private CA, or
 `--disable_ssl_verification` to disable verification.
 
-Alternately, if the process has read access to `/etc/disbatch/config.json`, it
-can use the settings in `tls`.
+You can also configure `ssl_opts` in `~/.disbatch.json`, `/etc/disbatch/cli.json`,
+or a passed config file. See `etc/disbatch/cli.json-example`.

@@ -11,11 +11,6 @@
         "queuebalance": "qwerty4",
         "plugin": "qwerty5",
     },
-    # Only needed if using TLS on the web server:
-    "tls": {
-        "SSL_ca_file": "/etc/ssl/certs/ca-bundle.crt",     # tls is enabled on the server
-        #"verify_hostname": 0,                             # tls is enabled on the server, but without a valid cert
-    },
     # Can only load a plugin listed here
     "plugins": {					# defaults to {}, breaking change in 4.4
         "Disbatch::Plugin::Demo": 1,	# `1` sets args.IsModule in `go-task-runner`, will run as `{"type": "handoff"}` but call `config.plugin_runner` with `--handoff`
