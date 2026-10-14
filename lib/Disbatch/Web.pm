@@ -34,6 +34,8 @@ sub init {
     $disbatch = Disbatch->new(class => 'Disbatch::Web', config_file => ($args->{config_file} // '/etc/disbatch/config.json'));
     $disbatch->load_config;
     public ($disbatch->{config}{web_root} // '/etc/disbatch/htdocs/');
+    Limper::SendFile->mime_types->{woff} = 'font/woff';
+    Limper::SendFile->mime_types->{woff2} = 'font/woff2';
     for my $plugin (keys %{$disbatch->{config}{web_extensions} // {}}) {
         if ($plugin !~ /^[\w:]+$/) {
             Limper::warning "Illegal plugin value: $plugin, ignored";
