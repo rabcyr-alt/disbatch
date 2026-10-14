@@ -155,7 +155,7 @@ if ($webpid == 0) {
     $res = Net::HTTP::Client->request(GET => "$uri/plugins");
     is $res->status_line, '200 OK', '200 status';
     is $res->content_type, 'application/json', 'application/json';
-    is $res->content, "{\"$plugin\":1}", 'plugin hash';
+    is $res->content, "[\"$plugin\"]", 'plugin array';
 
     # GET /info returns the database name, web extensions, routes, and the
     # dashboard tunables (refresh_ms / live_window_ms) with their defaults.

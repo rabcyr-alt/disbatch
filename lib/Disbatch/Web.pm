@@ -204,7 +204,7 @@ post qr'^/nodes/(?<node>.+)' => sub {
 
 # This is needed at least to create queues in the web interface.
 get '/plugins' => sub {
-    send_json $disbatch->{config}{plugins}, send_json_options;
+    send_json [keys %{$disbatch->{config}{plugins}}], send_json_options;
 };
 
 get '/queues' => sub {
