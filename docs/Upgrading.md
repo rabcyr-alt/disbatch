@@ -29,7 +29,8 @@ removed.
   - requires golang >= 1.26.7 to build
   - `plugin_runner` is the path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
   - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
-  - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as user `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`.
+  - `disbatchd` now writes `config.json-strict`, `config.json-task_runner`, and `config.json-plugin` next to its config file on startup, so it needs write access to that directory (see [Design](Design.md#config-file))
+  - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as user `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`, and `remove` for `results`.
   - the RPM is no longer `noarch` as it installs the binary `/usr/bin/go-task-runner`
   - see [Plugins](Plugins.md) for specifications
 - `bin/disbatch` now uses its own config file for `ssl_opts`. See [TLS_DCI](TLS_DCI.md) and `perldoc disbatch`

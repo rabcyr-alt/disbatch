@@ -17,7 +17,8 @@ of tasks for each queue.
 
 The DTR is called by the DEN when it claims a task. The DTR is responsible for
 loading the plugin and running the task, as well as updating the task document
-when the task completes.
+when the task completes. The DTR, and so the plugin, runs as the same user as
+the DEN.
 
 The DCI provides a JSON REST API for the DENs, as well as a web browser
 interface to the API. An additional CLI tool interacts with this API.
@@ -231,6 +232,18 @@ MongoDB will create an `ObjectId` for the task's `_id`.
         "stdout" : ObjectId("571fbac9d8590b78fe4830b2")
     }
 
+
+##### Results
+
+The `results` collection is only used by `go-task-runner` for plugins of type
+`collection`, which insert their result here instead of in the task.
+
+The document's `_id` is the task's `_id`, and it has the task's result in
+`status`, `stdout`, and `stderr` (see [Plugins](Plugins.md)). The DTR removes
+any document for the task before running the plugin, and removes the plugin's
+document when copying the result to the task, so this collection should stay
+empty.
+
 
 #### Task Status Codes
 
@@ -294,6 +307,14 @@ standard driver implementation, as does `t/task-handoff.pl` and
 #### Config file
 
 On startup, the DEN, DCI, and DTR read a JSON format configuration file.
+
+When the DEN starts, it also writes the config with all defaults set, in
+standard JSON with mode `0600`, to three files next to the config file:
+`-strict` appended to its name with the full `auth`, `-task_runner` with only
+the `task_runner` password in `auth`, and `-plugin` with only the `plugin`
+password in `auth`. The DEN passes the `-task_runner` file to the DTR, and the
+DTR passes the `-plugin` file to the plugin. The DEN needs write access to the
+config file's directory.
 
 ##### Mandatory settings are:
 
@@ -417,7 +438,8 @@ On startup, the DEN, DCI, and DTR read a JSON format configuration file.
             }
         },
 
-  For `go-task-runner`, only `level` and `appenders.filelog.args.filename` is used.
+  For `go-task-runner`, only `level` and `appenders.filelog.args.filename` are
+  used, and it also logs to standard error.
 
 * `activequeues` and `ignorequeues`
 

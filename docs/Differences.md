@@ -31,7 +31,7 @@ UI, while removing deprecated code.
   - new config keys `plugin_runner`, `temp_dir`, and `temp_dir_mode`
   - new task document fields `cmdExit` and `cmdErr`
   - `Makefile.PL` builds `go-task-runner` offline from `go/vendor` if Go is installed
-  - `Disbatch::Roles`: `task_runner` can `listIndexes` for `tasks.files` and `tasks.chunks`
+  - `Disbatch::Roles`: `task_runner` can `listIndexes` for `tasks.files` and `tasks.chunks`, and `remove` for `results`
   - `ensure_indexes` also creates `{ filename: 1, uploadDate: 1 }` on `tasks.files`
 - `bin/disbatch` now uses its own config file for `ssl_opts`. See [TLS_DCI](TLS_DCI.md) and `perldoc disbatch`
 - completely new web UI (same backend JSON API)

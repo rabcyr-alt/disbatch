@@ -148,7 +148,7 @@ full path to `plugins`, with its type, and use the same full path as the
 The value is an object with the optional key `type`, which is one of `file`
 (if `type` is not given), `collection`, or `handoff`. The path must be
 absolute and the file must be executable by the user `go-task-runner` runs as
-(see [Running](Running.md)), or the task fails with status `2`.
+(the same user as `disbatchd`), or the task fails with status `2`.
 
 The types differ in how the plugin gets its task and returns its result:
 
@@ -272,9 +272,15 @@ needed.
   and `node: HOSTNAME`. The rest should use a filter that includes the new
   `status` and the same `node`.
 
+* Store `status` as a 32-bit integer (BSON `int32`). Any other type is
+  invalid, even if its value is an integer: such as a `double`, which is what
+  JavaScript (and `mongosh`) store numbers as by default, or an `int64`.
+
 * You are responsible for all of the finalizing. This includes putting large
   `stdout` and `stderr` in GridFS (see below), validating `status` before
-  updating the task, and any output you want.
+  updating the task, and any output you want. If the result is valid,
+  `go-task-runner` does not log it, so log it yourself, such as `Task TASK_ID
+  succeeded.` or `Task TASK_ID failed.` as `bin/task_runner` does.
 
 * Do not change the task's `node` or `mtime`: the runner uses them to find the
   task.
@@ -366,9 +372,9 @@ is set to `Unable to start`, `stderr` is set to the reason, and `cmdExit` and
 If the runner cannot claim the task (it is not `status: -1` on this node), it
 exits `1` and does not modify the task.
 
-It also exits `1` for `handoff` plugins if the task cannot be found after
-running with matching `node` and `mtime`, or if the update for `status` or
-`stdout` and `stderr` fail.
+It also exits `1` if the update for `status` or for `stdout` and `stderr`
+fails, and for `handoff` plugins if the task cannot be found after running with
+matching `node` and `mtime`.
 
 ##### Task document fields set by the runner
 
