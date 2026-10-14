@@ -26,6 +26,26 @@ body {
   font-family: Roboto, 'Helvetica Neue', sans-serif;
 }
 
+/*
+ * @fontsource/material-icons only provides the @font-face, not the class that <mat-icon> uses (its default font set is
+ * "material-icons"). This is the class the Google Fonts stylesheet used to provide, before the fonts were bundled.
+ */
+.material-icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
 /* Pretty-printed JSON blocks (task results, info, balance preview). */
 pre.json {
   margin: 0;
