@@ -35,7 +35,7 @@ my $interval = $disbatch->{config}{process_queues_interval};	# set to `100` to c
 # NOTE: `config.dashboard.live_window_ms` default is 15000 (15 seconds), so if `config.process_queues_interval` approaches this the node will be reported as dead unless also changed
 
 if (defined $interval) {
-    $logger->logdie("config.process_queues_interval must be a positive integer (in milliseconds") unless $interval =~ /^[1-9]\d*$/;
+    $logger->logdie("config.process_queues_interval must be a positive integer (in milliseconds)") unless $interval =~ /^[1-9]\d*$/;
     do {
         $disbatch->pre_hook;
         $disbatch->orphaned_tasks;
