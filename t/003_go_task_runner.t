@@ -12,6 +12,7 @@ use warnings;
 use Cpanel::JSON::XS;
 use Cwd qw/abs_path/;
 use File::Path qw/make_path/;
+use File::Slurp;
 use IPC::Run qw/run timeout/;
 use MongoDB 2.2.2;
 use Sys::Hostname;
@@ -56,14 +57,20 @@ my %plugin_file = (
     collection => "$plugin_dir/task-collection.pl",
     handoff    => "$plugin_dir/task-handoff.pl",
     raw        => "$plugin_dir/task-handoff-raw.pl",	# handoff, but with no validation of its own
+    module     => 'Disbatch::Plugin::Test',		# run via `plugin_runner --handoff`
 );
+# `plugin_runner` needs to find `Disbatch` and the Perl module plugin, which is in `t/` so it is not installed:
+$ENV{PERL5LIB} = join ':', abs_path('lib'), $plugin_dir, $ENV{PERL5LIB} // ();
 $config->{task_runner} = $binary;	# the one being tested, and so it does not log that it is using the Perl one as the default is not installed
 $config->{temp_dir} = $temp_dir;
+$config->{plugin_runner} = abs_path('bin/task_runner');
 $config->{plugins} = {
     $plugin_file{file}       => { type => 'file' },
     $plugin_file{collection} => { type => 'collection' },
     $plugin_file{handoff}    => { type => 'handoff' },
     $plugin_file{raw}        => { type => 'handoff' },
+    $plugin_file{module}     => 1,
+    'Disbatch::Plugin::NoSuchPlugin' => 1,
 };
 $config->{log4perl}{appenders}{filelog}{args}{filename} = "$tm->{dir}/disbatchd.log";
 $tm->write_config;
@@ -78,6 +85,32 @@ my $disbatch = Disbatch->new(class => 'Disbatch', config_file => $tm->config_fil
 $disbatch->load_config;
 $disbatch->save_strict_config;
 $disbatch->ensure_indexes;
+
+# Each saved config file has mode 0600, and `-task_runner` and `-plugin` have only their own user's password:
+subtest 'save_strict_config' => sub {
+    my $auth = $config->{auth} // {};
+    my %expected = (
+        strict      => $auth,
+        task_runner => $tm->use_auth ? { task_runner => $auth->{task_runner} } : {},
+        plugin      => $tm->use_auth ? { plugin => $auth->{plugin} } : {},
+    );
+    for my $suffix (sort keys %expected) {
+        my $file = $tm->config_file . "-$suffix";
+        is((stat $file)[2] & 07777, 0600, "$suffix mode 0600");
+        is_deeply decode_json(scalar read_file $file)->{auth}, $expected{$suffix}, "$suffix auth";
+    }
+
+    # A user missing from `auth` gets no passwords at all, not the full `auth`:
+    if ($tm->use_auth) {
+        my $partial_file = "$tm->{dir}/partial.json";
+        write_file $partial_file, encode_json { %$config, auth => { disbatchd => $auth->{disbatchd}, task_runner => $auth->{task_runner} } };
+        my $partial = Disbatch->new(class => 'Disbatch', config_file => $partial_file);
+        $partial->load_config;
+        $partial->save_strict_config;
+        is_deeply decode_json(scalar read_file "$partial_file-task_runner")->{auth}, { task_runner => $auth->{task_runner} }, 'partial task_runner auth';
+        is_deeply decode_json(scalar read_file "$partial_file-plugin")->{auth}, {}, 'partial plugin auth is empty';
+    }
+};
 
 my $config_file = $tm->config_file . '-task_runner';
 my $node = hostname;
@@ -296,9 +329,40 @@ check_task 'collection', 'plugin did not create a result', { no_result => 1 },
 check_task 'raw', 'plugin did not update status', { },
     status => 2, stdout => { status => 0 }, stderr => $not_updated;
 
+# Perl module plugins are run via `plugin_runner --handoff` (`bin/task_runner`), which validates the result and writes it.
+# An invalid `status` becomes 2, keeping `stdout` and `stderr`.
+check_task 'module', 'success', { status => 1, stdout => $out, stderr => $err },
+    status => 1, stdout => $out, stderr => $err;
+check_task 'module', 'plugin failure', { status => 2, stdout => $out, stderr => $err },
+    status => 2, stdout => $out, stderr => $err;
+check_task 'module', 'plugin failure with another status', { status => 44, stdout => $out, stderr => $err },
+    status => 44, stdout => $out, stderr => $err;
+check_task 'module', 'string status', { status => 'fizz', stdout => $out, stderr => $err },
+    status => 2, stdout => $out, stderr => $err;
+check_task 'module', 'zero status', { status => 0, stdout => $out, stderr => $err },
+    status => 2, stdout => $out, stderr => $err;
+check_task 'module', 'negative status', { status => -1, stdout => $out, stderr => $err },
+    status => 2, stdout => $out, stderr => $err;
+check_task 'module', 'plugin dies', { die => "boom\n" },
+    status => 2, stdout => 'Unable to complete', stderr => "Thread has uncaught exception: boom\n";
+check_task 'module', 'plugin exits before returning', { exit => 3 },
+    status => 2, stdout => { status => 0 }, stderr => $not_updated, cmd_exit => 3, cmd_err => 'exit status 3';
+{
+    my $ok = subtest 'module: plugin not found' => sub {
+        my $task_id = new_task(new_queue('Disbatch::Plugin::NoSuchPlugin'), { status => 1 });
+        is run_task($task_id), 0, 'runner exit code';
+        my $task = get_task($task_id);
+        is $task->{status}, 2, 'status';
+        is $task->{stdout}, 'Unable to start', 'stdout';
+        like $task->{stderr}, qr/^Disbatch::Plugin::NoSuchPlugin not found for task /, 'stderr';
+        is $task->{cmdExit}, 0, 'cmdExit';
+    };
+    diag $last_output unless $ok;
+}
+
 # output over 15MB combined goes to GridFS. `stderr` is kept in the task document if it fits, as it is the one more likely to be parsed
 # set `GFS_TESTS=none` to skip these, which are the slowest
-for my $type (($ENV{GFS_TESTS} // '') eq 'none' ? () : @types) {
+for my $type (($ENV{GFS_TESTS} // '') eq 'none' ? () : (@types, 'module')) {
     check_task $type, 'stdout and stderr combined of 15MB stay in the task', { status => 1, large_stderr => 7*$MB, large_stdout => 8*$MB },
         status => 1, stdout => 'x' x (8*$MB), stderr => 'x' x (7*$MB);
     check_task $type, 'stdout goes to GridFS when over 15MB combined', { status => 1, large_stderr => 1*$MB, large_stdout => 15*$MB },
@@ -360,6 +424,47 @@ check_unable_to_start 'plugin does not exist', "$temp_dir/does-not-exist.pl", qr
     check_unable_to_start 'plugin is not in config.plugins', $copy, qr/^\Q$copy\E has unknown type '' for task /;
 }
 
+# `disbatchd` validates the plugin of each queue against `config.plugins`. A valid plugin is defined in `{plugins}`, one
+# that cannot be loaded exists but is undefined (its queues are ignored), and an invalid one does not exist (only logged).
+subtest 'validate_plugins' => sub {
+    $db->coll('queues')->delete_many({});
+
+    my $not_executable = "$temp_dir/validate-not-executable.sh";
+    open my $fh, '>', $not_executable or die "Could not create $not_executable: $!";
+    print $fh "#!/bin/sh\nexit 0\n";
+    close $fh;
+    chmod 0644, $not_executable;
+
+    my %plugins = (
+        $plugin_file{file}               => [ {}, 'valid' ],
+        'Disbatch::Plugin::Demo'         => [ 1, 'valid' ],
+        't/task-file.pl'                 => [ {}, 'invalid' ],	# not a full path
+        $plugin_file{collection}         => [ { type => 'bogus' }, 'invalid' ],
+        $not_executable                  => [ {}, 'ignored' ],
+        'Disbatch::Plugin::NoSuchPlugin' => [ 1, 'ignored' ],
+        'Bad Name!'                      => [ 1, 'invalid' ],
+        $plugin_file{handoff}            => [ 0, 'invalid' ],	# neither `1` nor an object
+    );
+
+    my $den = Disbatch->new(class => 'Disbatch', config_file => $tm->config_file);
+    $den->load_config;
+    $den->{config}{plugins} = { map { $_ => $plugins{$_}[0] } keys %plugins };
+    $db->coll('queues')->insert_one({ name => "validate$_", plugin => (sort keys %plugins)[$_], threads => 0 }) for 0 .. keys(%plugins) - 1;
+    $den->validate_plugins;
+
+    for my $plugin (sort keys %plugins) {
+        my $expected = $plugins{$plugin}[1];
+        if ($expected eq 'valid') {
+            is $den->{plugins}{$plugin}, $plugin, "$plugin is valid";
+        } elsif ($expected eq 'ignored') {
+            ok exists $den->{plugins}{$plugin} && !defined $den->{plugins}{$plugin}, "$plugin is ignored";
+        } else {
+            ok !exists $den->{plugins}{$plugin}, "$plugin is invalid";
+        }
+    }
+    is $den->{config}{plugins}{$plugin_file{file}}{type}, 'file', 'type defaults to file';
+};
+
 done_testing;
 
 END {
@@ -395,7 +500,8 @@ You can disable MongoDB TLS and authentication like with F<t/002_full.t>:
     USE_SSL=0 USE_AUTH=0 AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
 
 The plugins are F<t/task-file.pl>, F<t/task-collection.pl>, F<t/task-handoff.pl>, and
-F<t/task-handoff-raw.pl>. They are told what to return via the C<params> of the task: see F<t/ParamsResult.pm>.
+F<t/task-handoff-raw.pl>, and the Perl module plugin C<Disbatch::Plugin::Test> (F<t/Disbatch/Plugin/Test.pm>), which is
+run via C<bin/task_runner --handoff>. They are told what to return via the C<params> of the task: see F<t/ParamsResult.pm>.
 
 =head1 AUTHORS
 

@@ -14,7 +14,7 @@
     # Can only load a plugin listed here
     "plugins": {					# defaults to {}, breaking change in 4.4
         "Disbatch::Plugin::Demo": 1,	# `1` sets args.IsModule in `go-task-runner`, will run as `{"type": "handoff"}` but call `config.plugin_runner` with `--handoff`
-        "Disbatch::Plugin::Test": 1,
+        "Disbatch::Plugin::Test": 1,	# in `t/`, so needs `PERL5LIB=t` for `disbatchd`
         # for `go-task-runner`: perl and go test task programs. must be full path. change `/path/to/disbatch/` to where you have the disbatch source.
         "/path/to/disbatch/t/task-file.pl": {},
         "/path/to/disbatch/t/task-handoff.pl": {"type": "handoff"},
