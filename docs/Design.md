@@ -397,13 +397,15 @@ config file's directory.
 * `temp_dir`
 
   Directory for the files `go-task-runner` passes to plugins of type `file`.
-  `disbatchd` creates it on startup if it does not exist, with mode
-  `temp_dir_mode`, and it must be writable by the user `go-task-runner` runs
-  as. Default is `"/tmp/disbatch"`.
+  `disbatchd` creates it on startup if it does not exist with mode
+  `temp_dir_mode`, fails if it is a symlink or not a directory owned by the
+  current user, and sets the mode to `temp_dir_mode` in case it previously
+  existed with a different mode. It also must be writable by the user
+  `go-task-runner` runs as. Default is `"/tmp/disbatch"`.
 
 * `temp_dir_mode`
 
-  The permissions, as an octal string, to create `temp_dir` with. Default is
+  The permissions, as an octal string, to set `temp_dir` with. Default is
   `"0755"`.
 
 * `web_root`
