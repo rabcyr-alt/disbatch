@@ -95,6 +95,7 @@ sub load_config {
             $self->logger->logdie("Could not parse $self->{config_file}: $_");
         };
         # Ensure defaults:
+        $self->{config}{log4perl} //= $default_log4perl;	# first, as the logger needs it
         $self->{config}{auth} //= {};
         $self->{config}{quiet} //= Cpanel::JSON::XS::false;
         if (!defined $self->{config}{task_runner}) {
@@ -107,7 +108,6 @@ sub load_config {
         $self->{config}{plugin_runner} //= '/usr/bin/task_runner';
         $self->{config}{plugin_runner} = File::Spec->rel2abs($self->{config}{plugin_runner});	# path may be relative in testing
         $self->{config}{testing} //= Cpanel::JSON::XS::false;
-        $self->{config}{log4perl} //= $default_log4perl;
         $self->{config}{activequeues} //= [];
         $self->{config}{ignorequeues} //= [];
         $self->{config}{plugins} //= {};
@@ -144,9 +144,8 @@ sub save_strict_config {
     };
     my $auth = $self->{config}{auth};
     for my $user (qw/ task_runner plugin /) {
-        if (exists $auth->{$user}) {
-            $self->{config}{auth} = { $user => $auth->{$user} };
-        }
+        # only this user's password, if any: never the others
+        $self->{config}{auth} = exists $auth->{$user} ? { $user => $auth->{$user} } : {};
         try {
             write_file "$self->{config_file}-$user", {perms => 0600}, Cpanel::JSON::XS->new->utf8->encode($self->{config});
         } catch {
