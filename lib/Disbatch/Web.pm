@@ -879,12 +879,6 @@ Parameters: none
 
 Returns an array of node objects defined, with C<timestamp> stringified, C<id> the stringified C<_id>, and C<live> a boolean computed against the server's clock and the configured liveness window (C<dashboard.live_window_ms>, default 15000 ms).
 
-=item get_plugins
-
-Parameters: none
-
-Returns a C<HASH> of defined queues plugins and any defined C<config.plugins>, where values match the keys.
-
 =item get_queue_oid($queue)
 
 Parameters: Queue ID as a string, or queue name.
