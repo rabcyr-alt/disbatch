@@ -45,17 +45,17 @@ sub new {
 sub logger {
     my ($self, $type) = @_;
     my $logger = defined $type ? "$self->{class}.$type" : $self->{class};
-    $self->{loggers}{$logger} //= Log::Log4perl->get_logger($logger);
-    if (!keys %{Log::Log4perl->appenders}){
-        $self->{loggers}{$logger}->level($self->{config}{log4perl}{level});
-        my $default_layout = "[%p] %d %F{1} %L %C %c> %m %n";
-        for my $name (keys %{$self->{config}{log4perl}{appenders}}) {
-            my $ap = Log::Log4perl::Appender->new($self->{config}{log4perl}{appenders}{$name}{type}, name => $name, %{$self->{config}{log4perl}{appenders}{$name}{args}});
-            $ap->layout(Log::Log4perl::Layout::PatternLayout->new($self->{config}{log4perl}{appenders}{$name}{layout} // $default_layout));
-            $self->{loggers}{$logger}->add_appender($ap);
-        }
+    return Log::Log4perl->get_logger($logger) if Log::Log4perl->initialized;
+
+    my $lg = Log::Log4perl->get_logger('');
+    $lg->level($self->{config}{log4perl}{level});
+    my $default_layout = "[%p] %d %F{1} %L %C %c> %m %n";
+    for my $name (keys %{$self->{config}{log4perl}{appenders}}) {
+        my $ap = Log::Log4perl::Appender->new($self->{config}{log4perl}{appenders}{$name}{type}, name => $name, %{$self->{config}{log4perl}{appenders}{$name}{args}});
+        $ap->layout(Log::Log4perl::Layout::PatternLayout->new($self->{config}{log4perl}{appenders}{$name}{layout} // $default_layout));
+        $lg->add_appender($ap);	# Log::Log4perl->initialized now true
     }
-    $self->{loggers}{$logger};
+    Log::Log4perl->get_logger($logger);
 }
 
 sub mongo {
