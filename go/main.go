@@ -38,61 +38,14 @@ func main() {
 
 func run() int {
 	var r Runner
-	flag.StringVar(&r.taskID, "task", "", "The task's _id. Mandatory.")
-	flag.StringVar(&r.configFile, "config", "", "Path to the JSON Disbatch config file. Mandatory.")
-	flag.BoolVar(&r.quiet, "quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
-	flag.BoolVar(&r.testing, "testing", false, "Passed to the Perl task runner with --handoff when running a Perl module plugin, and set `complete` when setting `stdout` and `stderr`.")
-	flag.Parse()
-	// flag.Args() is everything else, a slice, and can be passed an index for individual values
-	if r.configFile == "" {
-		slog.Error("config file must be passed with --config")
-		return 1
-	}
-
-	var config Config
-	if byteValue, err := os.ReadFile(r.configFile); err != nil {
-		slog.Error("could not read config file", "err", err)
-		return 1
-	} else if err = json.Unmarshal(byteValue, &config); err != nil {
-		slog.Error("could not parse config file", "file", r.configFile, "err", err)
-		return 1
-	}
-
-	if err := logger(config); err != nil {
-		slog.Error("could not set up logger", "err", err)
-		return 1
-	}
-
-	if r.taskID == "" {
-		slog.Error("task ID must be passed with --task")
-		return 1
-	}
-
-	var err error
-	r.node, err = os.Hostname()
-	if err != nil {
-		slog.Error("could not get hostname", "err", err)
-		return 1
-	}
-
-	r.db, err = mongodb(config)
-	if err != nil {
-		slog.Error("could not connect to MongoDB", "err", err)
-		return 1
-	}
+	config, exit := r.setup()
 	defer func() {
-		// we want to Disconnect() because idle sessions stay around for 30 minutes on the server
-		// so no log.Fatal, os.Exit, etc after calling mongodb()!
-		// below wrapped in `func() {...}()` as the args are otherwise evaluated immediately. fine with context.TODO/Background as it has no timeout but not with others.
-		r.db.Client().Disconnect(context.Background())
+		if r.db != nil {
+			r.db.Client().Disconnect(context.Background())	// disconnect because idle sessions stay around for 30 minutes on the server
+		}
 	}()
-
-	slog.Info(fmt.Sprintf("Starting task %s", r.taskID))
-
-	r.oid, err = bson.ObjectIDFromHex(r.taskID)
-	if err != nil {
-		slog.Error("value for --task invalid", "taskID", r.taskID, "err", err)
-		return 1
+	if exit != -1 {
+		return exit
 	}
 
 	exit = r.setTaskRunnerDoc()
@@ -129,6 +82,62 @@ func run() int {
 		}
 	}
 	return r.finish(result, filter)
+}
+
+func (r *Runner) setup() (Config, int) {
+	flag.StringVar(&r.taskID, "task", "", "The task's _id. Mandatory.")
+	flag.StringVar(&r.configFile, "config", "", "Path to the JSON Disbatch config file. Mandatory.")
+	flag.BoolVar(&r.quiet, "quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
+	flag.BoolVar(&r.testing, "testing", false, "Passed to the Perl task runner with --handoff when running a Perl module plugin, and set `complete` when setting `stdout` and `stderr`.")
+	flag.Parse()
+	// flag.Args() is everything else, a slice, and can be passed an index for individual values
+
+	var config Config
+	if r.configFile == "" {
+		slog.Error("config file must be passed with --config")
+		return config, 1
+	}
+
+	if byteValue, err := os.ReadFile(r.configFile); err != nil {
+		slog.Error("could not read config file", "err", err)
+		return config, 1
+	} else if err = json.Unmarshal(byteValue, &config); err != nil {
+		slog.Error("could not parse config file", "file", r.configFile, "err", err)
+		return config, 1
+	}
+
+	if err := logger(config); err != nil {
+		slog.Error("could not set up logger", "err", err)
+		return config, 1
+	}
+
+	if r.taskID == "" {
+		slog.Error("task ID must be passed with --task")
+		return config, 1
+	}
+
+	var err error
+	r.node, err = os.Hostname()
+	if err != nil {
+		slog.Error("could not get hostname", "err", err)
+		return config, 1
+	}
+
+	r.db, err = mongodb(config)
+	if err != nil {
+		slog.Error("could not connect to MongoDB", "err", err)
+		return config, 1
+	}
+
+	slog.Info(fmt.Sprintf("Starting task %s", r.taskID))
+
+	r.oid, err = bson.ObjectIDFromHex(r.taskID)
+	if err != nil {
+		slog.Error("value for --task invalid", "taskID", r.taskID, "err", err)
+		return config, 1
+	}
+
+	return config, -1
 }
 
 func (r *Runner) setTaskRunnerDoc() int {
