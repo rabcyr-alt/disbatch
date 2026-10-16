@@ -59,6 +59,20 @@ my %plugin_file = (
     raw        => "$plugin_dir/task-handoff-raw.pl",	# handoff, but with no validation of its own
     module     => 'Disbatch::Plugin::Test',		# run via `plugin_runner --handoff`
 );
+# Use the Go versions (from go/t/) of the program plugins, as they start much faster, unless `PERL_PLUGINS=1` or they can't be built:
+if (!$ENV{PERL_PLUGINS}) {
+    my $go_plugin_dir = "$tm->{dir}/go-plugins";
+    local @ENV{qw/ GOFLAGS GOTOOLCHAIN CGO_ENABLED /} = ('-mod=vendor', 'local', 0);
+    delete local @ENV{qw/ GOOS GOARCH /};	# they run here
+    my $err;
+    if (eval { run [ $ENV{GO} // 'go', 'build', '-C', 'go', '-o', "$go_plugin_dir/", './t/...' ], \undef, \my $out, \$err }) {
+        $plugin_file{$_} = "$go_plugin_dir/task-$_" for qw/ file collection handoff /;
+        $plugin_file{raw} = "$go_plugin_dir/task-handoff-raw";
+    } else {
+        diag "Could not build the Go test plugins, so using the Perl ones: ", $err || $@;
+    }
+}
+diag "plugins = $plugin_file{file}, $plugin_file{collection}, $plugin_file{handoff}, $plugin_file{raw}";
 # `plugin_runner` needs to find `Disbatch` and the Perl module plugin, which is in `t/` so it is not installed:
 $ENV{PERL5LIB} = join ':', abs_path('lib'), $plugin_dir, $ENV{PERL5LIB} // ();
 $config->{task_runner} = $binary;	# the one being tested, and so it does not log that it is using the Perl one as the default is not installed
@@ -329,40 +343,43 @@ check_task 'collection', 'plugin did not create a result', { no_result => 1 },
 check_task 'raw', 'plugin did not update status', { },
     status => 2, stdout => { status => 0 }, stderr => $not_updated;
 
-# Perl module plugins are run via `plugin_runner --handoff` (`bin/task_runner`), which validates the result and writes it.
-# An invalid `status` becomes 2, keeping `stdout` and `stderr`.
-check_task 'module', 'success', { status => 1, stdout => $out, stderr => $err },
-    status => 1, stdout => $out, stderr => $err;
-check_task 'module', 'plugin failure', { status => 2, stdout => $out, stderr => $err },
-    status => 2, stdout => $out, stderr => $err;
-check_task 'module', 'plugin failure with another status', { status => 44, stdout => $out, stderr => $err },
-    status => 44, stdout => $out, stderr => $err;
-check_task 'module', 'string status', { status => 'fizz', stdout => $out, stderr => $err },
-    status => 2, stdout => $out, stderr => $err;
-check_task 'module', 'zero status', { status => 0, stdout => $out, stderr => $err },
-    status => 2, stdout => $out, stderr => $err;
-check_task 'module', 'negative status', { status => -1, stdout => $out, stderr => $err },
-    status => 2, stdout => $out, stderr => $err;
-check_task 'module', 'plugin dies', { die => "boom\n" },
-    status => 2, stdout => 'Unable to complete', stderr => "Thread has uncaught exception: boom\n";
-check_task 'module', 'plugin exits before returning', { exit => 3 },
-    status => 2, stdout => { status => 0 }, stderr => $not_updated, cmd_exit => 3, cmd_err => 'exit status 3';
-{
-    my $ok = subtest 'module: plugin not found' => sub {
-        my $task_id = new_task(new_queue('Disbatch::Plugin::NoSuchPlugin'), { status => 1 });
-        is run_task($task_id), 0, 'runner exit code';
-        my $task = get_task($task_id);
-        is $task->{status}, 2, 'status';
-        is $task->{stdout}, 'Unable to start', 'stdout';
-        like $task->{stderr}, qr/^Disbatch::Plugin::NoSuchPlugin not found for task /, 'stderr';
-        is $task->{cmdExit}, 0, 'cmdExit';
-    };
-    diag $last_output unless $ok;
+# set `QUICK=1` to skip these, as each starts `bin/task_runner`, which is slow to load
+if (!$ENV{QUICK}) {
+    # Perl module plugins are run via `plugin_runner --handoff` (`bin/task_runner`), which validates the result and writes it.
+    # An invalid `status` becomes 2, keeping `stdout` and `stderr`.
+    check_task 'module', 'success', { status => 1, stdout => $out, stderr => $err },
+        status => 1, stdout => $out, stderr => $err;
+    check_task 'module', 'plugin failure', { status => 2, stdout => $out, stderr => $err },
+        status => 2, stdout => $out, stderr => $err;
+    check_task 'module', 'plugin failure with another status', { status => 44, stdout => $out, stderr => $err },
+        status => 44, stdout => $out, stderr => $err;
+    check_task 'module', 'string status', { status => 'fizz', stdout => $out, stderr => $err },
+        status => 2, stdout => $out, stderr => $err;
+    check_task 'module', 'zero status', { status => 0, stdout => $out, stderr => $err },
+        status => 2, stdout => $out, stderr => $err;
+    check_task 'module', 'negative status', { status => -1, stdout => $out, stderr => $err },
+        status => 2, stdout => $out, stderr => $err;
+    check_task 'module', 'plugin dies', { die => "boom\n" },
+        status => 2, stdout => 'Unable to complete', stderr => "Thread has uncaught exception: boom\n";
+    check_task 'module', 'plugin exits before returning', { exit => 3 },
+        status => 2, stdout => { status => 0 }, stderr => $not_updated, cmd_exit => 3, cmd_err => 'exit status 3';
+    {
+        my $ok = subtest 'module: plugin not found' => sub {
+            my $task_id = new_task(new_queue('Disbatch::Plugin::NoSuchPlugin'), { status => 1 });
+            is run_task($task_id), 0, 'runner exit code';
+            my $task = get_task($task_id);
+            is $task->{status}, 2, 'status';
+            is $task->{stdout}, 'Unable to start', 'stdout';
+            like $task->{stderr}, qr/^Disbatch::Plugin::NoSuchPlugin not found for task /, 'stderr';
+            is $task->{cmdExit}, 0, 'cmdExit';
+        };
+        diag $last_output unless $ok;
+    }
 }
 
 # output over 15MB combined goes to GridFS. `stderr` is kept in the task document if it fits, as it is the one more likely to be parsed
-# set `GFS_TESTS=none` to skip these, which are the slowest
-for my $type (($ENV{GFS_TESTS} // '') eq 'none' ? () : (@types, 'module')) {
+# set `GFS_TESTS=none` (or `QUICK=1`) to skip these, which are the slowest
+for my $type ($ENV{QUICK} || ($ENV{GFS_TESTS} // '') eq 'none' ? () : (@types, 'module')) {
     check_task $type, 'stdout and stderr combined of 15MB stay in the task', { status => 1, large_stderr => 7*$MB, large_stdout => 8*$MB },
         status => 1, stdout => 'x' x (8*$MB), stderr => 'x' x (7*$MB);
     check_task $type, 'stdout goes to GridFS when over 15MB combined', { status => 1, large_stderr => 1*$MB, large_stdout => 15*$MB },
@@ -502,6 +519,16 @@ You can disable MongoDB TLS and authentication like with F<t/002_full.t>:
 The plugins are F<t/task-file.pl>, F<t/task-collection.pl>, F<t/task-handoff.pl>, and
 F<t/task-handoff-raw.pl>, and the Perl module plugin C<Disbatch::Plugin::Test> (F<t/Disbatch/Plugin/Test.pm>), which is
 run via C<bin/task_runner --handoff>. They are told what to return via the C<params> of the task: see F<t/ParamsResult.pm>.
+
+The program plugins have Go versions in F<go/t/>, which this builds and uses instead, as they start much faster. It uses
+the Perl ones if they can't be built (such as when Go is not installed), or with C<PERL_PLUGINS=1>:
+
+    PERL_PLUGINS=1 AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
+
+To quickly check that C<go-task-runner> is not badly broken, C<QUICK=1> skips the slowest tests: those of the Perl module
+plugin (each starts C<bin/task_runner>) and those of GridFS. It still runs every other test of the program plugins.
+
+    QUICK=1 AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
 
 =head1 AUTHORS
 

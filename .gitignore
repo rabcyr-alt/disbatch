@@ -22,3 +22,9 @@ web/.angular/cache/
 
 go/go-task-runner
 go/v2
+
+# go versions of the test plugins, from go/t/
+t/task-file
+t/task-collection
+t/task-handoff
+t/task-handoff-raw

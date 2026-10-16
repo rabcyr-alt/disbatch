@@ -19,6 +19,7 @@
         "/path/to/disbatch/t/task-file.pl": {},
         "/path/to/disbatch/t/task-handoff.pl": {"type": "handoff"},
         "/path/to/disbatch/t/task-collection.pl": {"type": "collection"},
+        # go versions, built with: go build -C go -mod=vendor -o ../t/ ./t/...
         #"/path/to/disbatch/t/task-file": {},
         #"/path/to/disbatch/t/task-handoff": {"type": "handoff"},
         #"/path/to/disbatch/t/task-collection": {"type": "collection"},
