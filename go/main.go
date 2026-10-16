@@ -168,76 +168,10 @@ func run() int {
 		slog.Error(errmsg)
 		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": errmsg}
 	} else {
-		// types: file collection handoff
-		// * file:       optional mongo access, passes task and result via /tmp/r.taskID.json
-		//               uses local filesystem, don't have to worry about result size
-		// * collection: reads task from mongo via r.taskID, saves result in "results" collection and this copies to "tasks" collection
-		//               uses an additional collection creating extra load on mongo, have to worry about result size if it can exceed ~16MB, but no temp files
-		// * handoff:    reads task from mongo via r.taskID, saves result in "tasks" collection and this exits
-		//               writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
-		var cargs []string
-		cf := r.configFile
-		// if args.IsModule, we're handing off to the perl task runner, so whatever config we're using here is good
-		if !args.IsModule {
-			// don't trust the plugin with any passwords except for "plugin"
-			cf = r.configFile + "-plugin" // unlikely, but in case it has no suffix
-			for _, ext := range []string{"-strict", "-task_runner", "-plugin"} {
-				if name, ok := strings.CutSuffix(r.configFile, ext); ok {
-					cf = name + "-plugin"
-					break
-				}
-			}
+		cargs, taskFile, responseFile, exit := r.createCommandArgs(args, config)
+		if cargs == nil {
+			return exit
 		}
-		cargs = append(cargs, "--config", cf)
-		if config.TempDir == "" {
-			config.TempDir = "/tmp/disbatch" // below will fail if this directory does not exist, but better than the root user creating in /
-		}
-		taskFile := filepath.Join(config.TempDir, r.taskID+".json")
-		responseFile := filepath.Join(config.TempDir, r.taskID+"-response.json")
-		if args.Type == "file" {
-			var jsonTask []byte
-			if jsonTask, err = json.Marshal(r.doc); err != nil {
-				slog.Error("could not create json from task doc", "taskID", r.taskID, "err", err)
-				result = bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
-				return r.finish(result, filter)
-			}
-			if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
-				slog.Error("could not remove old task file", "file", taskFile, "err", err)
-				result = bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
-				return r.finish(result, filter)
-			}
-			if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
-				slog.Error("could not remove old response file", "file", responseFile, "err", err)
-				result = bson.M{"status": 2, "stderr": "could not remove old response file: " + err.Error()}
-				return r.finish(result, filter)
-			}
-			if err = os.WriteFile(taskFile, jsonTask, 0600); err != nil {
-				slog.Error("could not create task file", "file", taskFile, "err", err)
-				result = bson.M{"status": 2, "stderr": "could not create task file: " + err.Error()}
-				return r.finish(result, filter)
-			}
-			cargs = append(cargs, "--task", taskFile)
-		} else {
-			cargs = append(cargs, "--task", r.taskID)
-			if args.Type == "handoff" {
-				if r.quiet {
-					cargs = append(cargs, "--quiet")
-				}
-				if args.IsModule {
-					cargs = append(cargs, "--handoff")
-					if r.testing {
-						cargs = append(cargs, "--testing")
-					}
-				}
-			} else if args.Type == "collection" {
-				if _, err = r.db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": r.oid}); err != nil {
-					slog.Error("could not delete any pre-existing result for task in 'results' collection", "taskID", r.taskID, "err", err)
-					result = bson.M{"status": 2, "stderr": "could not delete any pre-existing result for task in 'results' collection: " + err.Error()}
-					return r.finish(result, filter)
-				}
-			}
-		}
-
 		cmdExit, cmdErr = runCommand(plugin, cargs) // 0 on success, err != nil on failure
 		r.recordPluginExit(plugin, cmdExit, cmdErr)
 		switch args.Type {
@@ -253,6 +187,81 @@ func run() int {
 		}
 	}
 	return r.finish(result, filter)
+}
+
+func (r *Runner) createCommandArgs(args Plugin, config Config) ([]string, string, string, int) {
+	// types: file collection handoff
+	// * file:       optional mongo access, passes task and result via /tmp/r.taskID.json
+	//               uses local filesystem, don't have to worry about result size
+	// * collection: reads task from mongo via r.taskID, saves result in "results" collection and this copies to "tasks" collection
+	//               uses an additional collection creating extra load on mongo, have to worry about result size if it can exceed ~16MB, but no temp files
+	// * handoff:    reads task from mongo via r.taskID, saves result in "tasks" collection and this exits
+	//               writes result right where it belongs, have to worry about result size if it can exceed ~16MB, have to deal with all other finalizing
+	var cargs []string
+	cf := r.configFile
+	// if args.IsModule, we're handing off to the perl task runner, so whatever config we're using here is good
+	if !args.IsModule {
+		// don't trust the plugin with any passwords except for "plugin"
+		cf = r.configFile + "-plugin" // unlikely, but in case it has no suffix
+		for _, ext := range []string{"-strict", "-task_runner", "-plugin"} {
+			if name, ok := strings.CutSuffix(r.configFile, ext); ok {
+				cf = name + "-plugin"
+				break
+			}
+		}
+	}
+	cargs = append(cargs, "--config", cf)
+	if config.TempDir == "" {
+		config.TempDir = "/tmp/disbatch" // below will fail if this directory does not exist, but better than the root user creating in /
+	}
+	taskFile := filepath.Join(config.TempDir, r.taskID+".json")
+	responseFile := filepath.Join(config.TempDir, r.taskID+"-response.json")
+	filter := bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}
+	if args.Type == "file" {
+		var jsonTask []byte
+		var err error
+		if jsonTask, err = json.Marshal(r.doc); err != nil {
+			slog.Error("could not create json from task doc", "taskID", r.taskID, "err", err)
+			result := bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
+			return nil, "", "", r.finish(result, filter)
+		}
+		if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
+			slog.Error("could not remove old task file", "file", taskFile, "err", err)
+			result := bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
+			return nil, "", "", r.finish(result, filter)
+		}
+		if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
+			slog.Error("could not remove old response file", "file", responseFile, "err", err)
+			result := bson.M{"status": 2, "stderr": "could not remove old response file: " + err.Error()}
+			return nil, "", "", r.finish(result, filter)
+		}
+		if err = os.WriteFile(taskFile, jsonTask, 0600); err != nil {
+			slog.Error("could not create task file", "file", taskFile, "err", err)
+			result := bson.M{"status": 2, "stderr": "could not create task file: " + err.Error()}
+			return nil, "", "", r.finish(result, filter)
+		}
+		cargs = append(cargs, "--task", taskFile)
+	} else {
+		cargs = append(cargs, "--task", r.taskID)
+		if args.Type == "handoff" {
+			if r.quiet {
+				cargs = append(cargs, "--quiet")
+			}
+			if args.IsModule {
+				cargs = append(cargs, "--handoff")
+				if r.testing {
+					cargs = append(cargs, "--testing")
+				}
+			}
+		} else if args.Type == "collection" {
+			if _, err := r.db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": r.oid}); err != nil {
+				slog.Error("could not delete any pre-existing result for task in 'results' collection", "taskID", r.taskID, "err", err)
+				result := bson.M{"status": 2, "stderr": "could not delete any pre-existing result for task in 'results' collection: " + err.Error()}
+				return nil, "", "", r.finish(result, filter)
+			}
+		}
+	}
+	return cargs, taskFile, responseFile, -1
 }
 
 func (r *Runner) recordPluginExit(plugin string, cmdExit int, cmdErr error) {
