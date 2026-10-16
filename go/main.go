@@ -239,23 +239,7 @@ func run() int {
 		}
 
 		cmdExit, cmdErr = runCommand(plugin, cargs) // 0 on success, err != nil on failure
-		if cmdErr != nil {
-			// if cmdExit < 0, then result likely not saved
-			// * cmdExit -3 means start failed, -2 means wait failed (not sure how), -1 means killed
-			// if cmdExit > 0, then perhaps saved perhaps not (a task should not exit non-zero when the task fails–it should set status to 2)
-			slog.Error("plugin did not exit cleanly", "plugin", plugin, "taskID", r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
-		} else {
-			// cmdExit is 0, no error
-			slog.Info("plugin exited cleanly", "plugin", plugin, "taskID", r.taskID)
-		}
-		// put `cmdExit` and `cmdErr` into the task doc
-		var res *mongo.UpdateResult
-		if res, err = r.db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%v", cmdErr)}}); err != nil {
-			slog.Error("unknown issue updating task to set 'exit' and 'error'", "taskID", r.taskID, "mtime", r.doc["mtime"], "err", err)
-		} else if res.MatchedCount == 0 {
-			slog.Error("could not find task to set 'exit' and 'error'", "taskID", r.taskID, "mtime", r.doc["mtime"])
-		}
-
+		r.recordPluginExit(plugin, cmdExit, cmdErr)
 		switch args.Type {
 		case "handoff":
 			var exit int
@@ -269,6 +253,24 @@ func run() int {
 		}
 	}
 	return r.finish(result, filter)
+}
+
+func (r *Runner) recordPluginExit(plugin string, cmdExit int, cmdErr error) {
+	if cmdErr != nil {
+		// if cmdExit < 0, then result likely not saved
+		// * cmdExit -3 means start failed, -2 means wait failed (not sure how), -1 means killed
+		// if cmdExit > 0, then perhaps saved perhaps not (a task should not exit non-zero when the task fails–it should set status to 2)
+		slog.Error("plugin did not exit cleanly", "plugin", plugin, "taskID", r.taskID, "cmdExit", cmdExit, "cmdErr", cmdErr)
+	} else {
+		// cmdExit is 0, no error
+		slog.Info("plugin exited cleanly", "plugin", plugin, "taskID", r.taskID)
+	}
+	// put `cmdExit` and `cmdErr` into the task doc
+	if res, err := r.db.Collection("tasks").UpdateOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, bson.M{"$set": bson.M{"cmdExit": cmdExit, "cmdErr": fmt.Sprintf("%v", cmdErr)}}); err != nil {
+		slog.Error("unknown issue updating task to set 'cmdExit' and 'cmdErr'", "taskID", r.taskID, "mtime", r.doc["mtime"], "err", err)
+	} else if res.MatchedCount == 0 {
+		slog.Error("could not find task to set 'cmdExit' and 'cmdErr'", "taskID", r.taskID, "mtime", r.doc["mtime"])
+	}
 }
 
 func (r *Runner) processHandoffResult(filter bson.M, plugin string, cmdExit int, cmdErr error) (int, bson.M, bson.M) {
