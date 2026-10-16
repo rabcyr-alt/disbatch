@@ -127,40 +127,9 @@ func run() int {
 
 	slog.Info(fmt.Sprintf("params for %s: %s", r.taskID, r.doc["params"]))
 
+	plugin, args, errmsg := r.getPlugin(config)
+
 	filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, "handoff" may change it
-
-	var queue bson.M
-	var errmsg string
-	var args Plugin
-	var plugin string
-	if err = r.db.Collection("queues").FindOne(context.Background(), bson.M{"_id": r.doc["queue"]}).Decode(&queue); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			errmsg = fmt.Sprintf("queue %v not found for task %v", r.doc["queue"], r.taskID)
-		} else {
-			errmsg = fmt.Sprintf("unknown issue querying for queue %v for task %v: %v", r.doc["queue"], r.taskID, err)
-		}
-	} else {
-		var ok bool
-		plugin, ok = queue["plugin"].(string)
-		if !ok {
-			errmsg = fmt.Sprintf("no plugin defined for task %v in queue %v", r.taskID, r.doc["queue"])
-		} else {
-			args = config.Plugins[plugin]
-			if args.IsModule {
-				args.Type = "handoff" // was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
-				plugin = config.PluginRunner
-			}
-			// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` value here as `plugin` when `args.IsModule` is true
-			if !filepath.IsAbs(plugin) {
-				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, r.taskID)
-			} else if fileinfo, ferr := os.Stat(plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
-				errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, r.taskID)
-			} else if !slices.Contains([]string{"file", "collection", "handoff"}, args.Type) {
-				errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, r.taskID)
-			}
-		}
-	}
-
 	var cmdExit int
 	var cmdErr error
 	var result bson.M // NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
@@ -187,6 +156,41 @@ func run() int {
 		}
 	}
 	return r.finish(result, filter)
+}
+
+func (r *Runner) getPlugin(config Config) (string, Plugin, string) {
+	var queue bson.M
+	var errmsg string
+	var args Plugin
+	var plugin string
+	if err := r.db.Collection("queues").FindOne(context.Background(), bson.M{"_id": r.doc["queue"]}).Decode(&queue); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			errmsg = fmt.Sprintf("queue %v not found for task %v", r.doc["queue"], r.taskID)
+		} else {
+			errmsg = fmt.Sprintf("unknown issue querying for queue %v for task %v: %v", r.doc["queue"], r.taskID, err)
+		}
+	} else {
+		var ok bool
+		plugin, ok = queue["plugin"].(string)
+		if !ok {
+			errmsg = fmt.Sprintf("no plugin defined for task %v in queue %v", r.taskID, r.doc["queue"])
+		} else {
+			args = config.Plugins[plugin]
+			if args.IsModule {
+				args.Type = "handoff" // was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
+				plugin = config.PluginRunner
+			}
+			// validate `plugin` and `args.Type`. we also validate `config.PluginRunner` value here as `plugin` when `args.IsModule` is true
+			if !filepath.IsAbs(plugin) {
+				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", plugin, r.taskID)
+			} else if fileinfo, ferr := os.Stat(plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
+				errmsg = fmt.Sprintf("%v not found or not executable for task %v", plugin, r.taskID)
+			} else if !slices.Contains([]string{"file", "collection", "handoff"}, args.Type) {
+				errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", plugin, args.Type, r.taskID)
+			}
+		}
+	}
+	return plugin, args, errmsg
 }
 
 func (r *Runner) createCommandArgs(args Plugin, config Config) ([]string, string, string, int) {
