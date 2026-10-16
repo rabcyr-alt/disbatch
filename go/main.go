@@ -114,22 +114,14 @@ func run() int {
 		}
 	}
 
-	filter := bson.M{"_id": r.oid, "status": -1, "node": r.node}
-	update := bson.M{"$set": bson.M{"status": 0}}
-	if err = r.db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&r.doc); err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			slog.Error("could not find task to set status 0", "taskID", r.taskID)
-		} else {
-			slog.Error("unknown issue trying to find and update task to status 0", "taskID", r.taskID, "err", err)
-		}
-		return 1
+	exit = r.setTaskRunnerDoc()
+	if exit != -1 {
+		return exit
 	}
-
-	slog.Info(fmt.Sprintf("params for %s: %s", r.taskID, r.doc["params"]))
 
 	plugin, args, errmsg := r.getPlugin(config)
 
-	filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, "handoff" may change it
+	filter := bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, "handoff" may change it
 	var cmdExit int
 	var cmdErr error
 	var result bson.M // NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
@@ -156,6 +148,21 @@ func run() int {
 		}
 	}
 	return r.finish(result, filter)
+}
+
+func (r *Runner) setTaskRunnerDoc() int {
+	filter := bson.M{"_id": r.oid, "status": -1, "node": r.node}
+	update := bson.M{"$set": bson.M{"status": 0}}
+	if err := r.db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&r.doc); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			slog.Error("could not find task to set status 0", "taskID", r.taskID)
+		} else {
+			slog.Error("unknown issue trying to find and update task to status 0", "taskID", r.taskID, "err", err)
+		}
+		return 1
+	}
+	slog.Info(fmt.Sprintf("params for %s: %s", r.taskID, r.doc["params"]))
+	return -1
 }
 
 func (r *Runner) getPlugin(config Config) (string, Plugin, string) {
