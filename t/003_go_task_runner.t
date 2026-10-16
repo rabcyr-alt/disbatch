@@ -59,6 +59,20 @@ my %plugin_file = (
     raw        => "$plugin_dir/task-handoff-raw.pl",	# handoff, but with no validation of its own
     module     => 'Disbatch::Plugin::Test',		# run via `plugin_runner --handoff`
 );
+# Use the Go versions (from go/t/) of the program plugins, as they start much faster, unless `PERL_PLUGINS=1` or they can't be built:
+if (!$ENV{PERL_PLUGINS}) {
+    my $go_plugin_dir = "$tm->{dir}/go-plugins";
+    local @ENV{qw/ GOFLAGS GOTOOLCHAIN CGO_ENABLED /} = ('-mod=vendor', 'local', 0);
+    delete local @ENV{qw/ GOOS GOARCH /};	# they run here
+    my $err;
+    if (eval { run [ $ENV{GO} // 'go', 'build', '-C', 'go', '-o', "$go_plugin_dir/", './t/...' ], \undef, \my $out, \$err }) {
+        $plugin_file{$_} = "$go_plugin_dir/task-$_" for qw/ file collection handoff /;
+        $plugin_file{raw} = "$go_plugin_dir/task-handoff-raw";
+    } else {
+        diag "Could not build the Go test plugins, so using the Perl ones: ", $err || $@;
+    }
+}
+diag "plugins = $plugin_file{file}, $plugin_file{collection}, $plugin_file{handoff}, $plugin_file{raw}";
 # `plugin_runner` needs to find `Disbatch` and the Perl module plugin, which is in `t/` so it is not installed:
 $ENV{PERL5LIB} = join ':', abs_path('lib'), $plugin_dir, $ENV{PERL5LIB} // ();
 $config->{task_runner} = $binary;	# the one being tested, and so it does not log that it is using the Perl one as the default is not installed
@@ -502,6 +516,11 @@ You can disable MongoDB TLS and authentication like with F<t/002_full.t>:
 The plugins are F<t/task-file.pl>, F<t/task-collection.pl>, F<t/task-handoff.pl>, and
 F<t/task-handoff-raw.pl>, and the Perl module plugin C<Disbatch::Plugin::Test> (F<t/Disbatch/Plugin/Test.pm>), which is
 run via C<bin/task_runner --handoff>. They are told what to return via the C<params> of the task: see F<t/ParamsResult.pm>.
+
+The program plugins have Go versions in F<go/t/>, which this builds and uses instead, as they start much faster. It uses
+the Perl ones if they can't be built (such as when Go is not installed), or with C<PERL_PLUGINS=1>:
+
+    PERL_PLUGINS=1 AUTHOR_TESTING=1 prove -v t/003_go_task_runner.t
 
 =head1 AUTHORS
 
