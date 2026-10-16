@@ -55,7 +55,7 @@ func run() int {
 
 	plugin, args, errmsg := r.getPlugin(config)
 
-	filter := bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, "handoff" may change it
+	var filter bson.M
 	var cmdExit int
 	var cmdErr error
 	var result bson.M // NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
@@ -72,7 +72,7 @@ func run() int {
 		switch args.Type {
 		case "handoff":
 			var exit int
-			if exit, result, filter = r.processHandoffResult(filter, plugin, cmdExit, cmdErr); result == nil {
+			if exit, result, filter = r.processHandoffResult(plugin, cmdExit, cmdErr); result == nil {
 				return exit
 			}
 		case "collection":
@@ -283,8 +283,9 @@ func (r *Runner) recordPluginExit(plugin string, cmdExit int, cmdErr error) {
 	}
 }
 
-func (r *Runner) processHandoffResult(filter bson.M, plugin string, cmdExit int, cmdErr error) (int, bson.M, bson.M) {
+func (r *Runner) processHandoffResult(plugin string, cmdExit int, cmdErr error) (int, bson.M, bson.M) {
 	var task bson.M
+	var filter bson.M
 	opts := options.FindOne().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
 	if err := r.db.Collection("tasks").FindOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, opts).Decode(&task); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -438,6 +439,9 @@ type Runner struct {
 }
 
 func (r *Runner) finish(result bson.M, filter bson.M) int {
+	if filter == nil {
+		filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}
+	}
 	status := "failed"
 	if result["status"] == 1 {
 		status = "succeeded"
