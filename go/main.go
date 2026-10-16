@@ -95,25 +95,6 @@ func run() int {
 		return 1
 	}
 
-	// testing: delete and create if given the testing task id (to be removed once this is considered finished and proper tests are created)
-	// FIXME: make this more configurable
-	if r.taskID == "65170b42b99efdd0b07d42de" {
-		if _, err = r.db.Collection("tasks").DeleteOne(context.Background(), bson.M{"_id": r.oid}); err != nil {
-			slog.Error("could not delete test task", "err", err)
-			return 1
-		}
-		opts := options.UpdateOne().SetUpsert(true)
-		if _, err = r.db.Collection("queues").UpdateOne(context.Background(), bson.M{"_id": r.oid}, bson.M{"$set": bson.M{"name": "go-test", "plugin": "/root/git/disbatch/t/task-file.pl", "threads": 0}}, opts); err != nil {
-			slog.Error("could not upsert test queue", "err", err)
-			return 1
-		}
-		params := bson.M{"status": 1, "stdout": "hi", "stderr": "vague warning"}
-		if _, err = r.db.Collection("tasks").InsertOne(context.Background(), bson.M{"_id": r.oid, "status": -1, "node": r.node, "mtime": time.Now(), "ctime": time.Now(), "queue": r.oid, "params": params}); err != nil {
-			slog.Error("could not insert test task", "err", err)
-			return 1
-		}
-	}
-
 	exit = r.setTaskRunnerDoc()
 	if exit != -1 {
 		return exit
