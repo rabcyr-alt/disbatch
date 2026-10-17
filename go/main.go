@@ -68,9 +68,11 @@ func run() int {
 		r.recordPluginExit()
 		switch r.pluginType {
 		case "handoff":
-			var exit int
-			if exit, result, filter = r.processHandoffResult(); result == nil {
-				return exit
+			if result, filter, err = r.processHandoffResult(); err != nil {
+				slog.Error(err.Error())
+				return 1
+			} else if result == nil {
+				return 0
 			}
 		case "collection":
 			result = r.processCollectionResult()
@@ -265,17 +267,15 @@ func (r *Runner) recordPluginExit() {
 	}
 }
 
-func (r *Runner) processHandoffResult() (int, bson.M, bson.M) {
+func (r *Runner) processHandoffResult() (bson.M, bson.M, error) {
 	var task bson.M
 	var filter bson.M
 	opts := options.FindOne().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
 	if err := r.db.Collection("tasks").FindOne(context.Background(), bson.M{"_id": r.oid, "node": r.node, "mtime": r.doc["mtime"]}, opts).Decode(&task); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			slog.Error("could not find handoff task to validate status", "taskID", r.taskID, "mtime", r.doc["mtime"], "cmdExit", r.cmdExit, "cmdErr", r.cmdErr)
-		} else {
-			slog.Error("unknown issue querying for handoff task to validate status", "taskID", r.taskID, "mtime", r.doc["mtime"], "err", err, "cmdExit", r.cmdExit, "cmdErr", r.cmdErr)
+			return nil, nil, fmt.Errorf("could not find handoff task %s with mtime %v to validate status", r.taskID, r.doc["mtime"])
 		}
-		return 1, nil, nil
+		return nil, nil, fmt.Errorf("unknown issue querying for handoff task %s with mtime %v to validate status: %w", r.taskID, r.doc["mtime"], err)
 	}
 	// `status` from mongo is type `int32`
 	if status, ok := task["status"].(int32); !ok {
@@ -287,7 +287,7 @@ func (r *Runner) processHandoffResult() (int, bson.M, bson.M) {
 		}
 		result := bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned unknown type for status (see stdout for status and any stdout or stderr it may have set)"}
 		filter = bson.M{"_id": r.oid, "status": task["status"], "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, need to query on status:task["status"]
-		return -1, result, filter
+		return result, filter, nil
 	} else if status == 0 {
 		// plugin didn't finish. make it a failure
 		slog.Error("plugin did not update status", "plugin", r.plugin, "taskID", r.taskID, "cmdExit", r.cmdExit, "cmdErr", r.cmdErr)
@@ -296,10 +296,10 @@ func (r *Runner) processHandoffResult() (int, bson.M, bson.M) {
 			slog.Error("could not marshal plugin result", "err", merr)
 		}
 		result := bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin did not update status (see stdout for any stdout or stderr it may have set)"}
-		return -1, result, filter
+		return result, filter, nil
 	} else if status == int32(1) {
 		if r.cmdErr == nil {
-			return 0, nil, nil
+			return nil, nil, nil
 		}
 		// bad plugin! status == 1 but plugin exit code non-0. make it a failure
 		slog.Error("plugin returned status:1 but did not exit cleanly", "plugin", r.plugin, "taskID", r.taskID, "cmdExit", r.cmdExit, "cmdErr", r.cmdErr)
@@ -309,14 +309,14 @@ func (r *Runner) processHandoffResult() (int, bson.M, bson.M) {
 		}
 		result := bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned status:1 but did not exit cleanly (see stdout for any stdout or stderr it may have set)"}
 		filter = bson.M{"_id": r.oid, "status": 1, "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, need to query on status:1
-		return -1, result, filter
+		return result, filter, nil
 	} else if status > int32(1) {
 		// good: task failed.
 		if r.cmdErr != nil {
 			// log that even though the handoff plugin set a proper failure status, it did not exit cleanly
 			slog.Warn("plugin returned status>1 but did not exit cleanly", "plugin", r.plugin, "taskID", r.taskID, "status", status, "cmdExit", r.cmdExit, "cmdErr", r.cmdErr)
 		}
-		return 0, nil, nil
+		return nil, nil, nil
 	} else {
 		// bad plugin! status < 0. make it a failure
 		slog.Error("plugin returned negative status", "plugin", r.plugin, "taskID", r.taskID, "status", status, "cmdExit", r.cmdExit, "cmdErr", r.cmdErr)
@@ -326,7 +326,7 @@ func (r *Runner) processHandoffResult() (int, bson.M, bson.M) {
 		}
 		result := bson.M{"status": 2, "stdout": string(stdout), "stderr": "plugin returned negative status (see stdout for status and any stdout or stderr it may have set)"}
 		filter = bson.M{"_id": r.oid, "status": task["status"], "node": r.node, "mtime": r.doc["mtime"]} // filter for set status, need to query on status:task["status"]
-		return -1, result, filter
+		return result, filter, nil
 	}
 }
 
