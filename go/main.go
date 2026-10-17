@@ -53,13 +53,11 @@ func run() int {
 		return exit
 	}
 
-	errmsg := r.setPlugin()
-
 	var filter bson.M
 	var result bson.M // NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
-	if errmsg != "" {
-		slog.Error(errmsg)
-		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": errmsg}
+	if err := r.setPlugin(); err != nil {
+		slog.Error(err.Error())
+		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": err.Error()}
 	} else {
 		cargs, taskFile, responseFile, exit := r.createCommandArgs()
 		if cargs == nil {
@@ -152,20 +150,19 @@ func (r *Runner) setTaskRunnerDoc() int {
 	return -1
 }
 
-func (r *Runner) setPlugin() string {
+func (r *Runner) setPlugin() error {
 	var queue bson.M
-	var errmsg string
 	if err := r.db.Collection("queues").FindOne(context.Background(), bson.M{"_id": r.doc["queue"]}).Decode(&queue); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			errmsg = fmt.Sprintf("queue %v not found for task %v", r.doc["queue"], r.taskID)
+			return fmt.Errorf("queue %v not found for task %v", r.doc["queue"], r.taskID)
 		} else {
-			errmsg = fmt.Sprintf("unknown issue querying for queue %v for task %v: %v", r.doc["queue"], r.taskID, err)
+			return fmt.Errorf("unknown issue querying for queue %v for task %v: %w", r.doc["queue"], r.taskID, err)
 		}
 	} else {
 		var ok bool
 		r.plugin, ok = queue["plugin"].(string)
 		if !ok {
-			errmsg = fmt.Sprintf("no plugin defined for task %v in queue %v", r.taskID, r.doc["queue"])
+			return fmt.Errorf("no plugin defined for task %v in queue %v", r.taskID, r.doc["queue"])
 		} else {
 			pluginArgs := r.config.Plugins[r.plugin]
 			r.isModule = pluginArgs.IsModule
@@ -176,15 +173,15 @@ func (r *Runner) setPlugin() string {
 			}
 			// validate `r.plugin` and `r.pluginType`. we also validate `r.config.PluginRunner` value here as `r.plugin` when `r.isModule` is true
 			if !filepath.IsAbs(r.plugin) {
-				errmsg = fmt.Sprintf("plugin value '%v' for task %v must be a full path", r.plugin, r.taskID)
+				return fmt.Errorf("plugin value '%v' for task %v must be a full path", r.plugin, r.taskID)
 			} else if fileinfo, ferr := os.Stat(r.plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
-				errmsg = fmt.Sprintf("%v not found or not executable for task %v", r.plugin, r.taskID)
+				return fmt.Errorf("%v not found or not executable for task %v", r.plugin, r.taskID)
 			} else if !slices.Contains([]string{"file", "collection", "handoff"}, r.pluginType) {
-				errmsg = fmt.Sprintf("%v has unknown type '%v' for task %v", r.plugin, r.pluginType, r.taskID)
+				return fmt.Errorf("%v has unknown type '%v' for task %v", r.plugin, r.pluginType, r.taskID)
 			}
 		}
 	}
-	return errmsg
+	return nil
 }
 
 func (r *Runner) createCommandArgs() ([]string, string, string, int) {
