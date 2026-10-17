@@ -418,18 +418,18 @@ for my $case (
 # tasks that can't be started get status 2 and "Unable to start"
 {
     my $missing_queue = unused_id('queues');
-    check_unable_to_start 'queue not found', $plugin_file{file}, qr/^queue ObjectID\("\Q$missing_queue\E"\) not found for task /, queue => $missing_queue;
+    check_unable_to_start 'queue not found', $plugin_file{file}, qr/^queue ObjectID\("\Q$missing_queue\E"\) not found/, queue => $missing_queue;
 }
-check_unable_to_start 'queue has no plugin', undef, qr/^no plugin defined for task /;
-check_unable_to_start 'plugin is not an absolute path', 't/task-file.pl', qr/^plugin value 't\/task-file.pl' for task \w+ must be a full path/;
-check_unable_to_start 'plugin does not exist', "$temp_dir/does-not-exist.pl", qr/^\Q$temp_dir\E\/does-not-exist.pl not found or not executable for task /;
+check_unable_to_start 'queue has no plugin', undef, qr/^no plugin defined in queue /;
+check_unable_to_start 'plugin is not an absolute path', 't/task-file.pl', qr/^plugin value 't\/task-file.pl' must be a full path/;
+check_unable_to_start 'plugin does not exist', "$temp_dir/does-not-exist.pl", qr/^\Q$temp_dir\E\/does-not-exist.pl not found or not executable/;
 {
     my $not_executable = "$temp_dir/not-executable.pl";
     open my $fh, '>', $not_executable or die "Could not create $not_executable: $!";
     print $fh "#!/bin/sh\nexit 0\n";
     close $fh;
     chmod 0644, $not_executable;
-    check_unable_to_start 'plugin is not executable', $not_executable, qr/^\Q$not_executable\E not found or not executable for task /;
+    check_unable_to_start 'plugin is not executable', $not_executable, qr/^\Q$not_executable\E not found or not executable/;
 }
 {
     # executable, but not in `config.plugins`, so it has no type
@@ -438,7 +438,7 @@ check_unable_to_start 'plugin does not exist', "$temp_dir/does-not-exist.pl", qr
     print $fh "#!/bin/sh\nexit 0\n";
     close $fh;
     chmod 0755, $copy;
-    check_unable_to_start 'plugin is not in config.plugins', $copy, qr/^\Q$copy\E has unknown type '' for task /;
+    check_unable_to_start 'plugin is not in config.plugins', $copy, qr/^\Q$copy\E has unknown type ''/;
 }
 
 # `disbatchd` validates the plugin of each queue against `config.plugins`. A valid plugin is defined in `{plugins}`, one

@@ -57,7 +57,7 @@ func run() int {
 	var filter bson.M
 	var result bson.M // NOTE: should always have `status` (positive integer) and optional `stdout` and `stderr` (string, maybe nil)
 	if err := r.setPlugin(); err != nil {
-		slog.Error(err.Error())
+		slog.Error(err.Error(), "taskID", r.taskID)
 		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": err.Error()}
 	} else if cargs, taskFile, responseFile, err := r.createCommandArgs(); err != nil {
 		slog.Error(err.Error(), "taskID", r.taskID)
@@ -150,32 +150,28 @@ func (r *Runner) setPlugin() error {
 	var queue bson.M
 	if err := r.db.Collection("queues").FindOne(context.Background(), bson.M{"_id": r.doc["queue"]}).Decode(&queue); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return fmt.Errorf("queue %v not found for task %v", r.doc["queue"], r.taskID)
-		} else {
-			return fmt.Errorf("unknown issue querying for queue %v for task %v: %w", r.doc["queue"], r.taskID, err)
+			return fmt.Errorf("queue %v not found", r.doc["queue"])
 		}
-	} else {
-		var ok bool
-		r.plugin, ok = queue["plugin"].(string)
-		if !ok {
-			return fmt.Errorf("no plugin defined for task %v in queue %v", r.taskID, r.doc["queue"])
-		} else {
-			pluginArgs := r.config.Plugins[r.plugin]
-			r.isModule = pluginArgs.IsModule
-			r.pluginType = pluginArgs.Type
-			if r.isModule {
-				r.pluginType = "handoff" // was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
-				r.plugin = r.config.PluginRunner
-			}
-			// validate `r.plugin` and `r.pluginType`. we also validate `r.config.PluginRunner` value here as `r.plugin` when `r.isModule` is true
-			if !filepath.IsAbs(r.plugin) {
-				return fmt.Errorf("plugin value '%v' for task %v must be a full path", r.plugin, r.taskID)
-			} else if fileinfo, ferr := os.Stat(r.plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
-				return fmt.Errorf("%v not found or not executable for task %v", r.plugin, r.taskID)
-			} else if !slices.Contains([]string{"file", "collection", "handoff"}, r.pluginType) {
-				return fmt.Errorf("%v has unknown type '%v' for task %v", r.plugin, r.pluginType, r.taskID)
-			}
-		}
+		return fmt.Errorf("unknown issue querying for queue %v: %w", r.doc["queue"], err)
+	}
+	var ok bool
+	if r.plugin, ok = queue["plugin"].(string); !ok {
+		return fmt.Errorf("no plugin defined in queue %v", r.doc["queue"])
+	}
+	pluginArgs := r.config.Plugins[r.plugin]
+	r.isModule = pluginArgs.IsModule
+	r.pluginType = pluginArgs.Type
+	if r.isModule {
+		r.pluginType = "handoff" // was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
+		r.plugin = r.config.PluginRunner
+	}
+	// validate `r.plugin` and `r.pluginType`. we also validate `r.config.PluginRunner` value here as `r.plugin` when `r.isModule` is true
+	if !filepath.IsAbs(r.plugin) {
+		return fmt.Errorf("plugin value '%v' must be a full path", r.plugin)
+	} else if fileinfo, ferr := os.Stat(r.plugin); ferr != nil || !fileinfo.Mode().IsRegular() || fileinfo.Mode().Perm()&0111 == 0 {
+		return fmt.Errorf("%v not found or not executable", r.plugin)
+	} else if !slices.Contains([]string{"file", "collection", "handoff"}, r.pluginType) {
+		return fmt.Errorf("%v has unknown type '%v'", r.plugin, r.pluginType)
 	}
 	return nil
 }
@@ -432,9 +428,9 @@ func (r *Runner) finish(result bson.M, filter bson.M) error {
 	// set status first:
 	update := bson.M{"$set": bson.M{"status": result["status"]}}
 	if res, err := r.db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		return fmt.Errorf("unknown issue updating task %s with mtime %v to set status %s after completion: %w", r.taskID, r.doc["mtime"], result["status"], err)
+		return fmt.Errorf("unknown issue updating task %s with mtime %v to set status %d after completion: %w", r.taskID, r.doc["mtime"], result["status"], err)
 	} else if res.MatchedCount == 0 {
-		return fmt.Errorf("could not find task %s with mtime %v to set status %s after completion", r.taskID, r.doc["mtime"], result["status"])
+		return fmt.Errorf("could not find task %s with mtime %v to set status %d after completion", r.taskID, r.doc["mtime"], result["status"])
 	}
 
 	// set rest of result:
