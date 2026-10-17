@@ -60,8 +60,7 @@ func run() int {
 		slog.Error(err.Error())
 		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": err.Error()}
 	} else if cargs, taskFile, responseFile, err := r.createCommandArgs(); err != nil {
-		slog.Error(err.Error())
-		return 1
+		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": err.Error()}
 	} else {
 		r.cmdExit, r.cmdErr = runCommand(r.plugin, cargs) // 0 on success, err != nil on failure
 		r.recordPluginExit()
@@ -204,29 +203,24 @@ func (r *Runner) createCommandArgs() ([]string, string, string, error) {
 	cargs = append(cargs, "--config", cf)
 	taskFile := filepath.Join(r.config.TempDir, r.taskID+".json")
 	responseFile := filepath.Join(r.config.TempDir, r.taskID+"-response.json")
-	filter := bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}
 	if r.pluginType == "file" {
 		var jsonTask []byte
 		var err error
 		if jsonTask, err = json.Marshal(r.doc); err != nil {
 			slog.Error("could not create json from task doc", "taskID", r.taskID, "err", err)
-			result := bson.M{"status": 2, "stderr": "could not create json from task doc: " + err.Error()}
-			return nil, "", "", r.finish(result, filter)
+			return nil, "", "", fmt.Errorf("could not create json from task doc: %w", err)
 		}
 		if err = os.Remove(taskFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
 			slog.Error("could not remove old task file", "file", taskFile, "err", err)
-			result := bson.M{"status": 2, "stderr": "could not remove old task file: " + err.Error()}
-			return nil, "", "", r.finish(result, filter)
+			return nil, "", "", fmt.Errorf("could not remove old task file: %w", err)
 		}
 		if err = os.Remove(responseFile); err != nil && !errors.Is(err, os.ErrNotExist) { // this shouldn't exist, but in case it does
 			slog.Error("could not remove old response file", "file", responseFile, "err", err)
-			result := bson.M{"status": 2, "stderr": "could not remove old response file: " + err.Error()}
-			return nil, "", "", r.finish(result, filter)
+			return nil, "", "", fmt.Errorf("could not remove old response file: %w", err)
 		}
 		if err = os.WriteFile(taskFile, jsonTask, 0600); err != nil {
 			slog.Error("could not create task file", "file", taskFile, "err", err)
-			result := bson.M{"status": 2, "stderr": "could not create task file: " + err.Error()}
-			return nil, "", "", r.finish(result, filter)
+			return nil, "", "", fmt.Errorf("could not create task file: %w", err)
 		}
 		cargs = append(cargs, "--task", taskFile)
 	} else {
@@ -244,8 +238,7 @@ func (r *Runner) createCommandArgs() ([]string, string, string, error) {
 		} else if r.pluginType == "collection" {
 			if _, err := r.db.Collection("results").DeleteOne(context.Background(), bson.M{"_id": r.oid}); err != nil {
 				slog.Error("could not delete any pre-existing result for task in 'results' collection", "taskID", r.taskID, "err", err)
-				result := bson.M{"status": 2, "stderr": "could not delete any pre-existing result for task in 'results' collection: " + err.Error()}
-				return nil, "", "", r.finish(result, filter)
+				return nil, "", "", fmt.Errorf("could not delete any pre-existing result for task in 'results' collection: %w", err)
 			}
 		}
 	}
