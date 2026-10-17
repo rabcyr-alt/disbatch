@@ -38,19 +38,20 @@ func main() {
 
 func run() int {
 	var r Runner
-	exit := r.setup()
+	err := r.setup()
 	defer func() {
 		if r.db != nil {
 			r.db.Client().Disconnect(context.Background()) // disconnect because idle sessions stay around for 30 minutes on the server
 		}
 	}()
-	if exit != -1 {
-		return exit
+	if err != nil {
+		slog.Error(err.Error())
+		return 1
 	}
 
-	exit = r.setTaskRunnerDoc()
-	if exit != -1 {
-		return exit
+	if err = r.setTaskRunnerDoc(); err != nil {
+		slog.Error(err.Error())
+		return 1
 	}
 
 	var filter bson.M
@@ -80,7 +81,7 @@ func run() int {
 	return r.finish(result, filter)
 }
 
-func (r *Runner) setup() int {
+func (r *Runner) setup() error {
 	flag.StringVar(&r.taskID, "task", "", "The task's _id. Mandatory.")
 	flag.StringVar(&r.configFile, "config", "", "Path to the JSON Disbatch config file. Mandatory.")
 	flag.BoolVar(&r.quiet, "quiet", false, "Suppress STDOUT and STDERR output at end (mainly for testing).")
@@ -89,65 +90,55 @@ func (r *Runner) setup() int {
 	// flag.Args() is everything else, a slice, and can be passed an index for individual values
 
 	if r.configFile == "" {
-		slog.Error("config file must be passed with --config")
-		return 1
+		return errors.New("config file must be passed with --config")
 	}
 
 	if byteValue, err := os.ReadFile(r.configFile); err != nil {
-		slog.Error("could not read config file", "err", err)
-		return 1
+		return fmt.Errorf("could not read config file: %w", err)
 	} else if err = json.Unmarshal(byteValue, &r.config); err != nil {
-		slog.Error("could not parse config file", "file", r.configFile, "err", err)
-		return 1
+		return fmt.Errorf("could not parse config file %s: %w", r.configFile, err)
 	}
 
 	if err := logger(r.config); err != nil {
-		slog.Error("could not set up logger", "err", err)
-		return 1
+		return fmt.Errorf("could not set up logger: %w", err)
 	}
 
 	if r.taskID == "" {
-		slog.Error("task ID must be passed with --task")
-		return 1
+		return errors.New("task ID must be passed with --task")
 	}
 
 	var err error
 	r.node, err = os.Hostname()
 	if err != nil {
-		slog.Error("could not get hostname", "err", err)
-		return 1
+		return fmt.Errorf("could not get hostname: %w", err)
 	}
 
 	r.db, err = mongodb(r.config)
 	if err != nil {
-		slog.Error("could not connect to MongoDB", "err", err)
-		return 1
+		return fmt.Errorf("could not connect to MongoDB: %w", err)
 	}
 
 	slog.Info(fmt.Sprintf("Starting task %s", r.taskID))
 
 	r.oid, err = bson.ObjectIDFromHex(r.taskID)
 	if err != nil {
-		slog.Error("value for --task invalid", "taskID", r.taskID, "err", err)
-		return 1
+		return fmt.Errorf("invalid --task value %q: %w", r.taskID, err)
 	}
 
-	return -1
+	return nil
 }
 
-func (r *Runner) setTaskRunnerDoc() int {
+func (r *Runner) setTaskRunnerDoc() error {
 	filter := bson.M{"_id": r.oid, "status": -1, "node": r.node}
 	update := bson.M{"$set": bson.M{"status": 0}}
 	if err := r.db.Collection("tasks").FindOneAndUpdate(context.Background(), filter, update).Decode(&r.doc); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			slog.Error("could not find task to set status 0", "taskID", r.taskID)
-		} else {
-			slog.Error("unknown issue trying to find and update task to status 0", "taskID", r.taskID, "err", err)
+			return fmt.Errorf("could not find task %s to set status 0", r.taskID)
 		}
-		return 1
+		return fmt.Errorf("unknown issue trying to find and update task %s to status 0: %w", r.taskID, err)
 	}
 	slog.Info(fmt.Sprintf("params for %s: %s", r.taskID, r.doc["params"]))
-	return -1
+	return nil
 }
 
 func (r *Runner) setPlugin() error {
