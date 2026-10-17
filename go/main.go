@@ -59,11 +59,10 @@ func run() int {
 	if err := r.setPlugin(); err != nil {
 		slog.Error(err.Error())
 		result = bson.M{"status": 2, "stdout": "Unable to start", "stderr": err.Error()}
+	} else if cargs, taskFile, responseFile, err := r.createCommandArgs(); err != nil {
+		slog.Error(err.Error())
+		return 1
 	} else {
-		cargs, taskFile, responseFile, exit := r.createCommandArgs()
-		if cargs == nil {
-			return exit
-		}
 		r.cmdExit, r.cmdErr = runCommand(r.plugin, cargs) // 0 on success, err != nil on failure
 		r.recordPluginExit()
 		switch r.pluginType {
@@ -80,7 +79,11 @@ func run() int {
 			result = r.processFileResult(taskFile, responseFile)
 		}
 	}
-	return r.finish(result, filter)
+	if err := r.finish(result, filter); err != nil {
+		slog.Error(err.Error())
+		return 1
+	}
+	return 0
 }
 
 func (r *Runner) setup() error {
@@ -177,7 +180,7 @@ func (r *Runner) setPlugin() error {
 	return nil
 }
 
-func (r *Runner) createCommandArgs() ([]string, string, string, int) {
+func (r *Runner) createCommandArgs() ([]string, string, string, error) {
 	// types: file collection handoff
 	// * file:       optional mongo access, passes task and result via /tmp/r.taskID.json
 	//               uses local filesystem, don't have to worry about result size
@@ -246,7 +249,7 @@ func (r *Runner) createCommandArgs() ([]string, string, string, int) {
 			}
 		}
 	}
-	return cargs, taskFile, responseFile, -1
+	return cargs, taskFile, responseFile, nil
 }
 
 func (r *Runner) recordPluginExit() {
@@ -424,7 +427,7 @@ type Runner struct {
 	isModule   bool
 }
 
-func (r *Runner) finish(result bson.M, filter bson.M) int {
+func (r *Runner) finish(result bson.M, filter bson.M) error {
 	if filter == nil {
 		filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}
 	}
@@ -440,11 +443,9 @@ func (r *Runner) finish(result bson.M, filter bson.M) int {
 	// set status first:
 	update := bson.M{"$set": bson.M{"status": result["status"]}}
 	if res, err := r.db.Collection("tasks").UpdateOne(context.Background(), filter, update); err != nil {
-		slog.Error("unknown issue updating task to set status after completion", "taskID", r.taskID, "mtime", r.doc["mtime"], "status", result["status"], "err", err)
-		return 1
+		return fmt.Errorf("unknown issue updating task %s with mtime %v to set status %s after completion: %w", r.taskID, r.doc["mtime"], result["status"], err)
 	} else if res.MatchedCount == 0 {
-		slog.Error("could not find task to set status after completion", "taskID", r.taskID, "mtime", r.doc["mtime"], "status", result["status"])
-		return 1
+		return fmt.Errorf("could not find task %s with mtime %v to set status %s after completion", r.taskID, r.doc["mtime"], result["status"])
 	}
 
 	// set rest of result:
@@ -480,14 +481,12 @@ func (r *Runner) finish(result bson.M, filter bson.M) int {
 		if r.testing {
 			r.db.Collection("tasks").UpdateOne(context.Background(), filter, bson.M{"$set": bson.M{"complete": false}})
 		}
-		slog.Error("unknown issue updating task to set stdout/stderr after completion", "taskID", r.taskID, "mtime", r.doc["mtime"], "err", err)
-		return 1
+		return fmt.Errorf("unknown issue updating task %s with mtime %v to set stdout/stderr after completion: %w", r.taskID, r.doc["mtime"], err)
 	} else if res.MatchedCount == 0 {
-		slog.Error("could not find task to update stdout/stderr after completion", "taskID", r.taskID, "mtime", r.doc["mtime"])
-		return 1
+		return fmt.Errorf("could not find task %s with mtime %v to update stdout/stderr after completion", r.taskID, r.doc["mtime"])
 	}
 
-	return 0
+	return nil
 }
 
 // `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one, otherwise returns error `UnknownStatusError`
