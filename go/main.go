@@ -569,9 +569,9 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 }
 
 type Appender struct {
-	Args   map[string]interface{} `json:"args"` // [filename:disbatchd.log], [color:map[WARN:cyan]]
-	Layout string                 `json:"layout"`
-	Type   string                 `json:"type"`
+	Args   map[string]any `json:"args"` // [filename:disbatchd.log], [color:map[WARN:cyan]]
+	Layout string         `json:"layout"`
+	Type   string         `json:"type"`
 }
 
 type Log4perl struct {
@@ -612,7 +612,7 @@ func logger(config Config) error {
 	}
 	level, ok := levels[config.Log4perl.Level]
 	if !ok {
-		level = slog.Level(-8)
+		level = levels["TRACE"]
 	}
 	log.SetOutput(multi)
 	slog.SetLogLoggerLevel(level)
