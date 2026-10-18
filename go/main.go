@@ -439,15 +439,13 @@ func (r *Runner) finish(result bson.M, filter bson.M) error {
 	total := 0
 	bucket := r.db.GridFSBucket(options.GridFSBucket().SetName("tasks"))
 	for _, field := range []string{"stderr", "stdout"} {
-		size := 0
-		if s, ok := result[field].(string); ok {
-			size = len(s)
-		}
+		str, _ := result[field].(string)
+		size := len(str)
 		total += size
 		if size != 0 && total > 1024*1024*15 {
 			uploadOpts := options.GridFSUpload().SetMetadata(bson.M{"task_id": r.oid})
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute) // allow 2 minutes for total upload: 16MB creates 65 chunks and 1 file document
-			if id, err := bucket.UploadFromStream(ctx, field, strings.NewReader(result[field].(string)), uploadOpts); err != nil {
+			if id, err := bucket.UploadFromStream(ctx, field, strings.NewReader(str), uploadOpts); err != nil {
 				slog.Error("unknown issue creating GridFS content for task field", "taskID", r.taskID, "field", field, "err", err)
 				result[field] = nil
 			} else {
