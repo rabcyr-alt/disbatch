@@ -176,10 +176,12 @@ func (r *Runner) setPlugin() error {
 		return fmt.Errorf("no plugin defined in queue %v", r.doc["queue"])
 	}
 	pluginArgs := r.config.Plugins[r.plugin]
+	if pluginArgs.Raw != "" {
+		return fmt.Errorf("%v is misconfigured in config.plugins: %v", r.plugin, pluginArgs.Raw)
+	}
 	r.isModule = pluginArgs.IsModule
 	r.pluginType = pluginArgs.Type
 	if r.isModule {
-		r.pluginType = "handoff" // was "module", allows `go-task-runner` to run `bin/task_runner --handoff` for mixed plugin queues
 		r.plugin = r.config.PluginRunner
 	}
 	// validate `r.plugin` and `r.pluginType`. we also validate `r.config.PluginRunner` value here as `r.plugin` when `r.isModule` is true
@@ -531,20 +533,39 @@ func mongodb(config Config) (*mongo.Database, error) {
 type PluginArgs struct {
 	Type     string `json:"type"` // "file", "collection", or "handoff"
 	IsModule bool   `json:"-"`    // true when the config value was 1
+	Raw      string `json:"-"`    // raw json value on error
 }
 
-// claude:
 func (p *PluginArgs) UnmarshalJSON(data []byte) error {
+	/* Claude in a chat originally wrote this and I didn't really understand it at time, being new to Go. It would
+	 * accept any `float64` but ignore the value, so I couldn't check it in `setPlugin()`, while `bin/task_runner`
+	 * would fail the task if it is not `1`. That worked out fine, but was not ideal.
+	 * However, if it was not a number (`float64`), object (`PluginArgs`), nor `null` (`nil`), it failed in `setup()`
+	 * instead of in a check in `setPlugin()`. This left the status at `-1` instead of at `2`. Very bad!
+	 * Also, the Go JSON package treats `null` as a default value, which is `float64` here, so it was set as a Perl
+	 * module. `bin/task_runner` then would fail the task.
+	 * Additionally, it set the `Type` to "module" for a Perl module while also setting `IsModule`.
+	 *
+	 * Now we set only `PluginArgs.Raw` (new) with the string content of `data` if `n` is not `1`, or if `data` does
+	 * not unmarshal into `PluginArgs`, and no longer return an `error`. If `PluginArgs.Raw` is not an empty string, it
+	 * is a failure in `setPlugin()`.
+	 * Also, when setting `IsModule: true`, `Type` is set to "handoff" from the start instead of changing it in `setPlugin()`.
+	 */
 	var n float64
 	if err := json.Unmarshal(data, &n); err == nil {
-		*p = PluginArgs{Type: "module", IsModule: true}
+		if n != 1 {
+			*p = PluginArgs{Raw: string(data)}
+			return nil
+		}
+		*p = PluginArgs{Type: "handoff", IsModule: true} // `IsModule` tells `go-task-runner` to run `bin/task_runner --handoff` when plugins are Perl modules
 		return nil
 	}
 
 	type plain PluginArgs // a type declared this way has the same fields as `PluginArgs` but none of its methods, so it doesn't satisfy `Unmarshaler`
 	var tmp plain
 	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
+		*p = PluginArgs{Raw: string(data)}
+		return nil
 	}
 	*p = PluginArgs(tmp)
 	if p.Type == "" {
