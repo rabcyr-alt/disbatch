@@ -8,6 +8,8 @@ This is free software, licensed under:
 See `perldoc go-task-runner.pod` for instructions
 */
 
+// Go-task-runner is the Disbatch Task Runner (DTR). It runs one task's plugin as a separate program, validates the
+// result, and writes it to the task document.
 package main
 
 import (
@@ -32,6 +34,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+// Runner is the state of the task being run. Its fields are set in the order run calls its methods: the flags, config,
+// node, db, and oid by setup, doc by setTaskRunnerDoc, plugin, pluginType, and isModule by setPlugin, and cmdExit and
+// cmdErr once the plugin exits.
 type Runner struct {
 	db         *mongo.Database
 	taskID     string
@@ -49,10 +54,14 @@ type Runner struct {
 	isModule   bool
 }
 
+// main exits with the exit code from run, so that run's deferred calls happen first.
 func main() {
 	os.Exit(run())
 }
 
+// run runs the task and returns the exit code: 0 once the result is in the task document, or 1 if the task could not
+// be claimed or its result could not be written. A plugin that fails or cannot start is a task failure (status 2), not
+// an exit code.
 func run() int {
 	var r Runner
 	err := r.setup()
@@ -103,6 +112,7 @@ func run() int {
 	return 0
 }
 
+// setup parses the flags, reads the config file, sets up logging, and connects to MongoDB.
 func (r *Runner) setup() error {
 	flag.StringVar(&r.taskID, "task", "", "The task's _id. Mandatory.")
 	flag.StringVar(&r.configFile, "config", "", "Path to the JSON Disbatch config file. Mandatory.")
@@ -150,6 +160,8 @@ func (r *Runner) setup() error {
 	return nil
 }
 
+// setTaskRunnerDoc claims the task by changing its status from -1 to 0 on this node, and sets r.doc to the task
+// document as it was before that update.
 func (r *Runner) setTaskRunnerDoc() error {
 	filter := bson.M{"_id": r.oid, "status": -1, "node": r.node}
 	update := bson.M{"$set": bson.M{"status": 0}}
@@ -163,6 +175,10 @@ func (r *Runner) setTaskRunnerDoc() error {
 	return nil
 }
 
+// setPlugin sets r.plugin, r.pluginType, and r.isModule from the task's queue and the config's plugins. A Perl module
+// plugin is run as a handoff plugin by the config's plugin_runner. It returns an error if the queue or its plugin is not
+// found, or if the plugin is misconfigured in the config's plugins, is not the full path of an executable file, or has
+// an unknown type.
 func (r *Runner) setPlugin() error {
 	var queue bson.M
 	if err := r.db.Collection("queues").FindOne(context.Background(), bson.M{"_id": r.doc["queue"]}).Decode(&queue); err != nil {
@@ -195,6 +211,9 @@ func (r *Runner) setPlugin() error {
 	return nil
 }
 
+// createCommandArgs returns the plugin's arguments and the paths of the task and response files, which are only used by
+// plugins of type file. For type file it also writes the task file, and for type collection it deletes any old result.
+// Program plugins get the -plugin config file, which only has the plugin user's password.
 func (r *Runner) createCommandArgs() ([]string, string, string, error) {
 	// types: file collection handoff
 	// * file:       optional mongo access, passes task and result via /tmp/r.taskID.json
@@ -256,6 +275,8 @@ func (r *Runner) createCommandArgs() ([]string, string, string, error) {
 	return cargs, taskFile, responseFile, nil
 }
 
+// recordPluginExit logs how the plugin exited and sets cmdExit and cmdErr in the task document. Errors are only
+// logged, as the result still needs to be written.
 func (r *Runner) recordPluginExit() {
 	if r.cmdErr != nil {
 		// if r.cmdExit < 0, then result likely not saved
@@ -274,6 +295,9 @@ func (r *Runner) recordPluginExit() {
 	}
 }
 
+// processHandoffResult checks the result a handoff plugin wrote to the task document. If the result is valid, it
+// returns a nil result, as there is nothing left to do. Otherwise it returns a failure (status 2) and the filter for
+// finish, which is nil if the status is still 0. It only returns an error if it could not read the task document.
 func (r *Runner) processHandoffResult() (bson.M, bson.M, error) {
 	var task bson.M
 	var filter bson.M
@@ -337,6 +361,8 @@ func (r *Runner) processHandoffResult() (bson.M, bson.M, error) {
 	}
 }
 
+// processCollectionResult removes the plugin's result from the results collection and returns it after validateStatus.
+// A missing result is a failure (status 2).
 func (r *Runner) processCollectionResult() bson.M {
 	var result bson.M
 	opts := options.FindOneAndDelete().SetProjection(bson.M{"_id": 0, "status": 1, "stdout": 1, "stderr": 1})
@@ -352,6 +378,9 @@ func (r *Runner) processCollectionResult() bson.M {
 	return r.validateStatus(result)
 }
 
+// processFileResult reads the plugin's result from responseFile, keeping only status, stdout, and stderr, removes the
+// task and response files, and returns the result after validateStatus. A missing or invalid response file is a
+// failure (status 2).
 func (r *Runner) processFileResult(taskFile string, responseFile string) bson.M {
 	var result bson.M
 	if text, err := os.ReadFile(responseFile); err != nil {
@@ -378,6 +407,8 @@ func (r *Runner) processFileResult(taskFile string, responseFile string) bson.M 
 	return r.validateStatus(result)
 }
 
+// validateStatus returns result with its status as an int. If the status is not a positive integer, or is 1 when the
+// plugin did not exit cleanly, it returns a failure (status 2) instead, with the original result as stdout.
 func (r *Runner) validateStatus(result bson.M) bson.M {
 	if status, err := normalizeStatus(result["status"]); err != nil {
 		// err is UnknownStatusError, has `Status` of original result["status"], string value is "unknown type '%T' for status: %#v"
@@ -414,6 +445,9 @@ func (r *Runner) validateStatus(result bson.M) bson.M {
 	return result
 }
 
+// finish logs the result and writes it to the task document: status first, using filter (or status 0 if filter is
+// nil), and then stdout and stderr. Once their combined size is over 15MB, stdout is stored in GridFS, and so is stderr
+// if it alone is over 15MB.
 func (r *Runner) finish(result bson.M, filter bson.M) error {
 	if filter == nil {
 		filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}
@@ -474,7 +508,8 @@ func (r *Runner) finish(result bson.M, filter bson.M) error {
 	return nil
 }
 
-// `int32` becomes `int`, `int` unchanged, `float64` becomes `int` if it looks like one, otherwise returns error `UnknownStatusError`
+// normalizeStatus returns rstatus as an int if it is an int32 (from MongoDB), an int, or a float64 (from JSON) that holds
+// an integer within the range of an int32. Otherwise it returns an [UnknownStatusError].
 func normalizeStatus(rstatus any) (int, error) {
 	var status int
 	var err error
@@ -494,6 +529,7 @@ func normalizeStatus(rstatus any) (int, error) {
 	return status, err
 }
 
+// UnknownStatusError is returned by normalizeStatus when a status is not an integer. Status is the original value.
 type UnknownStatusError struct {
 	Status any
 }
@@ -502,6 +538,8 @@ func (e *UnknownStatusError) Error() string {
 	return fmt.Sprintf("unknown type '%T' for status: %#v", e.Status, e.Status)
 }
 
+// mongodb connects to MongoDB as the task_runner user (if config.Auth has any users), pings it, and returns the
+// config's database.
 func mongodb(config Config) (*mongo.Database, error) {
 	uri := config.MongoHost
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1) // set Stable API version to 1 (note: not necessary, but a good idea, requires MongoDB 5.0 or newer)
@@ -530,12 +568,15 @@ func mongodb(config Config) (*mongo.Database, error) {
 	return client.Database(config.Database), nil
 }
 
+// PluginArgs is a plugin's value in the config's plugins.
 type PluginArgs struct {
 	Type     string `json:"type"` // "file", "collection", or "handoff"
 	IsModule bool   `json:"-"`    // true when the config value was 1
 	Raw      string `json:"-"`    // raw json value on error
 }
 
+// UnmarshalJSON decodes the JSON number 1 as a Perl module plugin, and an object as a program plugin whose type
+// defaults to "file", otherwise it sets `Raw` with the JSON string value.
 func (p *PluginArgs) UnmarshalJSON(data []byte) error {
 	/* Claude in a chat originally wrote this and I didn't really understand it at time, being new to Go. It would
 	 * accept any `float64` but ignore the value, so I couldn't check it in `setPlugin()`, while `bin/task_runner`
@@ -574,17 +615,20 @@ func (p *PluginArgs) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Appender is a log4perl appender in the config. Only the filename of the "filelog" appender is used.
 type Appender struct {
 	Args   map[string]any `json:"args"` // [filename:disbatchd.log], [color:map[WARN:cyan]]
 	Layout string         `json:"layout"`
 	Type   string         `json:"type"`
 }
 
+// Log4perl is the config's log4perl settings.
 type Log4perl struct {
 	Level     string              `json:"level"`
 	Appenders map[string]Appender `json:"appenders"`
 }
 
+// Config is the part of the Disbatch config file that go-task-runner uses.
 type Config struct {
 	MongoHost    string                `json:"mongohost"`
 	Database     string                `json:"database"`
@@ -595,6 +639,7 @@ type Config struct {
 	TempDir      string                `json:"temp_dir"`
 }
 
+// UnmarshalJSON decodes the config, with TempDir defaulting to /tmp/disbatch.
 func (c *Config) UnmarshalJSON(data []byte) error {
 	type plain Config
 	var tmp plain
@@ -608,6 +653,8 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// logger sends logging to stderr and to the file of the "filelog" appender (default /var/log/disbatchd.log), at the
+// level of log4perl.level (TRACE if unknown).
 func logger(config Config) error {
 	filename := "/var/log/disbatchd.log"
 	if fn, ok := config.Log4perl.Appenders["filelog"].Args["filename"].(string); ok {
@@ -640,8 +687,9 @@ func logger(config Config) error {
 	return nil
 }
 
-// return value is exit code, error. exit code is 0 and error is nil on success.
-// exit code -3 means start failed, -2 means wait failed (not sure how), -1 means killed, + is whatever command exited with
+// runCommand runs command with args, sending its stdout and stderr to ours, and returns its exit code and error. On
+// success the exit code is 0 and the error is nil. Otherwise the exit code is -3 if it could not start, -2 if waiting
+// for it failed, -1 if it was killed by a signal, or else the command's own exit code.
 func runCommand(command string, args []string) (int, error) {
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
