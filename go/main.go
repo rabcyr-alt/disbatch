@@ -32,6 +32,23 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
+type Runner struct {
+	db         *mongo.Database
+	taskID     string
+	oid        bson.ObjectID
+	doc        bson.M
+	node       string
+	quiet      bool
+	configFile string
+	testing    bool
+	config     Config
+	cmdExit    int
+	cmdErr     error
+	plugin     string
+	pluginType string
+	isModule   bool
+}
+
 func main() {
 	os.Exit(run())
 }
@@ -395,23 +412,6 @@ func (r *Runner) validateStatus(result bson.M) bson.M {
 	return result
 }
 
-type Runner struct {
-	db         *mongo.Database
-	taskID     string
-	oid        bson.ObjectID
-	doc        bson.M
-	node       string
-	quiet      bool
-	configFile string
-	testing    bool
-	config     Config
-	cmdExit    int
-	cmdErr     error
-	plugin     string
-	pluginType string
-	isModule   bool
-}
-
 func (r *Runner) finish(result bson.M, filter bson.M) error {
 	if filter == nil {
 		filter = bson.M{"_id": r.oid, "status": 0, "node": r.node, "mtime": r.doc["mtime"]}
@@ -553,19 +553,6 @@ func (p *PluginArgs) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (c *Config) UnmarshalJSON(data []byte) error {
-	type plain Config
-	var tmp plain
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-	*c = Config(tmp)
-	if c.TempDir == "" {
-		c.TempDir = "/tmp/disbatch"
-	}
-	return nil
-}
-
 type Appender struct {
 	Args   map[string]any `json:"args"` // [filename:disbatchd.log], [color:map[WARN:cyan]]
 	Layout string         `json:"layout"`
@@ -585,6 +572,19 @@ type Config struct {
 	Plugins      map[string]PluginArgs `json:"plugins"` // value may be `1` or a map with key `type` and value: `file` `collection` `handoff`
 	PluginRunner string                `json:"plugin_runner"`
 	TempDir      string                `json:"temp_dir"`
+}
+
+func (c *Config) UnmarshalJSON(data []byte) error {
+	type plain Config
+	var tmp plain
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+	*c = Config(tmp)
+	if c.TempDir == "" {
+		c.TempDir = "/tmp/disbatch"
+	}
+	return nil
 }
 
 func logger(config Config) error {
