@@ -17,6 +17,7 @@ use MongoDB 2.2.2;
 use POSIX 'setsid';
 use Safe::Isa;
 use Sys::Hostname;
+use Time::HiRes qw/ gettimeofday tv_interval /;
 use Time::Moment;
 use Try::Tiny::Retry;
 
@@ -253,9 +254,14 @@ sub validate_plugins {
 # clears plugin validation and re-runs
 sub revalidate_plugins {
     my ($self) = @_;
-    $self->{old_plugins} = $self->{plugins};
-    $self->{plugins} = {};
-    $self->validate_plugins;
+    $self->{t0} //= [gettimeofday];
+    my $elapsed = tv_interval($self->{t0});
+    if ($elapsed >= 1) {
+        $self->{old_plugins} = $self->{plugins};
+        $self->{plugins} = {};
+        $self->validate_plugins;
+        $self->{t0} = [gettimeofday];
+    }
 }
 
 sub scheduler_report {
