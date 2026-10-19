@@ -468,11 +468,18 @@ if (!$ENV{MODULE}) {
             'Disbatch::Plugin::NoSuchPlugin' => [ 1, 'ignored' ],
             'Bad Name!'                      => [ 1, 'invalid' ],
             $plugin_file{handoff}            => [ 0, 'invalid' ],	# neither `1` nor an object
+            'Disbatch::Plugin::True'         => [ Cpanel::JSON::XS::true, 'invalid' ],	# `true == 1`, but is not `1`
+            'Disbatch::Plugin::One'          => [ '1', 'invalid' ],
+            'Disbatch::Plugin::Two'          => [ 2, 'invalid' ],
         );
 
         my $den = Disbatch->new(class => 'Disbatch', config_file => $tm->config_file);
         $den->load_config;
         $den->{config}{plugins} = { map { $_ => $plugins{$_}[0] } keys %plugins };
+        $tm->{config} = $den->{config};
+        $tm->write_config;
+        undef $den->{config};
+        $den->load_config;
         $db->coll('queues')->insert_one({ name => "validate$_", plugin => (sort keys %plugins)[$_], threads => 0 }) for 0 .. keys(%plugins) - 1;
         $den->validate_plugins;
 

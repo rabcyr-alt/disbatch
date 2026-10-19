@@ -5,6 +5,7 @@ use warnings;
 
 use boolean 0.25;
 use Cpanel::JSON::XS;
+use Cpanel::JSON::XS::Type;
 use Digest::MD5;
 use Data::Dumper;
 use Encode;
@@ -89,7 +90,7 @@ sub load_config {
     my ($self) = @_;
     if (!defined $self->{config}) {
         $self->{config} = try {
-            Cpanel::JSON::XS->new->utf8->relaxed->decode(scalar read_file($self->{config_file}));
+            Cpanel::JSON::XS->new->utf8->relaxed->decode(scalar read_file($self->{config_file}), $self->{types});
         } catch {
             $self->{config}{log4perl} = $default_log4perl;
             $self->logger->logdie("Could not parse $self->{config_file}: $_");
@@ -208,6 +209,11 @@ sub validate_plugins {
     for my $plugin (map { $_->{plugin} } @queues) {
         next if exists $self->{plugins}{$plugin};
         my $args = $self->{config}{plugins}{$plugin} // 0;
+        my $is_num = 0;
+        if (!ref $args and $args) {
+            my $type = $self->{types}{plugins}{$plugin};
+            $is_num = $type == JSON_TYPE_INT || $type == JSON_TYPE_FLOAT;
+        }
         if (ref $args eq 'HASH') {
             $args->{type} //= 'file';
             if ($plugin !~ m{^/}) {
@@ -222,7 +228,7 @@ sub validate_plugins {
                 $self->{plugins}{$plugin} = undef;
                 $self->logger->warn("Could not load $plugin, ignoring queues using it");
             }
-        } elsif ($args == 1) {
+        } elsif ($is_num and $args == 1) {
             if ($plugin !~ /^[\w:]+$/) {
                 $self->logger->error("Illegal plugin value: $plugin");
             } elsif (eval "require $plugin; $plugin->new->can('run');") {
