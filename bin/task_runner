@@ -5,6 +5,7 @@ use warnings;
 
 use BSON::OID;
 use Cpanel::JSON::XS;
+use Cpanel::JSON::XS::Type;
 use Data::Dumper;
 use Encode;
 use Getopt::Long;
@@ -73,8 +74,8 @@ if (!defined $plugin) {
     $error = "plugin value '$plugin' for task $task_id must be a valid perl package name, matching /^[\\w:]+\$/";
 } elsif (!eval "use $plugin; 1") {
     $error = "$plugin not found for task $task_id";
-} elsif (($disbatch->{config}{plugins}{$plugin} // 0) != 1) {
-    $error = "$plugin is misconfigured in config.plugins for task $task_id (value should be 1)";
+} elsif (!$disbatch->is_module_args($plugin)) {
+    $error = "$plugin is misconfigured in config.plugins for task $task_id";
 }
 
 my $result;
