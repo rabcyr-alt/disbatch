@@ -72,7 +72,6 @@ if (!$ENV{PERL_PLUGINS}) {
         diag "Could not build the Go test plugins, so using the Perl ones: ", $err || $@;
     }
 }
-diag "plugins = $plugin_file{file}, $plugin_file{collection}, $plugin_file{handoff}, $plugin_file{raw}";
 # `plugin_runner` needs to find `Disbatch` and the Perl module plugin, which is in `t/` so it is not installed:
 $ENV{PERL5LIB} = join ':', abs_path('lib'), $plugin_dir, $ENV{PERL5LIB} // ();
 $config->{task_runner} = $binary;	# the one being tested, and so it does not log that it is using the Perl one as the default is not installed
