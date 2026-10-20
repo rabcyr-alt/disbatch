@@ -5,6 +5,7 @@ disbatch-*.tar.gz
 disbatch-*/
 disbatch3-*.tar.gz
 disbatch3-*/
+etc/disbatch/additional-permissions.json
 etc/disbatch/config.json
 etc/disbatch/config.json-plugin
 etc/disbatch/config.json-strict
