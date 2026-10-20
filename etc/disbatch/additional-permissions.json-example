@@ -14,5 +14,6 @@
         #"nodes": [ "update" ],
         #"queues": [ "insert", "update", "remove" ],
         #"tasks": [ "insert" ],
+        #"changelog": [ "insert" ],
     },
 }
