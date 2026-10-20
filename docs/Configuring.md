@@ -20,7 +20,10 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
    7. Uncomment `pre_hook` section if using a pre_hook plugin
    8. Set `activequeues` or `ignorequeues` per DEN if used
    9. Set `node_increase` and/or `queue_increase` to throttle thread increases
-   10. Remove the rest, which is optional and configured for development
+   10. Set `web_extensions` if used. See [WebExtensions](WebExtensions.md).
+   11. Set `process_queues_interval` if desired.
+   12. Change `dashboard`, `temp_dir`, and `temp_dir_mode` if desired.
+   13. Remove the rest, which is optional and configured for development
 
 See also [Configuring and Using TLS with MongoDB](TLS_MongoDB.md) and
 [Configuring and Using TLS with the Disbatch Command Interface](TLS_DCI.md).

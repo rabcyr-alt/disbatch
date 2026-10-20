@@ -2,31 +2,25 @@
 
 Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
-This release is made to use newer Perl (v5.32.1, though v5.16.2 and maybe
-5.12.0 should work), the latest (and last) Perl MongoDB driver (v2.2.2), and
-was tested against MongoDB v6.0.26 (though v3.6.8 should still work, and
-possibly 8.2).
+This release enables running on newer systems (Perl 5.32, MongoDB 8.2) while
+hopefully not breaking running on older systems, and has an entirely new web
+UI, as well as a generic task runner that can run Disbatch tasks in any
+language. Code deprecated in 4.0 and 4.2 has been removed.
 
-The only requirement to upgrade should be the Perl driver, if not already
-using v2.2.2.
-
-No changes were made to how data is stored, nor to config files. No new
-features were added, but features deprecated in 4.2 and 4.0 were removed.
-
-### Upgrading from Disbatch 4.2 to Disbatch 4.4
-
-This release enables running on newer systems (Perl 5.32, MongoDB 8.2) while hopefully not breaking
-running on older systems, and has an entirely new web UI. Code deprecated in 4.0 and 4.2 has been
-removed.
+Requires the latest (and last) MongoDB Perl driver, if not already using
+v2.2.2, an Go 1.26.7 or later to build the generic task runner.
 
 - Breaking changes:
   - web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+  - `Template` is no longer required, but it and `Template::Plugin::SimpleJson` are suggested and will need to be installed separately
   - `config.plugins` is now an object and not an array, and for existing plugins the value should be `1`
   - `attributes` no longer used, as MongoDB TLS settings now go in the `mongohost` connection string (see below for `bin/disbatch`)
   - `gfs`/`--gfs` no longer used, and the algorithm slightly changed (an empty `stdout` will no longer be stored in GridFS if `stderr` size is over 15MB)
   - `complete` (undocumented) now only set in the task when `--testing` is used (as it exists just for `t/002_full.t`)
 - `go-task-runner` is now the default task runner, but will fall back to the Perl `task_runner` if not available
   - requires golang >= 1.26.7 to build
+    - set `DISBATCH_SKIP_GO=1` to skip building
+    - set `GO=<PATH>` to use other than the default `go`
   - `plugin_runner` is the path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
   - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
   - `disbatchd` now writes `config.json-strict`, `config.json-task_runner`, and `config.json-plugin` next to its config file on startup, so it needs write access to that directory (see [Design](Design.md#config-file))
@@ -34,6 +28,9 @@ removed.
   - the RPM is no longer `noarch` as it installs the binary `/usr/bin/go-task-runner`
   - see [Plugins](Plugins.md) for specifications
 - `bin/disbatch` now uses its own config file for `ssl_opts`. See [TLS_DCI](TLS_DCI.md) and `perldoc disbatch`
+- v4.201 additions:
+  - add config options "node_increase" and "queue_increase" to throttle thread increases
+  - add "pre_hook" feature to run custom code at the top of the `disbatchd` loop
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3) : deprecated v3 routes: *-json, not tested
   - file `lib/Disbatch/Web/Tasks.pm` (Disbatch::Web::Tasks) : deprecated v4 routes: POST /tasks/search, POST /tasks/:queue, POST /tasks/:queue/:collection

@@ -3,7 +3,7 @@
 Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 This version updates for modern systems (Rocky 9, MongoDB v8.2.4, Perl v5.32.1) but should still work on older ones and ships a new web
-UI, while removing deprecated code.
+UI and a new generic task runner, while removing deprecated code.
 
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3)
@@ -45,7 +45,19 @@ UI, while removing deprecated code.
   - `GET /tasks/:id` now handles options `.full`, `.terse`, `.epoch`, and `.pretty`, and returns 400 if other options passed
 - added `Disbatch::Web::TT` which extends `Disbatch::Web` so `Template` can still be used in web extensions
   - web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+  - `Template` is no longer required, but it and `Template::Plugin::SimpleJson` are suggested.
 - added `Disbatch::Plugin::Demo::Extension` and `Disbatch::Plugin::Demo::TTExtension` as example extensions
+- v4.201 additions:
+  - add config options "node_increase" and "queue_increase" to throttle thread increases
+  - add "pre_hook" feature to run custom code at the top of the `disbatchd` loop
+- new optional config key `process_queues_interval` (milliseconds). `disbatchd` calls `process_queues()` that often, instead of once a second.
+- bug fixes:
+  - `bin/disbatch` printed the password when `--username` and `--password` were used
+  - `bin/disbatch --skip` did not take a value
+  - `GET /tasks` with multiple values for an ObjectId field (such as `id`) built an invalid query
+  - `disbatchd` died instead of unclaiming the task if it could not exec the task runner
+  - QueueBalance died after changing a queue's `maxthreads`, instead of writing to `changelog`
+  - log4perl appenders were only added to the first logger category created, so other categories (such as a plugin's class) could log nothing
 
 ### Differences in Disbatch 4.2 compared to Disbatch 4.0
 

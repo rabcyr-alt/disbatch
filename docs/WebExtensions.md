@@ -4,7 +4,7 @@ Copyright (c) 2019, 2026 by Ashley Willis.
 
 You can now add custom routes to the web interface using [Limper](https://metacpan.org/pod/Limper),
 both as JSON API routes and as web interface routes using [Template::Toolkit](https://metacpan.org/pod/Template::Toolkit).
-Template::Toolkit is deprecated as of Disbatch 4.4, and support is likely to be removed in 4.6.
+`Template` is no longer required as of Disbatch 4.4, but it and `Template::Plugin::SimpleJson` are suggested.
 
 #### Update the config file
 

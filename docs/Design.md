@@ -336,8 +336,8 @@ config file's directory.
 * `auth`
 
   A hash of usernames and passwords for MongoDB authentication. It must contain
-  keys of `disbatchd`, `disbatch_web`, `task_runner`, and `plugin`, with the
-  values their respective passwords.
+  keys of `disbatchd`, `disbatch_web`, `task_runner`, `plugin`, and
+  `queuebalance`, with the values their respective passwords.
 
 ##### Additional settings that may be specified are:
 
@@ -370,6 +370,17 @@ config file's directory.
 
   A hash of package names and options for adding new routes to the DCI.
 
+* `process_queues_interval`
+
+  Time in ms to sleep between calls to `process_queues()`. Default is `null`. Without it, the old behavior of sleeping
+  1 second is followed. Designed to be able to call `process_queues()` more often (100 ms, maybe less). May also
+  increase the time, but it should be well under `dashboard.live_window_ms` or the node will be reported as dead.
+
+* `dashboard`
+
+  A hash for web dashboard settings. `refresh_ms` is the auto-refresh interval in ms (default `30000`), and
+  `live_window_ms` is the node-liveness window in ms (default `15000`).
+
 * `pre_hook`
 
   A hash with the required key `name` whose value is package name (the package must have the sub `pre_hook()`), and optional key `fatal` (default is false) if to have `disbatchd` die if it cannot load the hook or the hook throws an error.
@@ -390,9 +401,9 @@ config file's directory.
 
 * `plugin_runner`
 
-   Path to the original Perl DTR, which `go-task-runner` runs with
+  Path to the original Perl DTR, which `go-task-runner` runs with
   `--handoff` to run Perl module plugins. Default is `"/usr/bin/task_runner"`.
-   It should be a full path, but a relative path is also allowed for development.
+  It should be a full path, but a relative path is also allowed for development.
 
 * `temp_dir`
 
@@ -415,7 +426,7 @@ config file's directory.
 
 * `views_dir`
 
-  The path to the template files for the web interface.
+  The path to the template files for TT web extensions.
   Default is `"/etc/disbatch/views/"`.
 
 * `log4perl`
@@ -445,7 +456,17 @@ config file's directory.
 
 * `activequeues` and `ignorequeues`
 
-   An array of queue _id string values. Default is `[]`.
+  An array of queue _id string values. Default is `[]`.
 
-   Each DEN can be configured to only monitor specific queues, or to monitor all
-   but specific queues. If both are set, only `activequeues` is used.
+  Each DEN can be configured to only monitor specific queues, or to monitor all
+  but specific queues. If both are set, only `activequeues` is used.
+
+* `quiet`
+
+  Suppress STDOUT and STDERR output at the end of the task runner. Mainly for
+  testing. Default is false.
+
+* `testing`
+
+  Set `complete` when setting `stdout` and `stderr` in the task runner, and use
+  `lib/Disbatch.pm` in `bin/task_runner`. For testing only. Default is false.

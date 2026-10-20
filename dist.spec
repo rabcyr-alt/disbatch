@@ -112,4 +112,4 @@ fi
 
 %changelog
 * %(date '+%a %b %d %Y') Ashley Willis <consul-5flap@icloud.com> %{version}-1
-- Initial Synacor build.
+- see docs/Differences.md and docs/Upgrading.md
