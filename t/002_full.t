@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# This software is Copyright (c) 2016, 2019 by Ashley Willis.
+# This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 # This is free software, licensed under:
 #   The Apache License, Version 2.0, January 2004
 
@@ -11,8 +11,6 @@ use warnings;
 
 use Cpanel::JSON::XS;
 use Data::Dumper;
-use File::Path qw/remove_tree/;
-use File::Slurp;
 use MongoDB 2.2.2;
 use Net::HTTP::Client;
 use POSIX qw(setsid);
@@ -20,9 +18,10 @@ use Sys::Hostname;
 use Try::Tiny::Retry ':all';
 
 use lib 'lib';
+use lib 't';
 use Disbatch;
-use Disbatch::Roles;
 use Disbatch::Web;
+use TestMongo;
 
 my $use_ssl = $ENV{USE_SSL} // 1;
 my $use_auth = $ENV{USE_AUTH} // 1;
@@ -32,100 +31,41 @@ if (!$ENV{AUTHOR_TESTING} or $ENV{SKIP_FULL_TESTS}) {
     exit;
 }
 
-sub get_free_port {
-    my ($port, $sock);
-    do {
-        $port = int rand()*32767+32768;
-        $sock = IO::Socket::INET->new(Listen => 1, ReuseAddr => 1, LocalAddr => 'localhost', LocalPort => $port, Proto => 'tcp')
-                or warn "\n# cannot bind to port $port: $!";
-    } while (!defined $sock);
-    $sock->shutdown(2);
-    $sock->close();
-    $port;
-}
+# Tasks are run by `go-task-runner` by default. Set `TASK_RUNNER` to use another, such as `TASK_RUNNER=./bin/task_runner` for the Perl one.
+my $task_runner = $ENV{TASK_RUNNER} // TestMongo::go_task_runner() // '';
+die "TASK_RUNNER '$task_runner' not found or not executable. Build go-task-runner via: (cd go && go build -mod=vendor -o go-task-runner .)\n" unless -x $task_runner;
 
-my $mongoport = get_free_port;
+my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
 
-# define config and make up a database name:
-my $config = {
-    monitoring => 1,
-    balance => {
-        log => 1,
-        verbose => 0,
-        pretend => 0,
-        enabled => 0,
+my $tm = TestMongo->new(
+    use_ssl => $use_ssl,
+    use_auth => $use_auth,
+    plugin_perms => $plugin_perms,
+    config => {
+        monitoring => 1,
+        balance => {
+            log => 1,
+            verbose => 0,
+            pretend => 0,
+            enabled => 0,
+        },
+        plugins => { 'Disbatch::Plugin::Demo' => 1 },
+        web_extensions => {
+        },
+        web_root => 'etc/disbatch/htdocs/',
+        views_dir => 'etc/disbatch/views/',
+        task_runner => $task_runner,
+        plugin_runner => 'bin/task_runner',	# for go-task-runner to run `Disbatch::Plugin::Demo` via `bin/task_runner --handoff`
+        testing => 1,	# for task_runner to use lib 'lib' and set `complete`
     },
-    mongohost => "localhost:$mongoport",
-    database => "disbatch_test$$" . int(rand(10000)),
-    attributes => { ssl => { SSL_ca_file => 't/rootCA.crt', SSL_cert_file => 't/serverCert.pem' } },
-    auth => {
-        disbatchd => 'qwerty1',		# { username => 'disbatchd', password => 'qwerty1' },
-        disbatch_web => 'qwerty2',	# { username => 'disbatch_web', password => 'qwerty2' },
-        task_runner => 'qwerty3',	# { username => 'task_runner', password => 'qwerty3' },
-        queuebalance => 'qwerty4',	# { username => 'queuebalance', password => 'qwerty4' },
-        plugin => 'qwerty5',		# { username => 'plugin', password => 'qwerty5' },
-    },
-    plugins => [ 'Disbatch::Plugin::Demo' ],
-    web_extensions => {
-    },
-    web_root => 'etc/disbatch/htdocs/',
-    views_dir => 'etc/disbatch/views/',
-    task_runner => './bin/task_runner',
-    testing => 1,	# for task_runner to use lib 'lib'
-    gfs => 'auto',	# default
-    log4perl => {
-        level => 'TRACE',
-        appenders => {
-            filelog => {
-                type => 'Log::Log4perl::Appender::File',
-                layout => '[%p] %d %F{1} %L %C %c> %m %n',
-                args => { filename => 'disbatchd.log' },
-            },
-            screenlog => {
-                type => 'Log::Log4perl::Appender::ScreenColoredLevels',
-                layout => '[%p] %d %F{1} %L %C %c> %m %n',
-                args => { },
-            }
-        }
-    },
-};
-delete $config->{auth} unless $use_auth;
-delete $config->{attributes} unless $use_ssl;
-
-mkdir "/tmp/$config->{database}";
-my $config_file = "/tmp/$config->{database}/config.json";
-write_file $config_file, encode_json $config;
+);
+my $config = $tm->config;
+my $config_file = $tm->config_file;
 
 diag "database = $config->{database}";
 
-my @mongo_args = (
-    '--logpath' => "/tmp/$config->{database}/mongod.log",
-    '--dbpath' => "/tmp/$config->{database}/",
-    '--pidfilepath' => "/tmp/$config->{database}/mongod.pid",
-    '--port' => $mongoport,
-    #'--noprealloc',	# not on 8.2 nor 6.0
-    #'--nojournal',	# not on 8.2 but is on 6.0
-    '--fork'		# NOTE: fork did not work on whatever 8.2 version I used at work on Rocky 9, but it does on 8.2.4 on my personal Rocky 9
-);
-push @mongo_args, $use_auth ? '--auth' : '--noauth';
-push @mongo_args, '--tlsMode' => 'requireTLS', '--tlsCertificateKeyFile' => 't/serverCert.pem', '--tlsCAFile' => 't/rootCAcombined.pem' if $use_ssl;
-my $mongo_args = join ' ', @mongo_args;
-say `mongod $mongo_args`;	# IDEA: use system or IPC::Open3 instead (note from 2016-05-05, it's now 2025)
-
-# Get test database, authed as root:
-my $attributes = {};
-$attributes->{ssl} = $config->{attributes}{ssl} if $use_ssl;
-if ($use_auth) {
-    my $admin = MongoDB->connect($config->{mongohost}, $attributes)->get_database('admin');
-    retry { $admin->run_command([createUser => 'root', pwd => 'kjfiwey76r3gjm', roles => [ { role => 'root', db => 'admin' } ]]) } catch { die $_ };
-    $attributes->{username} = 'root';
-    $attributes->{password} = 'kjfiwey76r3gjm';
-}
-my $test_db_root = retry { MongoDB->connect($config->{mongohost}, $attributes)->get_database($config->{database}) } catch { die $_ };
-
-# Create roles and users for a database:
-my $plugin_perms = { reports => [ 'insert' ] };	# minimal permissions for Disbatch::Plugin::Demo
-Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, %{$config->{auth}})->create_roles_and_users if $use_auth;
+# Start mongod, get test database authed as root, and create roles and users:
+my $test_db_root = $tm->start;
 
 # Create users collection:
 for my $username (qw/ foo bar /) {
@@ -135,6 +75,7 @@ for my $username (qw/ foo bar /) {
 # Ensure indexes:
 my $disbatch = Disbatch->new(class => 'Disbatch', config_file => $config_file);
 $disbatch->load_config;
+$disbatch->save_strict_config;
 $disbatch->ensure_indexes;
 
 
@@ -150,7 +91,7 @@ sub daemonize {
     0;
 }
 
-my $webport = get_free_port;
+my $webport = TestMongo::get_free_port;
 
 my $webpid = daemonize();
 if ($webpid == 0) {
@@ -178,7 +119,7 @@ if ($webpid == 0) {
     my $terse;	# boolean
 
     $name = 'test_queue';
-    $plugin = $config->{plugins}[0];
+    $plugin = (keys %{$config->{plugins}})[0];
 
     # make sure web server is running:
     retry { Net::HTTP::Client->request(GET => "$uri/") } catch { die $_ };
@@ -592,28 +533,22 @@ if ($webpid == 0) {
     is $content->{'MongoDB::UpdateResult'}{modified_count}, 1, 'modified success';
 
     my $gfs_tests = {
-        'e'   => { auto => ['STR','NUL'], 0 => ['STR','NUL'] }, # 15,   0       15
-        'eb'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, # 15,   0+      15+
-        'aE'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  0+, 15       15+
-        'ea'  => { auto => ['OID','NUL'], 0 => ['STR','NUL'] }, # 15+,  0       15+
-        'E'   => { auto => ['NUL','STR'], 0 => ['NUL','STR'] }, #  0,  15       15
-        'eA'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, # 15,   1       16      stdout will have error msg for document too large
-        '1E'  => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  1,  15       16      stdout will have error msg for document too large
-        '7aC' => { auto => ['OID','STR'], 0 => ['STR','STR'] }, #  7+,  8       15+
-        '7C'  => { auto => ['STR','STR'], 0 => ['STR','STR'] }, #  7,   8       15
-        'Eb'  => { auto => ['OID','OID'], 0 => ['NUL','STR'] }, #  0,  15+      15+
+        'e'   => ['STR','NUL'], # 15,   0       15
+        'eb'  => ['OID','STR'], # 15,   0+      15+
+        'aE'  => ['OID','STR'], #  0+, 15       15+
+        'ea'  => ['OID','NUL'], # 15+,  0       15+
+        'E'   => ['NUL','STR'], #  0,  15       15
+        'eA'  => ['OID','STR'], # 15,   1       16
+        '1E'  => ['OID','STR'], #  1,  15       16
+        '7aC' => ['OID','STR'], #  7+,  8       15+
+        '7C'  => ['STR','STR'], #  7,   8       15
+        'Eb'  => ['NUL','OID'], #  0,  15+      15+
     };
 
     note "GFS loop start";
     $disbatch->{config}{quiet} = 1;
-    for my $gfs ('auto', 1, 0) {
-        if (exists $ENV{GFS_TESTS}) {
-            next unless $ENV{GFS_TESTS} eq "$gfs";
-            note "GFS: $gfs";
-        }
-        $disbatch->{config}{gfs} = $gfs;
+    unless (exists $ENV{GFS_TESTS} and $ENV{GFS_TESTS} eq 'none') {
         for my $key (keys  %$gfs_tests) {
-            #note "GFS: $gfs $key $gfs_tests->{$key}{$gfs}[0] $gfs_tests->{$key}{$gfs}[1]";
             $data = { queue => $name, params => [ {commands => $key} ] };
             $res = Net::HTTP::Client->request(POST => "$uri/tasks", 'Content-Type' => 'application/json', encode_json($data));
             is $res->status_line, '200 OK', '200 status';
@@ -650,45 +585,23 @@ if ($webpid == 0) {
             is $content->[0]{status}, 1, 'status 1';
             ok exists $content->[0]{stdout}, 'stdout exists';
             ok exists $content->[0]{stderr}, 'stderr exists';
-            if (!$gfs) {
-                if ($gfs_tests->{$key}{0}[0] eq 'NUL') {
-                    ok !defined $content->[0]{stdout}, 'stdout undefined';
-                } elsif ($gfs_tests->{$key}{0}[0] eq 'STR') {
-                    ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
-                #} elsif ($gfs_tests->{$key}{0}[0] eq 'OID') {
-                } else {
-                    die;
-                }
-                if ($gfs_tests->{$key}{0}[1] eq 'NUL') {
-                    ok !defined $content->[0]{stderr}, 'stderr undefined';
-                } elsif ($gfs_tests->{$key}{0}[1] eq 'STR') {
-                    ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
-                #} elsif ($gfs_tests->{$key}{0}[1] eq 'OID') {
-                } else {
-                    die;
-                }
-            } elsif ($gfs eq 'auto') {
-                if ($gfs_tests->{$key}{auto}[0] eq 'NUL') {
-                    ok !defined $content->[0]{stdout}, 'stdout undefined';
-                } elsif ($gfs_tests->{$key}{auto}[0] eq 'STR') {
-                    ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
-                } elsif ($gfs_tests->{$key}{auto}[0] eq 'OID') {
-                    ok defined $content->[0]{stdout}, 'stdout OID';
-                } else {
-                    die;
-                }
-                if ($gfs_tests->{$key}{auto}[1] eq 'NUL') {
-                    ok !defined $content->[0]{stderr}, 'stderr undefined';
-                } elsif ($gfs_tests->{$key}{auto}[1] eq 'STR') {
-                    ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
-                } elsif ($gfs_tests->{$key}{auto}[1] eq 'OID') {
-                    ok defined $content->[0]{stderr}, 'stderr OID';
-                } else {
-                    die;
-                }
-            } else {
+            if ($gfs_tests->{$key}[0] eq 'NUL') {
+                ok !defined $content->[0]{stdout}, 'stdout undefined';
+            } elsif ($gfs_tests->{$key}[0] eq 'STR') {
+                ok((defined $content->[0]{stdout} and !ref $content->[0]{stdout}), 'stdout string');
+            } elsif ($gfs_tests->{$key}[0] eq 'OID') {
                 ok defined $content->[0]{stdout}, 'stdout OID';
+            } else {
+                die;
+            }
+            if ($gfs_tests->{$key}[1] eq 'NUL') {
+                ok !defined $content->[0]{stderr}, 'stderr undefined';
+            } elsif ($gfs_tests->{$key}[1] eq 'STR') {
+                ok((defined $content->[0]{stderr} and !ref $content->[0]{stderr}), 'stderr string');
+            } elsif ($gfs_tests->{$key}[1] eq 'OID') {
                 ok defined $content->[0]{stderr}, 'stderr OID';
+            } else {
+                die;
             }
         }
     }
@@ -820,15 +733,9 @@ if ($webpid == 0) {
 
 END {
     # Cleanup:
-    if (defined $config and $config->{database}) {
+    if (defined $tm) {
         kill -9, $webpid if $webpid;
-        my $pidfile = "/tmp/$config->{database}/mongod.pid";
-        if (-e $pidfile) {
-            my $mongopid = read_file $pidfile;
-            chomp $mongopid;
-            kill 9, $mongopid;
-        }
-        remove_tree "/tmp/$config->{database}";
+        $tm->cleanup;
     }
 }
 
@@ -846,14 +753,25 @@ Run the full test suite with the following:
 
     dzil test
 
-You can also disable MongoDB SSL and authentication via:
+You can also disable MongoDB TLS and authentication via:
 
     USE_SSL=0 USE_AUTH=0 dzil test
 
-You can test only one type of GFS tests by setting C<GFS_TESTS> to C<auto>, C<1>, or C<0>. Or set to any other value to not run those tests.
+You can skip GFS tests by setting C<GFS_TESTS> to C<none>.
 
     GFS_TESTS=none dzil test
 
+Tasks are run by C<./go/go-task-runner> or C</usr/bin/go-task-runner> if they exist. You can build C<./go/go-task-runner> with the following:
+
+    (cd go && go build -mod=vendor -o go-task-runner .)
+
+You can override this by setting C<GO_TASK_RUNNER>.
+
+    GO_TASK_RUNNER=./bin/go-task-runner dzil test
+
+To run the tasks with the Perl C<bin/task_runner> instead, set C<TASK_RUNNER>.
+
+    TASK_RUNNER=./bin/task_runner dzil test
 
 =head1 AUTHORS
 
@@ -861,7 +779,7 @@ Ashley Willis <consul-5flap@icloud.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is Copyright (c) 2016, 2019 by Ashley Willis.
+This software is Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 
 This is free software, licensed under:
 

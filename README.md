@@ -21,17 +21,19 @@ For an in-depth description of the design, see
 
 #### Installing
 
-* From CPAN (not yet published):
-
-        cpanm Disbatch
-
 * From Git:
 
-        git clone https://github.com/mbusigin/disbatch.git
+        git clone https://github.com/rabcyr-alt/disbatch.git
         cd disbatch
         dzil build
-        cpanm disbatch-<VERSION>.tar.gz
+        cpanm disbatch-<VERSION>.tar.gz # NOTE: soft requirement on golang >= 1.26.7
 
+* From CPAN (likely quite out of date):
+
+        cpanm Disbatch # NOTE: soft requirement on golang >= 1.26.7
+
+Set `DISBATCH_SKIP_GO=1` to not build optional `go-task-runner`.
+Set `GO=<PATH>` to use other than the default `go`.
 
 #### Configuring Disbatch 4.4
 
@@ -73,14 +75,14 @@ See [Upgrading](docs/Upgrading.md)
 See [Authentication_MongoDB](docs/Authentication_MongoDB.md)
 
 
-#### Configuring and Using SSL with MongoDB
+#### Configuring and Using TLS with MongoDB
 
-See [SSL_MongoDB](docs/SSL_MongoDB.md)
+See [TLS_MongoDB](docs/TLS_MongoDB.md)
 
 
-#### Configuring and Using SSL with the Disbatch Command Interface
+#### Configuring and Using TLS with the Disbatch Command Interface
 
-See [SSL_DCI](docs/SSL_DCI.md)
+See [TLS_DCI](docs/TLS_DCI.md)
 
 
 #### Authors
@@ -98,5 +100,7 @@ This is free software, licensed under:
 
 > The Apache License, Version 2.0, January 2004
 
-Some web browser code in `etc/disbatch/htdocs/` includes third-party libraries copyright others and licensed under their own terms.
-See [THIRD-PARTY-LIBS](THIRD-PARTY-LIBS).
+This distribution includes third-party code copyright others and licensed under their own terms:
+
+* web browser libraries in `etc/disbatch/htdocs/`, see [THIRD-PARTY-LIBS](THIRD-PARTY-LIBS)
+* Go modules in `go/vendor/` (Apache License 2.0, MIT License, and BSD 3-Clause License), see `find go/vendor -name LICENSE`

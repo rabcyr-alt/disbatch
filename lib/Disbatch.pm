@@ -5,15 +5,19 @@ use warnings;
 
 use boolean 0.25;
 use Cpanel::JSON::XS;
+use Cpanel::JSON::XS::Type;
 use Digest::MD5;
 use Data::Dumper;
 use Encode;
+use File::Path 'make_path';
 use File::Slurp;
+use File::Spec;
 use Log::Log4perl;
 use MongoDB 2.2.2;
 use POSIX 'setsid';
 use Safe::Isa;
 use Sys::Hostname;
+use Time::HiRes qw/ gettimeofday tv_interval /;
 use Time::Moment;
 use Try::Tiny::Retry;
 
@@ -61,7 +65,7 @@ sub logger {
 sub mongo {
     my ($self) = @_;
     return $self->{mongo} if defined $self->{mongo};
-    my %attributes = %{$self->{config}{attributes}};
+    my %attributes;
     if (keys %{$self->{config}{auth}}) {
         my $username = 'plugin';
         $username = 'disbatchd' if $self->{class} eq 'disbatch';
@@ -87,22 +91,30 @@ sub load_config {
     my ($self) = @_;
     if (!defined $self->{config}) {
         $self->{config} = try {
-            Cpanel::JSON::XS->new->utf8->relaxed->decode(scalar read_file($self->{config_file}));
+            Cpanel::JSON::XS->new->utf8->relaxed->decode(scalar read_file($self->{config_file}), $self->{types});
         } catch {
             $self->{config}{log4perl} = $default_log4perl;
             $self->logger->logdie("Could not parse $self->{config_file}: $_");
         };
         # Ensure defaults:
-        $self->{config}{attributes} //= {};
+        $self->{config}{log4perl} //= $default_log4perl;	# first, as the logger needs it
         $self->{config}{auth} //= {};
-        $self->{config}{gfs} //= 'auto';
-        $self->{config}{quiet} //= false;
-        $self->{config}{task_runner} //= '/usr/bin/task_runner';
-        $self->{config}{testing} //= false;
-        $self->{config}{log4perl} //= $default_log4perl;
+        $self->{config}{quiet} //= Cpanel::JSON::XS::false;
+        if (!defined $self->{config}{task_runner}) {
+            $self->{config}{task_runner} = '/usr/bin/go-task-runner';
+            if (!-x $self->{config}{task_runner}) {
+                $self->logger->warn("Default task_runner '$self->{config}{task_runner}' not found or not executable, switching to Perl-only '/usr/bin/task_runner'");
+                $self->{config}{task_runner} = '/usr/bin/task_runner';
+            }
+        }
+        $self->{config}{plugin_runner} //= '/usr/bin/task_runner';
+        $self->{config}{plugin_runner} = File::Spec->rel2abs($self->{config}{plugin_runner});	# path may be relative in testing
+        $self->{config}{testing} //= Cpanel::JSON::XS::false;
         $self->{config}{activequeues} //= [];
         $self->{config}{ignorequeues} //= [];
-        $self->{config}{plugins} //= [];
+        $self->{config}{plugins} //= {};
+        $self->{config}{temp_dir} //= '/tmp/disbatch';
+        $self->{config}{temp_dir_mode} //= '0755';
         # IDEA: validate config values (note from 2016-05-06, it's now 2025)
 
         if (!defined $self->{config}{mongohost} or !defined $self->{config}{database}) {
@@ -124,6 +136,51 @@ sub load_config {
     }
 }
 
+# this gets called only at disbatchd startup
+sub save_strict_config {
+    my ($self) = @_;
+    try {
+        write_file "$self->{config_file}-strict", {perms => 0600}, Cpanel::JSON::XS->new->utf8->encode($self->{config});
+    } catch {
+        $self->logger->logdie("Could not save file '$self->{config_file}-strict': $_");
+    };
+    my $auth = $self->{config}{auth};
+    for my $user (qw/ task_runner plugin /) {
+        # only this user's password, if any: never the others
+        $self->{config}{auth} = exists $auth->{$user} ? { $user => $auth->{$user} } : {};
+        try {
+            write_file "$self->{config_file}-$user", {perms => 0600}, Cpanel::JSON::XS->new->utf8->encode($self->{config});
+        } catch {
+            $self->logger->logdie("Could not save file '$self->{config_file}-$user': $_");
+        };
+        $self->{config}{auth} = $auth;
+    }
+    # also create config.temp_dir with permissions config.temp_dir_mode
+    try {
+        make_dir($self->{config}{temp_dir}, oct($self->{config}{temp_dir_mode}));
+    } catch {
+        $self->logger->logdie("Could not create temp directory '$self->{config}{temp_dir}' with mode $self->{config}{temp_dir_mode}: $_");
+    };
+}
+
+sub make_dir {
+    my ($dir, $chmod) = @_;
+    $chmod //= 0755;
+
+    make_path($dir, { chmod => $chmod, error => \my $err });
+    if ($err && @$err) {
+        my ($path, $message) = %{ $err->[0] };
+        die "$message\n";
+    }
+    die "symlink\n" if -l $dir;
+    die "not a directory\n" unless -d $dir;
+    my @st = stat $dir or die "cannot stat: $!\n";
+    die "not owned\n" unless $st[4] == $>;
+    chmod $chmod, $dir or die "cannot chmod: $!\n";
+    @st = stat $dir or die "cannot stat: $!\n";
+    die "invalid mode\n" unless ($st[2] & 07777) == $chmod;
+}
+
 # from Synacor::Disbatch::Backend
 sub ensure_indexes {
     my ($self) = @_;
@@ -140,9 +197,20 @@ sub ensure_indexes {
         $self->changelog->indexes->create_one([ collection => 1 ]);
         $self->mongo->coll('tasks.chunks')->indexes->create_one([ files_id => 1, n => 1 ], { unique => true });
         $self->mongo->coll('tasks.files')->indexes->create_one([ filename => 1, 'metadata.task_id' => 1 ]);
+        $self->mongo->coll('tasks.files')->indexes->create_one([ filename => 1, uploadDate => 1 ]);
     } catch {
         $self->logger->logdie("Could not ensure_indexes: $_")
     };
+}
+
+# returns 1 if the value in config.plugins.$plugin is the json number `1`
+sub is_module_args {
+    my ($self, $plugin) = @_;
+    my $args = $self->{config}{plugins}{$plugin} // 0;
+    return 0 if ref $args or !$args;
+    my $type = $self->{types}{plugins}{$plugin};
+    my $is_num = $type == JSON_TYPE_INT || $type == JSON_TYPE_FLOAT;
+    $is_num and $args == 1;
 }
 
 # validates plugins for defined queues
@@ -151,15 +219,34 @@ sub validate_plugins {
     my @queues = try { $self->queues->find->all } catch { $self->logger->error("Could not find queues: $_"); () };
     for my $plugin (map { $_->{plugin} } @queues) {
         next if exists $self->{plugins}{$plugin};
-        if ($plugin !~ /^[\w:]+$/) {
-            $self->logger->error("Illegal plugin value: $plugin");
-        } elsif (eval "require $plugin; $plugin->new->can('run');") {
-            $self->{plugins}{$plugin} = $plugin;
-            next if exists $self->{old_plugins}{$plugin};
-            $self->logger->info("$plugin is valid for queues");
+        my $args = $self->{config}{plugins}{$plugin} // 0;
+        if (ref $args eq 'HASH') {
+            $args->{type} //= 'file';
+            if ($plugin !~ m{^/}) {
+                $self->logger->error("Illegal plugin value: $plugin");
+            } elsif (! grep { $args->{type} eq $_ } qw/ file collection handoff /) {
+                $self->logger->error("$plugin has unknown type '$args->{type}'");
+            } elsif (-f $plugin and -x _) {
+                $self->{plugins}{$plugin} = $plugin;
+                next if exists $self->{old_plugins}{$plugin};
+                $self->logger->info("$plugin is valid for queues");
+            } else {
+                $self->{plugins}{$plugin} = undef;
+                $self->logger->warn("Could not load $plugin, ignoring queues using it");
+            }
+        } elsif ($self->is_module_args($plugin)) {
+            if ($plugin !~ /^[\w:]+$/) {
+                $self->logger->error("Illegal plugin value: $plugin");
+            } elsif (eval "require $plugin; $plugin->new->can('run');") {
+                $self->{plugins}{$plugin} = $plugin;
+                next if exists $self->{old_plugins}{$plugin};
+                $self->logger->info("$plugin is valid for queues");
+            } else {
+                $self->{plugins}{$plugin} = undef;
+                $self->logger->warn("Could not load $plugin, ignoring queues using it");
+            }
         } else {
-            $self->{plugins}{$plugin} = undef;
-            $self->logger->warn("Could not load $plugin, ignoring queues using it");
+            $self->logger->error("$plugin is misconfigured in config.plugins");
         }
     }
 }
@@ -167,9 +254,14 @@ sub validate_plugins {
 # clears plugin validation and re-runs
 sub revalidate_plugins {
     my ($self) = @_;
-    $self->{old_plugins} = $self->{plugins};
-    $self->{plugins} = {};
-    $self->validate_plugins;
+    $self->{t0} //= [gettimeofday];
+    my $elapsed = tv_interval($self->{t0});
+    if ($elapsed >= 1) {
+        $self->{old_plugins} = $self->{plugins};
+        $self->{plugins} = {};
+        $self->validate_plugins;
+        $self->{t0} = [gettimeofday];
+    }
 }
 
 sub scheduler_report {
@@ -303,10 +395,9 @@ sub start_task {
     my ($self, $queue, $task) = @_;
     my $command = $self->{config}{task_runner};
     my @args = (
-        '--config' => $self->{config_file},
+        '--config' => "$self->{config_file}-task_runner",	# NOTE: "$self->{config_file}-strict" could also be used
         '--task'   => $task->{_id},
     );
-    push @args, '--gfs', $self->{config}{gfs} if $self->{config}{gfs};
     push @args, '--quiet' if $self->{config}{quiet};
     push @args, '--testing' if $self->{config}{testing};
     $self->logger->info(join ' ', $command, @args);
@@ -439,6 +530,7 @@ sub put_gfs {
 
 # returns the content as a string
 # throws an error if the file document does not exist, and any other error
+# works on both the custom and standard GridFS formats
 sub get_gfs {
     my ($self, $filename_or_id, $metadata) = @_;
     my $file_id;
@@ -457,6 +549,37 @@ sub get_gfs {
         $data .= $chunk->{data};
     }
     $data;
+}
+
+# source _packed_oid() broken in BSON/OID.pm but the driver is EOL for over 6 years : should set $_pid to $$ after setting $_random to be fork safe for Disbatch::Web
+{
+    no warnings 'redefine';
+
+    my $_MAX_INC_VALUE = 0xFFFFFF;
+    my $_MAX_INC_VALUE_PLUS_ONE = 0x01000000;
+    my $_RANDOM_SIZE = 5;
+    my $_inc : shared;
+    {
+        lock($_inc);
+        $_inc = int( rand($_MAX_INC_VALUE) );
+    }
+
+    my $_pid = $$;
+    my $_random = Crypt::URandom::urandom($_RANDOM_SIZE);
+
+    *BSON::OID::_packed_oid = sub {
+        my $time = defined $_[0] ? $_[0] : time;
+        if ($$ != $_pid) {
+            $_random = Crypt::URandom::urandom($_RANDOM_SIZE);
+            $_pid = $$;
+        }
+        return pack(
+            'Na5a3',
+            $time,
+            $_random,
+            substr( pack( 'N', do { lock($_inc); $_inc++; $_inc %= $_MAX_INC_VALUE_PLUS_ONE } ), 1, 3)
+        );
+    };
 }
 
 DESTROY {
@@ -706,7 +829,7 @@ Returns a C<BSON::OID> object for the ID inserted in the C<tasks.files> collecti
 
 Parameters: filename or C<BSON::OID> object, optional metadata C<HASH>
 
-Gets UTF-8 content from the custom GridFS format. Metadata is only used if given a filename instead of a C<BSON::OID> object.
+Gets UTF-8 content from both the custom and standard GridFS formats. Metadata is only used if given a filename instead of a C<BSON::OID> object.
 
 Returns: content string.
 

@@ -1,6 +1,6 @@
 ### WebExtensions
 
-Copyright (c) 2019 by Ashley Willis.
+Copyright (c) 2019, 2026 by Ashley Willis.
 
 You can now add custom routes to the web interface using [Limper](https://metacpan.org/pod/Limper),
 both as JSON API routes and as web interface routes using [Template::Toolkit](https://metacpan.org/pod/Template::Toolkit).

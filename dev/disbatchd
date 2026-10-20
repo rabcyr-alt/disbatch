@@ -1,1 +1,1 @@
-perl -Ilib ./bin/disbatchd --config etc/disbatch/config.json
+PERL5LIB=t perl -Ilib ./bin/disbatchd --config etc/disbatch/config.json

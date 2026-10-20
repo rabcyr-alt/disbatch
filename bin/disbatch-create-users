@@ -62,16 +62,17 @@ if (!defined $root_password) {
     ReadMode(0);
 }
 
+my $attributes = {};
 if ($create_root) {
     say "Creating user '$root_user' in database 'admin' with the root role";
-    my $admin = MongoDB->connect($config->{mongohost}, $config->{attributes})->get_database('admin');
+    my $admin = MongoDB->connect($config->{mongohost}, $attributes)->get_database('admin');
     $admin->run_command([createUser => $root_user, pwd => $root_password, roles => [ { role => 'root', db => 'admin' } ]]);
 }
 
-$config->{attributes}{username} = $root_user;
-$config->{attributes}{password} = $root_password;
+$attributes->{username} = $root_user;
+$attributes->{password} = $root_password;
 
-my $test_db_root = MongoDB->connect($config->{mongohost}, $config->{attributes})->get_database($config->{database});
+my $test_db_root = MongoDB->connect($config->{mongohost}, $attributes)->get_database($config->{database});
 my $roles = Disbatch::Roles->new(db => $test_db_root, plugin_perms => $plugin_perms, additional_perms => $additional_perms, %{$config->{auth}});
 if ($drop_roles) {
     say "Dropping the following roles and users in database '$config->{database}' on $config->{mongohost}: ", join ', ', sort keys %{$roles->{userroles}};

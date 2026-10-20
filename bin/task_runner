@@ -5,26 +5,28 @@ use warnings;
 
 use BSON::OID;
 use Cpanel::JSON::XS;
+use Cpanel::JSON::XS::Type;
 use Data::Dumper;
 use Encode;
 use Getopt::Long;
 use Try::Tiny::Retry;
 use Safe::Isa;
 
-my ($task_id, $gfs, $config_file, $quiet, $testing);
+$| = 1;
+
+my ($task_id, $config_file, $quiet, $testing, $handoff);
 
 GetOptions(
     'task=s'     => \$task_id,
-    'gfs:s'      => \$gfs,
     'config=s'   => \$config_file,
     'quiet'      => \$quiet,
     'testing'    => \$testing,
+    'handoff'    => \$handoff,
 );
 
+$handoff //= 0;
 $quiet //= 0;
 $testing //= 0;
-$gfs //= 0;		# default is disabled
-$gfs = 1 if $gfs eq '';	# '--gfs' was passed with no value
 
 if ($testing) {
     require lib;
@@ -39,21 +41,29 @@ $disbatch->load_config;
 
 my $logger = $disbatch->logger;
 
-$logger->info("Starting task $task_id");
+$logger->info("Starting task $task_id") unless $handoff;
 
 $logger->logdie('Config file must be passed with --config option') unless defined $config_file;
 
 $logger->logdie('No --task') unless defined $task_id;
 
-my $oid = try { BSON::OID->new(oid => pack 'H*', $task_id) } catch { $logger->logdie($_) };
-my $doc = retry {
-    $disbatch->tasks->find_one_and_update({_id => $oid, status => -1, node => $disbatch->{node}}, {'$set' => {status => 0}});
-} catch {
-    $logger->logdie("Could not find and set task $task_id to status 0: $_");
-};
-
+my $oid = try { BSON::OID->new(oid => pack 'H*', $task_id) } catch { $logger->logdie("--task value invalid: $_") };
+my $doc;
+if ($handoff) {
+    $doc = retry {
+        $disbatch->tasks->find_one({_id => $oid, status => 0, node => $disbatch->{node}});
+    } catch {
+        $logger->logdie("Could not find task $task_id with status 0 on node $disbatch->{node}: $_");
+    };
+} else {
+    $doc = retry {
+        $disbatch->tasks->find_one_and_update({_id => $oid, status => -1, node => $disbatch->{node}}, {'$set' => {status => 0}});
+    } catch {
+        $logger->logdie("Could not find and set task $task_id to status 0: $_");
+    };
+}
 $logger->logdie("No task found for $task_id") unless defined $doc;
-$logger->info("params for $task_id: ", $json->encode($doc->{params}));
+$logger->info("params for $task_id: ", $json->encode($doc->{params})) unless $handoff;
 
 my $plugin = ($disbatch->queues->find_one({_id => $doc->{queue}}) // {})->{plugin};
 
@@ -64,6 +74,8 @@ if (!defined $plugin) {
     $error = "plugin value '$plugin' for task $task_id must be a valid perl package name, matching /^[\\w:]+\$/";
 } elsif (!eval "use $plugin; 1") {
     $error = "$plugin not found for task $task_id";
+} elsif (!$disbatch->is_module_args($plugin)) {
+    $error = "$plugin is misconfigured in config.plugins for task $task_id";
 }
 
 my $result;
@@ -72,7 +84,9 @@ if (defined $error) {
     $result = { status => 2, stdout => 'Unable to start', stderr => $error };
 } else {
     try {
-        my $workerthread = Disbatch->new(class => $plugin, config_file => $config_file);
+        my $cf = $config_file;
+        $cf =~ s/(-(strict|task_runner|plugin))?$/-plugin/;
+        my $workerthread = Disbatch->new(class => $plugin, config_file => $cf);
         $workerthread->load_config;
         my $task = $plugin->new(workerthread => $workerthread, task => $doc);
         $result = $task->run;
@@ -114,39 +128,28 @@ retry { $disbatch->tasks->update_one({_id => $oid, status => 0, node => $disbatc
 catch { $logger->logdie("Could not update task $task_id status to $result->{status} after completion: $_") };
 
 # set rest of result:
-if ($gfs) {
-    my $stdout_gfs = 1;
-    my $stderr_gfs = 1;
-    if ($gfs eq 'auto') {
-        my $stdout_size = defined $result->{stdout} ? length encode_utf8($result->{stdout}) : 0;
-        my $stderr_size = defined $result->{stderr} ? length encode_utf8($result->{stderr}) : 0;
-        if ($stdout_size + $stderr_size <= 1024*1024*15) {
-            # store both in the task document
-            $stdout_gfs = 0;
-            $stderr_gfs = 0;
-        } elsif ($stderr_size <= 1024*1024*15) {
-            # store stdout in GridFS and stderr in the task document
-            $stdout_gfs = 1;
-            $stderr_gfs = 0;
-        }
-    }
-    if ($stdout_gfs) {
-        my $stdout_doc = retry { $disbatch->put_gfs($result->{stdout}, 'stdout', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stdout: $_"); $result->{warning} = "$_"; undef; };
-        $result->{stdout} = $stdout_doc;
-    }
-    if ($stderr_gfs) {
-        my $stderr_doc = retry { $disbatch->put_gfs($result->{stderr}, 'stderr', { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid stderr: $_"); $result->{warning} = "$_"; undef; };
-        $result->{stderr} = $stderr_doc;
+# GridFS: this prefers `stderr` as a string in the task document even when it's large, as on failures `stderr` is more likely needed to be parsed
+#         if `stderr` ends up in GridFS, so will `stdout` (unless it is empty)
+my $total = 0;
+for my $field (qw/ stderr stdout /) {
+    my $size = defined $result->{$field} ? length encode_utf8($result->{$field}) : 0;
+    $total += $size;
+    if ($size and $total > 1024*1024*15) {
+        my $id = retry { $disbatch->put_gfs($result->{$field}, $field, { task_id => $oid }) } retry_if { !/^MongoDB::DatabaseError: not authorized on / } catch { $logger->error("Could not create GridFS content for task $oid $field: $_"); undef; };
+        $result->{$field} = $id;
     }
 }
-retry { $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {stdout => $result->{stdout}, stderr => $result->{stderr}, complete => Cpanel::JSON::XS::true}}) }
+
+my $update = {stdout => $result->{stdout}, stderr => $result->{stderr}};
+$update->{complete} = Cpanel::JSON::XS::true if $testing;
+retry { $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => $update}) }
 on_retry {
     $logger->warn("Update to stdout/stderr failed for task $task_id: $_");
     # MongoDB::WriteError: Resulting document after update is larger than 16777216
     # MongoDB::DocumentError: Document exceeds maximum size 16777216
     $result->{stdout} = "$_" if $_->$_isa('MongoDB::DocumentError') or $_->$_isa('MongoDB::WriteError');
 } catch {
-    $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {complete => Cpanel::JSON::XS::false}});
+    $disbatch->tasks->update_one({_id => $oid, status => $result->{status}, node => $disbatch->{node}}, {'$set' => {complete => Cpanel::JSON::XS::false}}) if $testing;
     $logger->logdie("Could not update task $task_id stdout/stderr after completion: $_")
 };
 
@@ -176,19 +179,7 @@ Path to the JSON Disbatch config file. Mandatory.
 
 =item --task <string>
 
-The task's _id. Mandatory.
-
-=item --gfs [<string>]
-
-Use the custom GridFS implementation to store task C<stderr> and C<stdout>. Default is to store them directly in the task document.
-
-While using GridFS can make analysing task output more complicated, we periodically have output that exceeds the maximum MongoDB document size.
-
-To turn this on for all tasks, add the argument C<--gfs> with no value. To turn it on for tasks with large C<stdout> and C<stderr>, use C<--gfs auto>.
-Both C<stdout> and C<stderr> will be stored in the task document if they will fit, otherwise C<stderr> will be stored in the task document if it will fit
-and C<stdout> in GridFS, and finally both will be stored in GridFS if C<stderr> will not fit.
-
-In the config file, this is disabled with C<"gfs": false>, enabled with C<"gfs": true>, and automatic with C<"gfs": "auto"> (Note that automatic is the Disbatch default).
+The task's C<_id>. Mandatory.
 
 =item --quiet
 
@@ -196,11 +187,18 @@ Suppress STDOUT and STDERR output at end (mainly for testing).
 
 =item --testing
 
-Do C<< require lib 'lib'; lib->import('lib'); >> before C<require Disbatch;>.
+Do C<< require lib 'lib'; lib->import('lib'); >> before C<require Disbatch;>, and set C<complete> when setting C<stdout> and C<stderr>.
+
+=item --handoff
+
+Use when called by C<go-task-runner> which has already set the task status to C<0>.
+Doesn't print the C<Starting task> nor C<params> messages as those were already handled by C<go-task-runner>.
 
 =back
 
 =head1 SEE ALSO
+
+L<go-task-runner>
 
 L<Disbatch>
 

@@ -1,0 +1,77 @@
+=encoding utf8
+
+=head1 NAME
+
+go-task-runner - run a single Disbatch task
+
+=head1 DESCRIPTION
+
+Subprocess spawned by L<disbatchd> for each claimed task. Runs the appropriate plugin as a separate program, and writes
+(or validates) C<status>, C<stdout>, C<stderr>, C<cmdExit>, and C<cmdErr> back to the task in MongoDB.
+
+A plugin is either a Perl module (run via C<task_runner --handoff>) or a program in any language following the input
+and output specifications described in F<docs/Plugins.md>.
+
+=head1 SYNOPSIS
+
+  go-task-runner --task 565bc0d43fb6ecd1c8504492 --config /etc/disbatch/config.json-task_runner
+
+=head1 ARGUMENTS
+
+=over 2
+
+=item --config <string>
+
+Path to the JSON Disbatch config file. Mandatory.
+
+L<disbatchd> writes C<config.json-task_runner> next to the config file when it starts, which has only the password for the C<task_runner> MongoDB user in C<auth>,
+and is the file it passes to C<go-task-runner>.
+
+=item --task <string>
+
+The task's C<_id>. Mandatory.
+
+The task must have a C<status> of C<-1> and a C<node> that is the hostname of this server, as set by L<disbatchd> when it claimed the task. If it does not, the
+task is not changed and the exit code is C<1>.
+
+=item --quiet
+
+Suppress STDOUT and STDERR output at end (mainly for testing). This is also passed to plugins of type C<handoff>.
+
+=item --testing
+
+Passed to the Perl L<task_runner> with C<--handoff> when running a Perl module plugin, and set C<complete> when setting C<stdout> and C<stderr>.
+
+=back
+
+=head1 SEE ALSO
+
+L<task_runner>
+
+L<Disbatch>
+
+L<Disbatch::Web>
+
+L<Disbatch::Roles>
+
+L<Disbatch::Plugin::Demo>
+
+L<disbatchd>
+
+L<disbatch>
+
+L<disbatch-create-users>
+
+L<queuebalanced>
+
+=head1 AUTHORS
+
+Ashley Willis <consul-5flap@icloud.com>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2026 by Ashley Willis.
+
+This is free software, licensed under:
+
+  The Apache License, Version 2.0, January 2004

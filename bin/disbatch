@@ -18,7 +18,7 @@ my $url = 'http://localhost:8080';
 my $username;
 my $password;
 my $help = 0;
-my $config_file = '/etc/disbatch/config.json';
+my $config_file;
 my $ssl_ca_file;
 my $disable_ssl_verification = 0;
 my $collection;
@@ -53,6 +53,20 @@ GetOptions(
 
 pod2usage(-verbose => 2, -exitval => 0) if $help;
 
+if (defined $config_file) {
+    # a passed --config not found is an error
+    die "--config $config_file does not exist\n" unless -f $config_file;
+} elsif (defined $ENV{HOME} and -f "$ENV{HOME}/.disbatch.json") {
+    $config_file = "$ENV{HOME}/.disbatch.json";
+} elsif (-f '/etc/disbatch/cli.json') {
+    $config_file = '/etc/disbatch/cli.json';
+}
+# fine for default config files to not exist, but if they do they must be (relaxed) json
+my $config = {};
+if (defined $config_file) {
+    try { $config = Cpanel::JSON::XS->new->utf8->relaxed->decode(scalar read_file $config_file) } catch { die "could not load config file '$config_file': $_" };
+}
+
 my $json = Cpanel::JSON::XS->new->utf8;
 
 my $ua_options = {};
@@ -61,12 +75,8 @@ if (defined $ssl_ca_file) {
 } elsif ($disable_ssl_verification) {
     $ua_options->{ssl_opts}{verify_hostname} = 0;
 } else {
-    # Note: the SSL settings are for MongoDB, but ideally if using SSL with MongoDB, it is also being used with the DCI
-    # try loading the config file, but don't fail if it doesn't exist
-    my $config = try { Cpanel::JSON::XS->new->utf8->relaxed->decode(scalar read_file $config_file) } catch { {} };
-    if (defined $config->{attributes}{ssl}) {
-        $ua_options->{ssl_opts} = $config->{attributes}{ssl};
-        $ua_options->{ssl_opts}{verify_hostname} = $ua_options->{ssl_opts}{SSL_verify_mode} if defined $ua_options->{ssl_opts}{SSL_verify_mode};
+    if (defined $config->{ssl_opts}) {
+        $ua_options->{ssl_opts} = $config->{ssl_opts};
     }
 }
 
@@ -269,21 +279,22 @@ Display this message
 
 =item --ssl_ca_file <ssl_ca_file>
 
-Path to the SSL CA file. Needed if using SSL with a private CA.
+Path to the TLS CA file. Needed if using TLS with a private CA.
 
 =item --disable_ssl_verification
 
-Disables hostname verification if SSL is used.
+Disables hostname verification if TLS is used.
 
 Only used if C<--ssl_ca_file> is not used.
 
 =item --config <config_file>
 
-Path to Disbatch config file. Default is C</etc/disbatch/config.json>.
+Path to C<disbatch> CLI config file. Default is C<~/.disbatch.json> or C</etc/disbatch/cli.json> (in that order).
 
-Only used if neither C<--ssl_ca_file> nor C<--disable_ssl_verification> is used.
+If passed, it is a failure if the file does not exist or is not valid (relaxed) json.
+If not passed, it is a failure if a default file is found but is not valid (relaxed) json.
 
-Note: the SSL settings in the Disbatch config file are for MongoDB, but ideally if using SSL with MongoDB, then it is also being used with the DCI.
+Contains C<ssl_opts> for L<LWP::UserAgent>. Using C<--ssl_ca_file> or C<--disable_ssl_verification> will override anything in C<ssl_opts>.
 
 =back
 

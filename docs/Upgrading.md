@@ -19,7 +19,21 @@ This release enables running on newer systems (Perl 5.32, MongoDB 8.2) while hop
 running on older systems, and has an entirely new web UI. Code deprecated in 4.0 and 4.2 has been
 removed.
 
-- Breaking change: web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`, and that should be it.
+- Breaking changes:
+  - web extensions need to change `use Disbatch::Web` to `use Disbatch::Web::TT`
+  - `config.plugins` is now an object and not an array, and for existing plugins the value should be `1`
+  - `attributes` no longer used, as MongoDB TLS settings now go in the `mongohost` connection string (see below for `bin/disbatch`)
+  - `gfs`/`--gfs` no longer used, and the algorithm slightly changed (an empty `stdout` will no longer be stored in GridFS if `stderr` size is over 15MB)
+  - `complete` (undocumented) now only set in the task when `--testing` is used (as it exists just for `t/002_full.t`)
+- `go-task-runner` is now the default task runner, but will fall back to the Perl `task_runner` if not available
+  - requires golang >= 1.26.7 to build
+  - `plugin_runner` is the path of `bin/task_runner`, used to run Perl module plugins with `go-task-runner`. It defaults to `/usr/bin/task_runner`
+  - `temp_dir` (default `/tmp/disbatch`) and `temp_dir_mode` (default `"0755"`) are new
+  - `disbatchd` now writes `config.json-strict`, `config.json-task_runner`, and `config.json-plugin` next to its config file on startup, so it needs write access to that directory (see [Design](Design.md#config-file))
+  - if using MongoDB authentication, rerun `disbatch-create-users` with `--update_privileges`, as user `task_runner` now needs `listIndexes` for `tasks.files` and `tasks.chunks`, and `remove` for `results`.
+  - the RPM is no longer `noarch` as it installs the binary `/usr/bin/go-task-runner`
+  - see [Plugins](Plugins.md) for specifications
+- `bin/disbatch` now uses its own config file for `ssl_opts`. See [TLS_DCI](TLS_DCI.md) and `perldoc disbatch`
 - removed code deprecated in 4.200 and 4.000:
   - file `lib/Disbatch/Web/V3.pm` (Disbatch::Web::V3) : deprecated v3 routes: *-json, not tested
   - file `lib/Disbatch/Web/Tasks.pm` (Disbatch::Web::Tasks) : deprecated v4 routes: POST /tasks/search, POST /tasks/:queue, POST /tasks/:queue/:collection

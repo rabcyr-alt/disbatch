@@ -7,23 +7,23 @@ Copyright (c) 2016, 2019, 2026 by Ashley Willis.
 2. Make sure that only the process running Disbatch can read and edit
    `/etc/disbatch/config.json`
 3. Edit `/etc/disbatch/config.json`
-   1. Change `mongohost` to the URI of your MongoDB servers
+   1. Change `mongohost` to the URI of your MongoDB servers, including TLS options
    2. Change `database` to the MongoDB database name you are using for Disbatch
-   3. Ensure proper SSL settings in `attributes`, or remove it if not using SSL
-   4. Change passwords in `auth` for the respective MongoDB users, or delete
+   3. Change passwords in `auth` for the respective MongoDB users, or delete
       the field or set its value to `null` if not using MongoDB authentication
-   5. Set `plugins` to the name(s) of the plugins you want accessible for queue
-      creation
-   6. Set `monitoring` to `false` if you want `GET /monitoring` to ignore checks
-   7. Set `balance.enabled` to `true` if using QueueBalance
-   8. Uncomment values in `web_extensions` if needing to use deprecated routes
-   9. Uncomment `pre_hook` section if using a pre_hook plugin
-   10. Set `activequeues` or `ignorequeues` per DEN if used
-   11. Set `node_increase` and/or `queue_increase` to throttle thread increases
-   12. Remove the rest, which is optional and configured for development
+   4. Set `plugins` to the plugins you want accessible for queue creation:
+      the name of each Perl module with a value of `1`, and the full path of
+      each program with an object that has its `type` (see
+      [Plugins](Plugins.md))
+   5. Set `monitoring` to `false` if you want `GET /monitoring` to ignore checks
+   6. Set `balance.enabled` to `true` if using QueueBalance
+   7. Uncomment `pre_hook` section if using a pre_hook plugin
+   8. Set `activequeues` or `ignorequeues` per DEN if used
+   9. Set `node_increase` and/or `queue_increase` to throttle thread increases
+   10. Remove the rest, which is optional and configured for development
 
-See also [Configuring and Using SSL with MongoDB](SSL_MongoDB.md) and
-[Configuring and Using SSL with the Disbatch Command Interface](SSL_DCI.md).
+See also [Configuring and Using TLS with MongoDB](TLS_MongoDB.md) and
+[Configuring and Using TLS with the Disbatch Command Interface](TLS_DCI.md).
 
 #### Create MongoDB users for Disbatch if using authentication
 - Configure the permissions your plugin needs in

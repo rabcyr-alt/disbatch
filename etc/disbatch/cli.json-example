@@ -1,0 +1,13 @@
+# optional config file for `bin/disbatch`
+{
+    # TLS on the web server. see https://metacpan.org/pod/LWP::UserAgent#ssl_opts for more info.
+    #"ssl_opts": {
+    #    "SSL_ca_file": "/etc/ssl/certs/ca-bundle.crt",     # tls is enabled on the server
+    #    #"verify_hostname": 0,                             # tls is enabled on the server, but without a valid cert
+    #},
+
+    # these are not yet implemented:
+    #"url": "http://localhost:8080",
+    #"username": null,
+    #"password": null,
+}
